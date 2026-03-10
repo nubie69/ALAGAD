@@ -1,0 +1,157 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "MR. ODULO DE GUZMAN ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12441292565626, 8.156208259661085], [125.12421155939865, 8.156075332325287]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "MR. ODULO DE GUZMAN ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12361062802364, 8.15567089201484], [125.12380672222366, 8.155802991018533]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "J.F BARROSO SR ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.1246565812595, 8.156402945628471], [125.12482352804483, 8.156571957293991]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "J.F BARROSO SR ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12507671531739, 8.15683375445441], [125.12522652855444, 8.157003878224671]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "F. MONTERO ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12437057588704, 8.155029132873395], [125.1241960076166, 8.155137659761493]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "F. MONTERO ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12363397790733, 8.155488375775775], [125.12380800837292, 8.155379979269881]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "M. GIMENEZ ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12394072661618, 8.156760967087152], [125.12381055685984, 8.156871995159605]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "M. GIMENEZ ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.1243722128952, 8.156405507898214], [125.12421573968186, 8.156533515027334]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P.A. RAMOS ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12372959650281, 8.15698616946868], [125.12383289720498, 8.157099889207771]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P.A. RAMOS ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12445261084895, 8.157766644241178], [125.1243596427721, 8.15766702622777]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P.A. RAMOS ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12413449562519, 8.15742685363334], [125.12402537521109, 8.157309549676711]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P.A. RAMOS ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12359587208965, 8.156833705855448], [125.1234990586824, 8.156719479550844]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P.A. RAMOS ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12327906046914, 8.156464424035747], [125.12317060293799, 8.156338732976707]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "W.H. PICKELL ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12485837612297, 8.156915646862302], [125.12472975728502, 8.157031750249189]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "W.H. PICKELL ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12444507845743, 8.157288739901915], [125.124319270066, 8.157403635906888]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P. LANA ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12400524620529, 8.156621525440286], [125.12391383740072, 8.156524043217487]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P. LANA ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.1242027469653, 8.156839966006117], [125.12411886635635, 8.156749130628526]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P. LANA ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12447559209352, 8.157140905680706], [125.12439087742689, 8.157048358944039]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "P. LANA ST." },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[125.12360813249262, 8.156178806274312], [125.12350109527478, 8.15607009309106]]
+      }
+    }
+  ]
+}

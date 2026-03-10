@@ -1,0 +1,494 @@
+/* Import Modern Font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --primary-blue: #2F6DE1;
+  --teal-accent: #22C6C8;
+  --deep-navy: #1E2A3B;
+  --red-accent: #E53935;
+  --white: #FFFFFF;
+  --bg-light: #F7F9FC;
+  --text-primary: #1E2A3B;
+  --text-secondary: #64748B;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ===== Page Layout ===== */
+.landing-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--text-primary);
+}
+
+.landing-page-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.landing-bg-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.7;
+  filter: none;
+}
+
+.landing-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(rgba(247, 249, 252, 0.3), rgba(247, 249, 252, 0.4));
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ===== Header ===== */
+.landing-header {
+  position: relative;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-logo {
+  width: 52px;
+  height: 52px;
+}
+
+.header-brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--deep-navy);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* ===== Hero Section ===== */
+.hero-section {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 20px 24px 20px;
+  overflow: hidden;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hero content — logo left, text right */
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 780px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.hero-text {
+  text-align: left;
+}
+
+.landing-logo {
+  width: 160px;
+  min-width: 160px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+  animation: fadeInDown 0.7s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--deep-navy);
+  margin: 0 0 14px 0;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-align: left;
+  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8);
+}
+
+.hero-subtitle {
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.6;
+  text-align: left;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.9);
+}
+
+/* ===== Portal Cards Section ===== */
+.cards-section {
+  padding: 0 24px 16px;
+  margin-top: -12px;
+  position: relative;
+  z-index: 2;
+}
+
+.cards-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.portal-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  border-radius: 16px;
+  padding: 14px 14px 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
+  border: 2px solid rgba(74, 85, 104, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.portal-card:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
+  border-color: rgba(47, 109, 225, 0.6);
+}
+
+.portal-card:active {
+  transform: translateY(-1px);
+}
+
+/* Card Illustrations */
+.portal-card-illustration {
+  width: 100%;
+  max-width: 180px;
+  height: 80px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  padding: 6px;
+  background: transparent;
+}
+
+.portal-card-illustration svg {
+  width: 100%;
+  height: 100%;
+}
+
+.portal-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.portal-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--deep-navy);
+  margin: 0 0 6px 0;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.portal-description {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* Portal Buttons */
+.portal-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: 'Inter', sans-serif;
+  color: var(--white);
+  margin-top: auto;
+}
+
+.guest-portal-btn {
+  background: var(--primary-blue);
+  box-shadow: 0 4px 14px rgba(47, 109, 225, 0.25);
+}
+
+.guest-portal-btn:hover {
+  background: #245DC8;
+  box-shadow: 0 6px 20px rgba(47, 109, 225, 0.35);
+}
+
+.admin-portal-btn {
+  background: var(--deep-navy);
+  box-shadow: 0 4px 14px rgba(30, 42, 59, 0.2);
+}
+
+.admin-portal-btn:hover {
+  background: #162233;
+  box-shadow: 0 6px 20px rgba(30, 42, 59, 0.3);
+}
+
+/* ===== Key Features Section ===== */
+.features-section {
+  text-align: center;
+  padding: 16px 24px 20px;
+  background: transparent;
+  border-top: none;
+  position: relative;
+  z-index: 5;
+}
+
+.features-heading {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #000000;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 6px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.7);
+}
+
+.features-row {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.feature-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 100px;
+}
+
+.feature-box-icon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000000;
+  transition: all 0.2s ease;
+  filter: drop-shadow(0 2px 8px rgba(255, 255, 255, 0.9));
+}
+
+.feature-box:hover .feature-box-icon {
+  transform: translateY(-4px);
+  filter: drop-shadow(0 4px 12px rgba(255, 255, 255, 1));
+}
+
+.feature-box-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.feature-box-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #000000;
+  white-space: nowrap;
+  text-shadow: 0 2px 4px rgba(255, 255, 255, 0.95), 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* ===== Footer ===== */
+.landing-footer {
+  background: rgba(30, 42, 59, 0.75);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 14px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.85rem;
+  margin-top: auto;
+  position: relative;
+  z-index: 5;
+}
+
+.landing-footer p {
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ===== Responsive — Mobile ===== */
+@media (max-width: 768px) {
+  .landing-header {
+    padding: 10px 20px;
+  }
+
+  .header-logo {
+    width: 52px;
+    height: 52px;
+  }
+
+  .header-brand {
+    font-size: 1.25rem;
+  }
+
+  .hero-section {
+    padding: 28px 20px 32px;
+    min-height: auto;
+  }
+
+  .hero-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .hero-text {
+    text-align: center;
+  }
+
+  .hero-title,
+  .hero-subtitle {
+    text-align: center;
+  }
+
+  .landing-logo {
+    width: 150px;
+    min-width: 150px;
+  }
+
+  .hero-title {
+    font-size: 1.5rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .cards-section {
+    padding: 0 16px 20px;
+  }
+
+  .cards-row {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    max-width: 400px;
+  }
+
+  .portal-card {
+    padding: 24px 20px 20px;
+  }
+
+  .portal-card-illustration {
+    height: 90px;
+  }
+
+  .portal-title {
+    font-size: 0.85rem;
+  }
+
+  .features-section {
+    padding: 24px 16px 32px;
+  }
+
+  .features-row {
+    gap: 28px;
+  }
+
+  .feature-box-icon {
+    width: 54px;
+    height: 54px;
+    padding: 12px;
+  }
+
+  .feature-box-label {
+    font-size: 0.8rem;
+  }
+
+  .landing-footer {
+    padding: 20px 16px;
+    font-size: 0.8rem;
+  }
+}
+
+/* ===== Large Desktop ===== */
+@media (min-width: 1024px) {
+  .hero-section {
+    padding: 40px 24px 48px;
+    min-height: 300px;
+  }
+
+  .landing-logo {
+    width: 240px;
+    min-width: 240px;
+  }
+
+  .hero-title {
+    font-size: 2.35rem;
+  }
+
+  .cards-row {
+    max-width: 700px;
+    gap: 24px;
+  }
+
+  .portal-card {
+    padding: 20px 18px 18px;
+  }
+
+  .portal-card-illustration {
+    height: 120px;
+  }
+
+  .portal-title {
+    font-size: 0.95rem;
+  }
+
+  .features-row {
+    gap: 56px;
+  }
+}

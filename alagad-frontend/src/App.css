@@ -1,0 +1,964 @@
+/* ========== App layout ========== */
+.App {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+/* ========== Navbar ========== */
+.navbar {
+  background-color: #333;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.navbar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+}
+
+.navbar li {
+  margin: 0;
+}
+
+.navbar a {
+  color: white;
+  text-decoration: none;
+  padding: 12px 10px;
+  display: block;
+  white-space: nowrap;
+}
+
+.navbar a:hover {
+  background-color: #575757;
+}
+
+.navbar .auth-section {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.navbar .auth-section span {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.navbar .auth-section button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  background-color: #007bff;
+  color: white;
+}
+
+.navbar .auth-section button[type="button"]:last-of-type {
+  background-color: #6c757d;
+}
+
+.navbar .auth-section input {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  min-width: 120px;
+}
+
+.navbar .auth-section form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Hamburger (visible only when nav is collapsed) */
+.nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 12px 16px;
+  margin-left: auto;
+}
+
+/* ========== Main content ========== */
+.App > main,
+.App > .main-route {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Guest view: fill container, map takes all space */
+.guest-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ========== Guest Header ========== */
+.guest-header {
+  background: linear-gradient(135deg, #0b3b66 0%, #1a5a96 100%);
+  color: white;
+  padding: 16px 20px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(11, 59, 102, 0.15);
+  position: relative;
+}
+
+.guest-back-button {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.guest-back-button:hover {
+  opacity: 0.8;
+  transform: translateY(-50%) translateX(-2px);
+}
+
+.guest-header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.guest-header h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.guest-header p {
+  margin: 4px 0 0 0;
+  font-size: clamp(0.85rem, 2vw, 1rem);
+  opacity: 0.95;
+  font-weight: 400;
+}
+
+/* ========== App header (GuestView) ========== */
+.App-header {
+  background-color: #282c34;
+  padding: clamp(8px, 2vw, 14px);
+  color: white;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.App-header h1 {
+  margin: 0;
+  font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+}
+
+
+/* Centered boxed Admin / Super‑Admin sign-in */
+.admin-login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 6vh, 48px);
+  min-height: calc(100vh - 0px);
+  background: linear-gradient(180deg, rgba(245,247,250,1) 0%, rgba(238,241,246,1) 100%);
+}
+
+.admin-login-card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  padding: 36px 28px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(16,24,40,0.12);
+  text-align: center;
+  border: 1px solid rgba(16,24,40,0.06);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  color: #0f1720;
+}
+
+.admin-login-card h2 { margin-top: 0; margin-bottom: 8px; font-weight: 600; color: #0b2540; letter-spacing: -0.01em; }
+.admin-login-card .muted { color: #475569; }
+
+.role-selection-card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  padding: 36px 28px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(16,24,40,0.12);
+  text-align: center;
+  border: 1px solid rgba(16,24,40,0.06);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  color: #0f1720;
+}
+
+.back-button {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: transparent;
+  border: none;
+  color: #0b3b66;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 8px 0;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.back-button:hover {
+  opacity: 0.7;
+}
+
+/* ========== Login Role Selection Card ========== */
+.login-role-card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  padding: 36px 28px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(16,24,40,0.12);
+  text-align: center;
+  border: 1px solid rgba(16,24,40,0.06);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  color: #0f1720;
+}
+
+.login-header {
+  margin-bottom: 28px;
+}
+
+.login-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0b2540;
+  letter-spacing: -0.5px;
+}
+
+.login-header p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.university-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.university-logo img {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(11, 59, 102, 0.25);
+}
+
+.login-header h1 {
+  margin: 0 0 4px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0b2540;
+  letter-spacing: -0.5px;
+}
+
+.login-header p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+/* Role Selection Buttons */
+.role-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.role-button {
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  color: white;
+  background: linear-gradient(135deg, #4472ca 0%, #3b5ebf 100%);
+  box-shadow: 0 4px 12px rgba(68, 114, 202, 0.25);
+}
+
+.role-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(68, 114, 202, 0.35);
+}
+
+.role-button:active {
+  transform: translateY(0);
+}
+
+/* Specific role button colors */
+.admin-btn {
+  background: linear-gradient(135deg, #4472ca 0%, #3b5ebf 100%);
+  box-shadow: 0 4px 12px rgba(68, 114, 202, 0.25);
+}
+
+.admin-btn:hover {
+  box-shadow: 0 6px 20px rgba(68, 114, 202, 0.35);
+}
+
+.super-admin-btn {
+  background: linear-gradient(135deg, #4472ca 0%, #3b5ebf 100%);
+  box-shadow: 0 4px 12px rgba(68, 114, 202, 0.25);
+}
+
+.super-admin-btn:hover {
+  box-shadow: 0 6px 20px rgba(68, 114, 202, 0.35);
+}
+
+.guest-btn {
+  background: linear-gradient(135deg, #4472ca 0%, #3b5ebf 100%);
+  box-shadow: 0 4px 12px rgba(68, 114, 202, 0.25);
+}
+
+.guest-btn:hover {
+  box-shadow: 0 6px 20px rgba(68, 114, 202, 0.35);
+}
+
+/* Role selector sub-container (visual group) */
+.role-subcontainer {
+  border: 1px solid rgba(11,59,102,0.06);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,251,253,0.98));
+  padding: 12px 14px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.role-subcontainer .subcontainer-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0b2540;
+}
+
+.role-select {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
+.sr-only { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px); white-space: nowrap; border: 0; padding: 0; margin: -1px; }
+
+
+.admin-login-card .primary {
+  background: #4472ca;
+  color: #fff;
+  border: 1px solid rgba(68, 114, 202, 0.9);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.admin-login-card .primary:hover:not(:disabled) {
+  background: #3b5ebf;
+  box-shadow: 0 4px 12px rgba(68, 114, 202, 0.3);
+}
+
+.admin-login-card .primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-login-card .link {
+  background: transparent;
+  color: #0b3b66;
+  border: none;
+  padding: 10px 12px;
+  margin-left: 12px;
+  text-decoration: underline;
+}
+
+@media (max-width: 560px) {
+  .admin-login-card { margin: 0 12px; padding: 20px; border-radius: 8px; }
+} 
+
+
+/* Hide Google Maps standard credits and UI elements as requested */
+.gm-style-cc, 
+.gm-svpc, 
+.gm-style-mtc, 
+button[title="Keyboard shortcuts"],
+a[href*="maps.google.com/help/terms"],
+a[href*="google.com/intl/en-US_US/help/terms"],
+.gmnoprint a,
+.gmnoprint span,
+div[style*="z-index: 1000001"] {
+  display: none !important;
+}
+
+.map-wrapper {
+  flex: 1;
+  /* keep a small visible floor so the map doesn't collapse to 0 on some browsers */
+  min-height: 160px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  background: #f5f5f5;
+}
+
+.leaflet-map {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1 1 auto;
+}
+
+.map-diagnostics {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  z-index: 1200;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+}
+
+.osm-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  background: #f6f6f6;
+}
+
+.osm-fallback iframe {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  min-height: 120px;
+}
+
+.osm-caption {
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  border-radius: 0 0 8px 8px;
+  text-align: left;
+}
+
+.api-test-result {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+}
+
+.api-test-result strong { font-weight: 600; }
+
+@media (max-height: 420px) {
+  .map-wrapper { min-height: 120px; }
+  .map-diagnostics { font-size: 0.72rem; padding: 6px 8px; }
+}
+
+/* Google Map needs explicit dimensions - target its container */
+.map-wrapper .leaflet-container,
+.map-wrapper .gm-style,
+.map-wrapper > div,
+.map-wrapper div[style*="position: relative"] {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+.map-error-state,
+.map-loading-state {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  min-height: 400px;
+}
+
+.map-error-message {
+  padding: 24px;
+  max-width: 480px;
+  text-align: left;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.location-banner {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  z-index: 100;
+}
+
+/* ========== Chatbot bubble (floating right) ========== */
+.chatbot-bubble-wrap {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.chatbot-bubble {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #0b3b66 0%, #1a5a96 100%);
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(11, 59, 102, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chatbot-bubble:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(11, 59, 102, 0.5);
+}
+
+.chatbot-bubble.active {
+  box-shadow: 0 4px 18px rgba(0, 123, 255, 0.6);
+}
+
+.chatbot-popup {
+  position: absolute;
+  bottom: calc(56px + 12px);
+  right: 0;
+  width: 320px;
+  max-width: calc(100vw - 48px);
+  height: min(72vh, 520px);
+  max-height: calc(100vh - 140px);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: chatbot-pop-in 0.25s ease-out;
+}
+
+@keyframes chatbot-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.chatbot-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #0b3b66 0%, #1a5a96 100%);
+  color: white;
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+
+.chatbot-popup-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.chatbot-close-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.chatbot-close-btn:hover {
+  opacity: 1;
+}
+
+.chatbot-container {
+  flex-shrink: 0;
+  min-height: 220px;
+  height: 45vh;
+  max-height: 600px;
+  width: 400px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
+  overflow-y: auto;
+  text-align: left;
+  font-size: clamp(0.875rem, 2vw, 1rem);
+}
+
+.chat-messages p {
+  margin: 0 0 8px;
+  word-wrap: break-word;
+}
+
+.chat-input {
+  display: flex;
+  padding: 10px;
+  gap: 8px;
+  border-top: 1px solid #ccc;
+  flex-shrink: 0;
+  flex-direction: column;
+}
+
+.chat-input > div {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.chat-input button {
+  padding: 10px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ========== Dashboard layouts ========== */
+.dashboard-container {
+  padding: clamp(12px, 3vw, 24px);
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.dashboard-container h2 {
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
+  margin-top: 0;
+}
+
+/* ========== Admin / Super‑Admin combined login ========== */
+.admin-login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 6vw, 48px);
+  min-height: calc(100dvh - 140px);
+}
+
+.admin-login-card {
+  width: 100%;
+  max-width: 520px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(16,24,40,0.08);
+  padding: clamp(18px, 3.2vw, 28px);
+  text-align: left;
+  color: #111827;
+}
+
+.admin-login-card h2 {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+}
+
+.admin-login-card .muted { color: #6b6f76; margin-bottom: 12px; }
+.admin-login-card .small { font-size: 0.85rem; }
+
+.role-select {
+  display: flex;
+  gap: 14px;
+  border: none;
+  margin: 8px 0 14px 0;
+  padding: 0;
+}
+
+.input-label { display: block; margin-bottom: 12px; font-size: 0.95rem; }
+.input-label input { margin-top: 8px; width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #e6e6e9; }
+
+.form-error { color: #8b1e3f; background: #fff1f2; padding: 8px 10px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(139,30,63,0.08); }
+
+.admin-login-actions { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+.admin-login-actions .primary { background: linear-gradient(135deg,#007bff,#0056b3); color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
+.admin-login-actions .link { background: transparent; border: none; color: #375aeb; cursor: pointer; }
+
+@media (max-width: 520px) {
+  .admin-login-card { padding: 16px; border-radius: 10px; }
+  .admin-login-actions { flex-direction: column; align-items: stretch; }
+  .admin-login-actions .primary { width: 100%; }
+}
+
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.dashboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.dashboard-tabs button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.dashboard-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-table-wrap table {
+  width: 100%;
+  min-width: 400px;
+  border-collapse: collapse;
+}
+
+.dashboard-table-wrap th,
+.dashboard-table-wrap td {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+/* ========== Loading ========== */
+.App-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-size: 1.125rem;
+}
+
+/* ========== Media: tablet and up ========== */
+@media (min-width: 640px) {
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .guest-main {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .guest-sidebar {
+    width: 320px;
+  }
+
+  .map-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chatbot-popup {
+    width: 340px;
+    height: 480px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+
+  .chatbot-popup {
+    width: 360px;
+    height: 520px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+}
+
+/* ========== Mobile: hide sidebar, full-screen map ========== */
+@media (max-width: 768px) {
+  .guest-view {
+    background: none !important;
+    padding-top: 0 !important;
+  }
+
+  .guest-sidebar {
+    display: none !important;
+    width: 0 !important;
+  }
+}
+
+/* ========== Mobile navbar (collapsible) ========== */
+@media (max-width: 767px) {
+  .guest-sidebar-close {
+    display: inline-flex;
+  }
+
+  .guest-sidebar-trigger {
+    display: block;
+  }
+
+  .nav-toggle-wrap {
+    display: block;
+    margin-left: auto;
+  }
+
+  .nav-toggle {
+    display: block;
+  }
+
+  .navbar ul {
+    flex-wrap: wrap;
+    padding: 8px 0;
+  }
+
+  .navbar ul.collapsed li:not(.nav-toggle-wrap):not(.auth-section) {
+    display: none;
+  }
+
+  .navbar ul li.auth-section {
+    margin-left: 0;
+    width: 100%;
+    order: 10;
+    justify-content: flex-end;
+  }
+
+  .navbar .auth-section form {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .navbar .auth-section form input {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .nav-toggle-wrap {
+    display: none;
+  }
+}
+
+/* ========== Leaflet overrides for small screens ========== */
+@media (max-width: 480px) {
+
+  .chatbot-bubble-wrap {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .chatbot-popup {
+    width: calc(100vw - 32px);
+    height: 380px;
+  }
+}
+
+/* ========== Landscape mobile ========== */
+@media (max-height: 500px) and (orientation: landscape) {
+  .guest-main {
+    flex-direction: row;
+  }
+
+  .map-wrapper {
+    flex: 1;
+  }
+
+  .chatbot-popup {
+    height: 320px;
+    max-height: 85vh;
+  }
+}
