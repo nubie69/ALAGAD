@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import Map, { Source, Layer, Marker, Popup } from 'react-map-gl';
+import MapView, { Source, Layer, Marker, Popup } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import SafeGeoJSON from '../components/SafeGeoJSON';
@@ -10,7 +10,7 @@ import ChatBot from '../components/ChatBot';
 import CampusBoundaryFocus from '../components/CampusBoundaryFocus';
 import { useMapState } from '../context/MapContext';
 import { useAuth } from '../context/AuthContext';
-import { buildingsAPI, roomsAPI, officesAPI, facultyAPI, settingsAPI } from '../utils/api';
+import { buildingsAPI, roomsAPI, officesAPI, facultyAPI, settingsAPI, popularAPI } from '../utils/api';
 
 import '../App.css';
 import './GuestView.modern.css';
@@ -20,10 +20,10 @@ import streetNamesGeoJSON from '../data/streetNames.json';
 
 // Bukidnon State University campus bounds (Malaybalay, Bukidnon)
 const BUKSU_CAMPUS = {
-  center: { lat: 8.156827, lng: 125.124307 },
-  zoom: 17.60,
-  pitch: 36.39,
-  bearing: -138.06,
+  center: { lat: 8.156363, lng: 125.124143 },
+  zoom: 17.72,
+  pitch: 0.50,
+  bearing: -137.98,
   bounds: {
     north: 8.162,
     south: 8.150,
@@ -53,20 +53,218 @@ const FOCUS_POLYGON = [[
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 
+const USER_INDICATOR_CONFIG = Object.freeze({
+  dotColor: '#2563eb',
+  dotSizePx: 8,
+  pulseSizePx: 34,
+  pulseColorRgb: '37, 99, 235',
+  pulseOpacity: 0.22,
+  directionColor: '#1d4ed8',
+  directionSizePx: 24,
+  headingSmoothing: 0.22,
+  sensorFusionSmoothing: 0.24,
+  positionSmoothingMs: 260,
+});
+
+const INDICATOR_LOG_INTERVAL_MS = 1500;
+
+const normalizeAngle = (value) => ((value % 360) + 360) % 360;
+
+const shortestAngleDelta = (from, to) => {
+  const start = normalizeAngle(from);
+  const end = normalizeAngle(to);
+  return ((end - start + 540) % 360) - 180;
+};
+
+const smoothHeading = (currentHeading, targetHeading, smoothingFactor = 0.2) => {
+  const delta = shortestAngleDelta(currentHeading, targetHeading);
+  return normalizeAngle(currentHeading + (delta * smoothingFactor));
+};
+
+const weightedHeadingAverage = (samples) => {
+  const valid = (samples || [])
+    .filter((entry) => Number.isFinite(entry?.heading) && Number.isFinite(entry?.weight) && entry.weight > 0);
+
+  if (valid.length === 0) return null;
+
+  let x = 0;
+  let y = 0;
+
+  for (const entry of valid) {
+    const rad = (normalizeAngle(entry.heading) * Math.PI) / 180;
+    x += Math.cos(rad) * entry.weight;
+    y += Math.sin(rad) * entry.weight;
+  }
+
+  if (x === 0 && y === 0) return null;
+  return normalizeAngle((Math.atan2(y, x) * 180) / Math.PI);
+};
+
+const calculateBearing = (from, to) => {
+  if (!from || !to) return null;
+
+  const lat1 = (Number(from.lat) * Math.PI) / 180;
+  const lat2 = (Number(to.lat) * Math.PI) / 180;
+  const dLng = ((Number(to.lng) - Number(from.lng)) * Math.PI) / 180;
+
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x =
+    (Math.cos(lat1) * Math.sin(lat2))
+    - (Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng));
+
+  const raw = (Math.atan2(y, x) * 180) / Math.PI;
+  return normalizeAngle(raw);
+};
+
+const distanceBetweenPointsMeters = (from, to) => {
+  const fromLat = Number(from?.lat);
+  const fromLng = Number(from?.lng);
+  const toLat = Number(to?.lat);
+  const toLng = Number(to?.lng);
+  if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite)) return Number.POSITIVE_INFINITY;
+
+  const avgLatRad = (((fromLat + toLat) / 2) * Math.PI) / 180;
+  const metersPerLng = 111320 * Math.cos(avgLatRad);
+  const metersPerLat = 110540;
+  const dx = (toLng - fromLng) * metersPerLng;
+  const dy = (toLat - fromLat) * metersPerLat;
+  return Math.hypot(dx, dy);
+};
+
+const projectPointToSegmentMeters = (point, start, end) => {
+  const pointLat = Number(point?.lat);
+  const pointLng = Number(point?.lng);
+  const startLng = Number(start?.[0]);
+  const startLat = Number(start?.[1]);
+  const endLng = Number(end?.[0]);
+  const endLat = Number(end?.[1]);
+
+  if (![pointLat, pointLng, startLng, startLat, endLng, endLat].every(Number.isFinite)) {
+    return {
+      distanceMeters: Number.POSITIVE_INFINITY,
+      t: 0,
+      snappedPoint: null,
+    };
+  }
+
+  const avgLatRad = (((pointLat + startLat + endLat) / 3) * Math.PI) / 180;
+  const metersPerLng = 111320 * Math.cos(avgLatRad);
+  const metersPerLat = 110540;
+
+  const px = pointLng * metersPerLng;
+  const py = pointLat * metersPerLat;
+  const sx = startLng * metersPerLng;
+  const sy = startLat * metersPerLat;
+  const ex = endLng * metersPerLng;
+  const ey = endLat * metersPerLat;
+
+  const dx = ex - sx;
+  const dy = ey - sy;
+  if (dx === 0 && dy === 0) {
+    return {
+      distanceMeters: Math.hypot(px - sx, py - sy),
+      t: 0,
+      snappedPoint: {
+        lat: startLat,
+        lng: startLng,
+      },
+    };
+  }
+
+  const t = Math.max(0, Math.min(1, (((px - sx) * dx) + ((py - sy) * dy)) / ((dx * dx) + (dy * dy))));
+  const cx = sx + (t * dx);
+  const cy = sy + (t * dy);
+
+  return {
+    distanceMeters: Math.hypot(px - cx, py - cy),
+    t,
+    snappedPoint: {
+      lat: startLat + ((endLat - startLat) * t),
+      lng: startLng + ((endLng - startLng) * t),
+    },
+  };
+};
+
+const findRouteSnapHeading = (routeCoords, userPoint, sensorHeading) => {
+  if (!Array.isArray(routeCoords) || routeCoords.length < 2 || !userPoint) {
+    return { snapped: false, heading: null, distanceMeters: Number.POSITIVE_INFINITY };
+  }
+
+  let closestDistance = Number.POSITIVE_INFINITY;
+  let closestBearing = null;
+
+  for (let i = 0; i < routeCoords.length - 1; i += 1) {
+    const start = routeCoords[i];
+    const end = routeCoords[i + 1];
+    if (!Array.isArray(start) || !Array.isArray(end)) continue;
+
+    const projection = projectPointToSegmentMeters(userPoint, start, end);
+    if (!Number.isFinite(projection.distanceMeters) || projection.distanceMeters >= closestDistance) continue;
+
+    const forwardBearing = calculateBearing(
+      { lat: start[1], lng: start[0] },
+      { lat: end[1], lng: end[0] }
+    );
+
+    if (!Number.isFinite(forwardBearing)) continue;
+
+    closestDistance = projection.distanceMeters;
+    closestBearing = forwardBearing;
+  }
+
+  const SNAP_DISTANCE_METERS = 14;
+  if (!Number.isFinite(closestBearing) || closestDistance > SNAP_DISTANCE_METERS) {
+    return { snapped: false, heading: null, distanceMeters: closestDistance };
+  }
+
+  const backwardBearing = normalizeAngle(closestBearing + 180);
+  const sensor = Number.isFinite(sensorHeading) ? normalizeAngle(sensorHeading) : closestBearing;
+  const forwardDelta = Math.abs(shortestAngleDelta(sensor, closestBearing));
+  const backwardDelta = Math.abs(shortestAngleDelta(sensor, backwardBearing));
+  const resolvedHeading = forwardDelta <= backwardDelta ? closestBearing : backwardBearing;
+
+  return {
+    snapped: true,
+    heading: resolvedHeading,
+    distanceMeters: closestDistance,
+  };
+};
+
+const buildLocationId = (entityType, entity) => {
+  const rawId = entity?._id || entity?.id || entity?.name || 'unknown';
+  return `${String(entityType || 'location')}:${String(rawId).trim()}`;
+};
+
 function GuestView() {
   const { mapFeatures, loading: mapLoading, userLocation, locationError } = useMapState();
-  console.log('Map Features:', mapFeatures);
-  console.log('Map Loading:', mapLoading);
-  console.log('User Location:', userLocation);
   
   // eslint-disable-next-line no-unused-vars
   const { user } = useAuth();
   const mapRef = useRef(null);
   const wrapperRef = useRef(null);
   const detailsContentRef = useRef(null);
+  const lastIndicatorLogRef = useRef(0);
+  const headingErrorLoggedRef = useRef(false);
+  const positionAnimationRef = useRef(null);
+  const smoothedLocationRef = useRef(null);
+  const routeProgressRef = useRef(0);
+  const routeSignatureRef = useRef('');
+  const lastMovementPointRef = useRef(null);
+  const movementHeadingRef = useRef(null);
+  const lastLoggedSearchRef = useRef('');
+  const searchLogDebounceRef = useRef(null);
+  const orientationHeadingRef = useRef(null);
+  const gyroHeadingRef = useRef(null);
+  const motionStateRef = useRef({
+    lastTs: 0,
+    isMoving: false,
+  });
 
   const [heading, setHeading] = useState(0);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth > 768);
+  const [navigationHeading, setNavigationHeading] = useState(0);
+  const [routeSnapActive, setRouteSnapActive] = useState(false);
+  const [hasHeadingData, setHasHeadingData] = useState(false);
+  const [smoothedUserLocation, setSmoothedUserLocation] = useState(null);
   const [sidebarQuery, setSidebarQuery] = useState('');
   const sidebarInputRef = useRef(null);
   const [systemStatus, setSystemStatus] = useState({ maintenanceMode: false, kioskStatus: 'online' });
@@ -74,9 +272,9 @@ function GuestView() {
   const [buildings, setBuildings] = useState([]);
   const [mapStyleLoaded, setMapStyleLoaded] = useState(false);
 
-  // Collapsed state for quick nav sections
-  const [roomsCollapsed, setRoomsCollapsed] = useState(false);
-  const [officesCollapsed, setOfficesCollapsed] = useState(false);
+  // Collapsed state for quick nav list section
+  const [quickNavCollapsed, setQuickNavCollapsed] = useState(false);
+  const [quickNavMode, setQuickNavMode] = useState('Buildings');
 
   // Bottom sheet state for mobile (Google Maps style)
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
@@ -201,6 +399,8 @@ function GuestView() {
   const [rooms, setRooms] = useState([]);
   const [offices, setOffices] = useState([]);
   const [faculty, setFaculty] = useState([]);
+  const [popularLocations, setPopularLocations] = useState([]);
+  const [popularLoading, setPopularLoading] = useState(true);
   
   // Chatbot opacity tracking for drag interactions
   const [chatbotOpacity, setChatbotOpacity] = useState(1);
@@ -218,6 +418,7 @@ function GuestView() {
 
   // Navigation state
   const [navigationRoute, setNavigationRoute] = useState(null); // GeoJSON route geometry
+  const [remainingNavigationRoute, setRemainingNavigationRoute] = useState(null); // Retracting route geometry
   const [navigationSteps, setNavigationSteps] = useState([]); // Turn-by-turn steps
   const [navigationSummary, setNavigationSummary] = useState(null); // { distance, duration }
   const [isNavigating, setIsNavigating] = useState(false);
@@ -247,6 +448,15 @@ function GuestView() {
       return [];
     }
   });
+
+  const activeNavigationGeometry = useMemo(() => {
+    if (remainingNavigationRoute?.type === 'LineString' && Array.isArray(remainingNavigationRoute?.coordinates)) {
+      if (remainingNavigationRoute.coordinates.length >= 2) {
+        return remainingNavigationRoute;
+      }
+    }
+    return navigationRoute;
+  }, [navigationRoute, remainingNavigationRoute]);
 
   // One label per line segment, at the segment midpoint, rotated to match the road
   const streetLabelPoints = useMemo(() => {
@@ -291,13 +501,17 @@ function GuestView() {
       .filter(Boolean);
   }, []);
 
-  // Function to rotate map by 180 degrees
-  const rotate180 = useCallback(() => {
-    setViewState(prev => ({
-      ...prev,
-      bearing: (prev.bearing + 180) % 360,
-    }));
-  }, []);
+  const userIndicatorStyle = useMemo(() => ({
+    '--indicator-dot-size': `${USER_INDICATOR_CONFIG.dotSizePx}px`,
+    '--indicator-dot-color': USER_INDICATOR_CONFIG.dotColor,
+    '--indicator-pulse-size': `${USER_INDICATOR_CONFIG.pulseSizePx}px`,
+    '--indicator-pulse-color': USER_INDICATOR_CONFIG.pulseColorRgb,
+    '--indicator-pulse-opacity': `${USER_INDICATOR_CONFIG.pulseOpacity}`,
+    '--indicator-direction-color': USER_INDICATOR_CONFIG.directionColor,
+    '--indicator-direction-size': `${USER_INDICATOR_CONFIG.directionSizePx}px`,
+  }), []);
+
+  const NAV_DEBUG = process.env.REACT_APP_NAV_DEBUG === 'true';
 
   // Handle map load to ensure style is ready
   const onMapLoad = useCallback(() => {
@@ -362,14 +576,63 @@ function GuestView() {
 
   useEffect(() => {
     let isMounted = true;
+    let hasReceivedHeading = false;
+    let headingUnavailableTimer = null;
+    let motionListenerActive = false;
 
     const handleOrientation = (event) => {
+      const webkitCompassHeading = event?.webkitCompassHeading;
       const alpha = event?.alpha;
-      if (typeof alpha !== 'number') return;
-      const normalized = ((360 - alpha) % 360 + 360) % 360;
-      if (isMounted) {
-        setHeading(normalized);
+      const nextHeading = typeof webkitCompassHeading === 'number'
+        ? normalizeAngle(webkitCompassHeading)
+        : (typeof alpha === 'number' ? normalizeAngle(360 - alpha) : null);
+
+      if (nextHeading === null) return;
+
+      hasReceivedHeading = true;
+      orientationHeadingRef.current = nextHeading;
+
+      if (!Number.isFinite(gyroHeadingRef.current)) {
+        gyroHeadingRef.current = nextHeading;
       }
+
+      if (isMounted) {
+        setHasHeadingData(true);
+        setHeading((prev) => smoothHeading(
+          prev,
+          nextHeading,
+          USER_INDICATOR_CONFIG.headingSmoothing
+        ));
+      }
+    };
+
+    const handleMotion = (event) => {
+      const now = performance.now();
+      const previousTs = Number(motionStateRef.current.lastTs || 0);
+      motionStateRef.current.lastTs = now;
+
+      const dt = previousTs > 0 ? (now - previousTs) / 1000 : 0;
+      const alphaRate = Number(event?.rotationRate?.alpha);
+
+      if (Number.isFinite(alphaRate) && dt > 0 && dt < 0.3) {
+        const baseHeading = Number.isFinite(gyroHeadingRef.current)
+          ? gyroHeadingRef.current
+          : (Number.isFinite(orientationHeadingRef.current) ? orientationHeadingRef.current : heading);
+        if (Number.isFinite(baseHeading)) {
+          gyroHeadingRef.current = normalizeAngle(baseHeading - (alphaRate * dt));
+          hasReceivedHeading = true;
+          if (isMounted) setHasHeadingData(true);
+        }
+      }
+
+      const a = event?.acceleration || {};
+      const ag = event?.accelerationIncludingGravity || {};
+      const accelMag = Math.max(
+        Math.hypot(Number(a.x) || 0, Number(a.y) || 0, Number(a.z) || 0),
+        Math.hypot(Number(ag.x) || 0, Number(ag.y) || 0, Number(ag.z) || 0)
+      );
+
+      motionStateRef.current.isMoving = accelMag > 0.5 || Math.abs(alphaRate || 0) > 1.0;
     };
 
     const setupOrientation = async () => {
@@ -378,30 +641,325 @@ function GuestView() {
           const permission = await DeviceOrientationEvent.requestPermission();
           if (permission === 'granted') {
             window.addEventListener('deviceorientation', handleOrientation, true);
+
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+              const motionPermission = await DeviceMotionEvent.requestPermission();
+              if (motionPermission === 'granted') {
+                window.addEventListener('devicemotion', handleMotion, true);
+                motionListenerActive = true;
+              }
+            } else {
+              window.addEventListener('devicemotion', handleMotion, true);
+              motionListenerActive = true;
+            }
           }
         } else {
           window.addEventListener('deviceorientation', handleOrientation, true);
+          window.addEventListener('devicemotion', handleMotion, true);
+          motionListenerActive = true;
         }
       } catch (err) {
+        if (isMounted) setHasHeadingData(false);
+        console.error('[UserIndicator:error] Device orientation not available', err);
         console.warn('Device orientation not available:', err);
       }
     };
 
     setupOrientation();
 
+    headingUnavailableTimer = window.setTimeout(() => {
+      if (!hasReceivedHeading && isMounted) {
+        setHasHeadingData(false);
+        console.error('[UserIndicator:error] Heading data unavailable from device sensors');
+      }
+    }, 5000);
+
     return () => {
       isMounted = false;
+      if (headingUnavailableTimer) window.clearTimeout(headingUnavailableTimer);
       window.removeEventListener('deviceorientation', handleOrientation, true);
+      if (motionListenerActive) {
+        window.removeEventListener('devicemotion', handleMotion, true);
+      }
     };
   }, []);
 
   useEffect(() => {
-    // Update bearing based on device orientation
-    setViewState(prev => ({
+    if (!smoothedUserLocation) {
+      lastMovementPointRef.current = null;
+      movementHeadingRef.current = null;
+      return;
+    }
+
+    const previous = lastMovementPointRef.current;
+    if (previous) {
+      const movementDistance = distanceBetweenPointsMeters(previous, smoothedUserLocation);
+      if (Number.isFinite(movementDistance) && movementDistance >= 0.8) {
+        const movementHeading = calculateBearing(previous, smoothedUserLocation);
+        if (Number.isFinite(movementHeading)) {
+          movementHeadingRef.current = movementHeading;
+        }
+      }
+    }
+
+    lastMovementPointRef.current = smoothedUserLocation;
+  }, [smoothedUserLocation]);
+
+  useEffect(() => {
+    const gpsCourseHeading = Number.isFinite(userLocation?.heading)
+      ? normalizeAngle(userLocation.heading)
+      : null;
+
+    const phoneFacingHeading = Number.isFinite(orientationHeadingRef.current)
+      ? normalizeAngle(orientationHeadingRef.current)
+      : (Number.isFinite(gyroHeadingRef.current) ? normalizeAngle(gyroHeadingRef.current) : null);
+
+    const fusedSensorHeading = weightedHeadingAverage([
+      {
+        heading: orientationHeadingRef.current,
+        weight: 0.5,
+      },
+      {
+        heading: gyroHeadingRef.current,
+        weight: motionStateRef.current?.isMoving ? 0.25 : 0.12,
+      },
+      {
+        heading: gpsCourseHeading,
+        weight: 0.2,
+      },
+      {
+        heading: movementHeadingRef.current,
+        weight: 0.1,
+      },
+    ]);
+
+    const sensorHeading = hasHeadingData
+      ? (Number.isFinite(fusedSensorHeading) ? fusedSensorHeading : heading)
+      : (Number.isFinite(fusedSensorHeading) ? fusedSensorHeading : heading);
+
+    if (!Number.isFinite(sensorHeading)) {
+      setRouteSnapActive(false);
+      return;
+    }
+
+    let resolvedHeading = Number.isFinite(phoneFacingHeading) ? phoneFacingHeading : sensorHeading;
+    let snappedToRoute = false;
+
+    if (!Number.isFinite(phoneFacingHeading) && isNavigating && activeNavigationGeometry?.coordinates?.length >= 2 && smoothedUserLocation) {
+      const snapped = findRouteSnapHeading(activeNavigationGeometry.coordinates, smoothedUserLocation, sensorHeading);
+      if (snapped.snapped && Number.isFinite(snapped.heading)) {
+        resolvedHeading = snapped.heading;
+        snappedToRoute = true;
+      }
+    }
+
+    setRouteSnapActive(snappedToRoute);
+    setNavigationHeading((prev) => smoothHeading(
+      prev,
+      resolvedHeading,
+      USER_INDICATOR_CONFIG.sensorFusionSmoothing
+    ));
+  }, [activeNavigationGeometry, hasHeadingData, heading, isNavigating, smoothedUserLocation, userLocation]);
+
+  useEffect(() => {
+    if (!isNavigating || !smoothedUserLocation) return;
+
+    setViewState((prev) => ({
       ...prev,
-      bearing: heading,
+      longitude: smoothedUserLocation.lng,
+      latitude: smoothedUserLocation.lat,
+      bearing: navigationHeading,
+      pitch: 52,
+      zoom: Math.max(prev.zoom, 18.2),
     }));
-  }, [heading]);
+  }, [isNavigating, navigationHeading, smoothedUserLocation]);
+
+  useEffect(() => {
+    if (!userLocation) {
+      setSmoothedUserLocation(null);
+      smoothedLocationRef.current = null;
+      if (positionAnimationRef.current) {
+        cancelAnimationFrame(positionAnimationRef.current);
+        positionAnimationRef.current = null;
+      }
+      return;
+    }
+
+    const target = { lat: userLocation.lat, lng: userLocation.lng };
+    const current = smoothedLocationRef.current;
+
+    if (!current) {
+      smoothedLocationRef.current = target;
+      setSmoothedUserLocation(target);
+      return;
+    }
+
+    if (positionAnimationRef.current) {
+      cancelAnimationFrame(positionAnimationRef.current);
+      positionAnimationRef.current = null;
+    }
+
+    const duration = USER_INDICATOR_CONFIG.positionSmoothingMs;
+    const startTime = performance.now();
+    const start = { ...current };
+
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+
+      const next = {
+        lat: start.lat + ((target.lat - start.lat) * eased),
+        lng: start.lng + ((target.lng - start.lng) * eased),
+      };
+
+      smoothedLocationRef.current = next;
+      setSmoothedUserLocation(next);
+
+      if (t < 1) {
+        positionAnimationRef.current = requestAnimationFrame(animate);
+      } else {
+        positionAnimationRef.current = null;
+      }
+    };
+
+    positionAnimationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (positionAnimationRef.current) {
+        cancelAnimationFrame(positionAnimationRef.current);
+        positionAnimationRef.current = null;
+      }
+    };
+  }, [userLocation]);
+
+  useEffect(() => {
+    if (!navigationRoute?.coordinates?.length) {
+      setRemainingNavigationRoute(null);
+      routeProgressRef.current = 0;
+      routeSignatureRef.current = '';
+      return;
+    }
+
+    const routeCoords = navigationRoute.coordinates;
+    const start = routeCoords[0];
+    const end = routeCoords[routeCoords.length - 1];
+    const signature = `${routeCoords.length}:${start?.[0]}:${start?.[1]}:${end?.[0]}:${end?.[1]}`;
+
+    if (routeSignatureRef.current !== signature) {
+      routeSignatureRef.current = signature;
+      routeProgressRef.current = 0;
+    }
+
+    if (!isNavigating || !smoothedUserLocation || routeCoords.length < 2) {
+      setRemainingNavigationRoute({
+        type: 'LineString',
+        coordinates: routeCoords,
+      });
+      return;
+    }
+
+    let bestMatch = {
+      distanceMeters: Number.POSITIVE_INFINITY,
+      segmentIndex: 0,
+      t: 0,
+      snappedPoint: {
+        lat: routeCoords[0][1],
+        lng: routeCoords[0][0],
+      },
+    };
+
+    for (let i = 0; i < routeCoords.length - 1; i += 1) {
+      const startCoord = routeCoords[i];
+      const endCoord = routeCoords[i + 1];
+      const projection = projectPointToSegmentMeters(smoothedUserLocation, startCoord, endCoord);
+      if (!Number.isFinite(projection.distanceMeters)) continue;
+
+      if (projection.distanceMeters < bestMatch.distanceMeters) {
+        bestMatch = {
+          ...projection,
+          segmentIndex: i,
+        };
+      }
+    }
+
+    const matchedProgress = bestMatch.segmentIndex + bestMatch.t;
+    const smoothedProgress = Math.max(routeProgressRef.current, matchedProgress);
+    routeProgressRef.current = smoothedProgress;
+
+    const progressIndex = Math.min(routeCoords.length - 2, Math.max(0, Math.floor(smoothedProgress)));
+    const progressT = Math.max(0, Math.min(1, smoothedProgress - progressIndex));
+    const progressStart = routeCoords[progressIndex];
+    const progressEnd = routeCoords[progressIndex + 1];
+    const snappedLng = progressStart[0] + ((progressEnd[0] - progressStart[0]) * progressT);
+    const snappedLat = progressStart[1] + ((progressEnd[1] - progressStart[1]) * progressT);
+
+    const remainingCoords = [
+      [snappedLng, snappedLat],
+      ...routeCoords.slice(progressIndex + 1),
+    ];
+
+    if (remainingCoords.length < 2) {
+      const lastCoord = routeCoords[routeCoords.length - 1] || [snappedLng, snappedLat];
+      remainingCoords.push(lastCoord);
+    }
+
+    setRemainingNavigationRoute({
+      type: 'LineString',
+      coordinates: remainingCoords,
+    });
+  }, [isNavigating, navigationRoute, smoothedUserLocation]);
+
+  useEffect(() => {
+    if (!userLocation) return;
+
+    const fallbackHeading = Number.isFinite(userLocation?.heading)
+      ? normalizeAngle(userLocation.heading)
+      : movementHeadingRef.current;
+
+    if (!hasHeadingData && !Number.isFinite(fallbackHeading)) {
+      if (!headingErrorLoggedRef.current) {
+        console.error('[UserIndicator:error] Heading data unavailable; using default orientation');
+        headingErrorLoggedRef.current = true;
+      }
+    } else {
+      headingErrorLoggedRef.current = false;
+    }
+
+    const now = Date.now();
+    if (now - lastIndicatorLogRef.current < INDICATOR_LOG_INTERVAL_MS) return;
+    lastIndicatorLogRef.current = now;
+
+    const referencePoint = smoothedUserLocation || userLocation;
+    const payload = {
+      latitude: Number(referencePoint.lat),
+      longitude: Number(referencePoint.lng),
+      heading: Number.isFinite(navigationHeading)
+        ? Number(navigationHeading)
+        : Number.isFinite(heading)
+          ? Number(heading)
+          : null,
+      navigation_active: Boolean(isNavigating),
+      remaining_path: Array.isArray(activeNavigationGeometry?.coordinates)
+        ? activeNavigationGeometry.coordinates.map((coord) => [Number(coord[1]), Number(coord[0])])
+        : [],
+      route_snap_active: Boolean(routeSnapActive),
+    };
+
+    console.log('[UserIndicator:update]', payload);
+    if (typeof window !== 'undefined') {
+      window.__ALAGAD_NAV_STATE__ = payload;
+    }
+  }, [
+    activeNavigationGeometry,
+    hasHeadingData,
+    heading,
+    isNavigating,
+    navigationHeading,
+    routeSnapActive,
+    smoothedUserLocation,
+    userLocation,
+  ]);
 
   const flyToLocation = useCallback((lat, lng, zoom = 20) => {
     if (mapRef.current) {
@@ -515,7 +1073,7 @@ function GuestView() {
     return null;
   }, []);
 
-  // Helper: request geolocation with fallback (try high accuracy, then low accuracy)
+  // Helper: request geolocation with fallback (high-accuracy first, then Wi-Fi/cell fallback)
   const requestCurrentPosition = useCallback(() => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -525,7 +1083,7 @@ function GuestView() {
 
       let resolved = false;
 
-      // Attempt 1: low accuracy (fast, uses WiFi/cell)
+      // Attempt 1: high-accuracy GPS first (navigation mode)
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           if (!resolved) {
@@ -534,7 +1092,7 @@ function GuestView() {
           }
         },
         () => {
-          // Attempt 2: try again with different settings
+          // Attempt 2: network fallback (Wi-Fi / cell tower triangulation)
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               if (!resolved) {
@@ -548,24 +1106,184 @@ function GuestView() {
                 reject(err2);
               }
             },
-            { enableHighAccuracy: true, timeout: 30000, maximumAge: 60000 }
+            { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 }
           );
         },
-        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        { enableHighAccuracy: true, timeout: 16000, maximumAge: 1500 }
       );
     });
   }, []);
 
   // Start navigation to a building/entity
-  const startNavigation = useCallback(async (targetEntity, targetName) => {
-    // If entity belongs to a building, navigate to the building's coordinates
-    const buildingId = targetEntity.building?._id || targetEntity.building;
-    const parentBuilding = buildingId ? buildings.find(b => b._id === buildingId) : null;
-    const navEntity = parentBuilding || targetEntity;
-    const navName = targetName || (parentBuilding ? `${parentBuilding.name} (${targetEntity.name})` : targetEntity.name);
-    const coords = getCoords(navEntity);
+  const startNavigation = useCallback(async (targetEntity, targetName, fallbackEntity = null) => {
+    if (!targetEntity) {
+      const message = 'Destination coordinates not available.';
+      if (NAV_DEBUG) {
+        console.warn('[NAV DEBUG] Missing target entity while starting navigation.');
+      }
+      setNavigationError(message);
+      return;
+    }
+
+    const normalizeStr = (value) => (value || '').toString().trim().toLowerCase();
+    const sameId = (a, b) => {
+      if (!a || !b) return false;
+      return String(a) === String(b);
+    };
+
+    const findBuildingByRef = (ref) => {
+      if (!ref) return null;
+
+      if (typeof ref === 'object') {
+        const refId = ref._id || ref.id;
+        if (refId) {
+          const byId = buildings.find((b) => sameId(b._id, refId));
+          if (byId) return byId;
+        }
+
+        const refName = normalizeStr(ref.name);
+        if (refName) {
+          const byName = buildings.find((b) => normalizeStr(b.name) === refName);
+          if (byName) return byName;
+        }
+      }
+
+      const refText = normalizeStr(ref);
+      if (!refText) return null;
+
+      return buildings.find((b) => sameId(b._id, ref) || normalizeStr(b.name) === refText) || null;
+    };
+
+    const resolveAssignedBuilding = (entity) => {
+      const fromBuildingRef = findBuildingByRef(entity?.building);
+      if (fromBuildingRef) return { building: fromBuildingRef, source: 'entity.building' };
+
+      const fromRoomBuildingRef = findBuildingByRef(entity?.room?.building);
+      if (fromRoomBuildingRef) return { building: fromRoomBuildingRef, source: 'entity.room.building' };
+
+      const dept = normalizeStr(entity?.department);
+      if (dept) {
+        const fromDepartment = buildings.find((b) => normalizeStr(b.department) === dept);
+        if (fromDepartment) return { building: fromDepartment, source: 'entity.department' };
+      }
+
+      return { building: null, source: 'none' };
+    };
+
+    const resolveFallbackBuilding = (fallback) => {
+      if (!fallback) return { building: null, source: 'none' };
+
+      const byRef = findBuildingByRef(fallback);
+      if (byRef) return { building: byRef, source: 'fallbackEntity.ref' };
+
+      if (fallback?.geometry && fallback?.name) {
+        return { building: fallback, source: 'fallbackEntity.direct' };
+      }
+
+      return { building: null, source: 'none' };
+    };
+
+    const resolveCoordsFromMapFeatures = (nameCandidates) => {
+      if (!mapFeatures?.features?.length) return null;
+
+      const candidates = (nameCandidates || [])
+        .map((name) => normalizeStr(name))
+        .filter(Boolean);
+
+      if (candidates.length === 0) return null;
+
+      for (const feature of mapFeatures.features) {
+        const props = feature?.properties || {};
+        const rawNames = [
+          props.name,
+          props.title,
+          props.label,
+          props.building,
+          props.buildingName,
+          props.office,
+          props.officeName,
+          props.room,
+          props.roomName,
+        ];
+        const featureNames = rawNames.map((n) => normalizeStr(n)).filter(Boolean);
+        if (featureNames.length === 0) continue;
+
+        const matched = featureNames.some((fn) => candidates.some((c) => fn === c || fn.includes(c) || c.includes(fn)));
+        if (!matched) continue;
+
+        const coordsFromFeature = getCoords({ geometry: feature.geometry });
+        if (coordsFromFeature) return coordsFromFeature;
+      }
+
+      return null;
+    };
+
+    // Determine navigation target:
+    // 1. Prefer the selected entity's own pin when available.
+    // 2. If no entity pin exists, fall back to assigned building coordinates.
+    // 3. Else error.
+    let navEntity = null;
+    let navName = targetName || (targetEntity && targetEntity.name);
+    let coords = null;
+
+    const targetCoords = getCoords(targetEntity);
+
+    if (targetCoords) {
+      navEntity = targetEntity;
+      coords = targetCoords;
+    }
+
+    // Resolve parent building only as fallback
+    const assignedBuildingResolution = resolveAssignedBuilding(targetEntity);
+    const fallbackBuildingResolution = resolveFallbackBuilding(fallbackEntity);
+    const parentBuilding = assignedBuildingResolution.building || fallbackBuildingResolution.building;
+    const assignedBy = assignedBuildingResolution.building
+      ? assignedBuildingResolution.source
+      : fallbackBuildingResolution.source;
+    const parentCoords = parentBuilding ? getCoords(parentBuilding) : null;
+
+    if (!coords && parentBuilding && parentCoords) {
+      navEntity = parentBuilding;
+      navName = parentBuilding.name + (targetEntity.name && parentBuilding.name !== targetEntity.name ? ` (${targetEntity.name})` : '');
+      coords = parentCoords;
+    }
+
     if (!coords) {
-      setNavigationError('Destination coordinates not available.');
+      const featureCoords = resolveCoordsFromMapFeatures([
+        targetEntity?.name,
+        targetEntity?.building?.name,
+        targetEntity?.room?.building?.name,
+        parentBuilding?.name,
+        fallbackEntity?.name,
+      ]);
+      if (featureCoords) {
+        coords = featureCoords;
+      }
+    }
+
+    if (!coords) {
+      const debugDetails = [
+        `target=${targetEntity?.name || 'unknown'}`,
+        `entityPin=${targetCoords ? 'yes' : 'no'}`,
+        `assignedBuilding=${parentBuilding?.name || 'none'}`,
+        `assignedBy=${assignedBy}`,
+        `buildingPin=${parentCoords ? 'yes' : 'no'}`,
+        `department=${targetEntity?.department || 'none'}`,
+      ].join(' | ');
+
+      const destinationUnavailableMessage = 'Destination not available.';
+      if (NAV_DEBUG) {
+        console.warn('[NAV DEBUG] Failed to resolve destination coordinates.', {
+          targetEntity,
+          assignedBuilding: parentBuilding,
+          assignedBy,
+          hasEntityPin: Boolean(targetCoords),
+          hasBuildingPin: Boolean(parentCoords),
+        });
+        setNavigationError(`${destinationUnavailableMessage} (${debugDetails})`);
+      } else {
+        setNavigationError(destinationUnavailableMessage);
+      }
       return;
     }
 
@@ -602,20 +1320,33 @@ function GuestView() {
       return;
     }
 
-    const result = await computeRoute(
+    let result = await computeRoute(
       loc.lng, loc.lat,
       coords.lng, coords.lat
     );
+
+    // Final fallback: if route to entity pin fails, retry using assigned building pin.
+    if (!result && parentCoords && (coords.lng !== parentCoords.lng || coords.lat !== parentCoords.lat)) {
+      result = await computeRoute(loc.lng, loc.lat, parentCoords.lng, parentCoords.lat);
+      if (result) {
+        coords = parentCoords;
+        navEntity = parentBuilding;
+        navName = parentBuilding?.name
+          ? parentBuilding.name + (targetEntity.name && parentBuilding.name !== targetEntity.name ? ` (${targetEntity.name})` : '')
+          : navName;
+      }
+    }
     if (result) {
       // Store destination for live re-routing
       navDestRef.current = { lng: coords.lng, lat: coords.lat };
       setNavigationRoute(result.geometry);
+      setRemainingNavigationRoute(result.geometry);
       setNavigationSteps(result.steps);
       setNavigationSummary({
         distance: result.distance,
         duration: result.duration,
       });
-      setNavigationTarget(parentBuilding ? parentBuilding.name : (targetName || targetEntity.name));
+      setNavigationTarget(navEntity?.name || targetName || targetEntity.name);
       setNavigationDisplayName(navName);
       setIsNavigating(true);
       setShowInstructions(true);
@@ -635,7 +1366,7 @@ function GuestView() {
         map.fitBounds(bounds, { padding: 80, duration: 1000, maxZoom: 19 });
       }
     }
-  }, [userLocation, getCoords, computeRoute, requestCurrentPosition, isMobile, buildings]);
+  }, [userLocation, getCoords, computeRoute, requestCurrentPosition, isMobile, buildings, mapFeatures, NAV_DEBUG]);
 
   // Ref to hold the current navigation destination coords for live re-routing
   const navDestRef = useRef(null);
@@ -643,14 +1374,29 @@ function GuestView() {
   // Stop navigation and clear route
   const stopNavigation = useCallback(() => {
     setNavigationRoute(null);
+    setRemainingNavigationRoute(null);
     setNavigationSteps([]);
     setNavigationSummary(null);
     setIsNavigating(false);
+    setRouteSnapActive(false);
     setNavigationTarget(null);
     setNavigationDisplayName(null);
     setNavigationError(null);
     setShowInstructions(false);
     navDestRef.current = null;
+    routeProgressRef.current = 0;
+    routeSignatureRef.current = '';
+    // Fly back to default map position
+    if (mapRef.current) {
+      mapRef.current.flyTo({
+        center: [BUKSU_CAMPUS.center.lng, BUKSU_CAMPUS.center.lat],
+        zoom: BUKSU_CAMPUS.zoom,
+        pitch: BUKSU_CAMPUS.pitch,
+        bearing: BUKSU_CAMPUS.bearing,
+        duration: 1200,
+        essential: true,
+      });
+    }
   }, []);
 
   // Live re-route: when user location changes during navigation, recompute route
@@ -663,6 +1409,7 @@ function GuestView() {
       const result = await computeRoute(userLocation.lng, userLocation.lat, endLng, endLat);
       if (!cancelled && result) {
         setNavigationRoute(result.geometry);
+        setRemainingNavigationRoute(result.geometry);
         setNavigationSteps(result.steps);
         setNavigationSummary({ distance: result.distance, duration: result.duration });
       }
@@ -772,12 +1519,182 @@ function GuestView() {
       .slice(0, 60);
   }, [offices, matchesSidebarQuery, activeBuildingIds]);
 
+  const searchableBuildings = useMemo(() => {
+    return buildings
+      .filter((building) => building.isActive !== false)
+      .filter((building) => matchesSidebarQuery(building.name || building.description))
+      .slice(0, 60);
+  }, [buildings, matchesSidebarQuery]);
+
+  const strictQuickNavItems = useMemo(() => {
+    const activeBuildings = buildings.filter((building) => building.isActive !== false);
+    const activeRooms = rooms.filter((room) => room.isActive !== false && (!room.building?._id || activeBuildingIds.has(room.building._id)));
+    const activeOffices = offices.filter((office) => office.isActive !== false && (!office.building?._id || activeBuildingIds.has(office.building._id)));
+
+    const buildEntityRows = (entities, entityType, requireLocation = false) => entities
+      .map((entity) => ({
+        name: entity?.name || `Unnamed ${entityType}`,
+        entityType,
+        entity,
+      }))
+      .filter((row) => {
+        if (!requireLocation) return true;
+        return Boolean(row.entity?.building?.name);
+      })
+      .filter((row) => {
+        return matchesSidebarQuery(row.name) || matchesSidebarQuery(row.entity?.building?.name);
+      })
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+    if (quickNavMode === 'Buildings') {
+      return buildEntityRows(activeBuildings, 'building');
+    }
+
+    if (quickNavMode === 'Rooms') {
+      return buildEntityRows(activeRooms, 'room', true);
+    }
+
+    return buildEntityRows(activeOffices, 'office');
+  }, [buildings, rooms, offices, activeBuildingIds, matchesSidebarQuery, quickNavMode]);
+
+  const popularLookup = useMemo(() => {
+    const lookup = {};
+
+    buildings
+      .filter((building) => building.isActive !== false)
+      .forEach((building) => {
+        const locationId = buildLocationId('building', building);
+        lookup[locationId] = {
+          entity: building,
+          entityType: 'building',
+          fallbackEntity: null,
+          displayName: building.name,
+          subtitle: 'Building',
+        };
+      });
+
+    rooms
+      .filter((room) => room.isActive !== false)
+      .forEach((room) => {
+        const locationId = buildLocationId('room', room);
+        lookup[locationId] = {
+          entity: room,
+          entityType: 'room',
+          fallbackEntity: room.building || null,
+          displayName: room.name,
+          subtitle: room.building?.name || 'Room',
+        };
+      });
+
+    offices
+      .filter((office) => office.isActive !== false)
+      .forEach((office) => {
+        const locationId = buildLocationId('office', office);
+        lookup[locationId] = {
+          entity: office,
+          entityType: 'office',
+          fallbackEntity: office.building || null,
+          displayName: office.name,
+          subtitle: office.building?.name || 'Office',
+        };
+      });
+
+    return lookup;
+  }, [buildings, offices, rooms]);
+
+  const quickNavPopularLocations = useMemo(() => {
+    return [...popularLocations]
+      .filter((entry) => {
+        const match = popularLookup[entry.locationId];
+        return Boolean(match?.entity);
+      })
+      .sort((a, b) => Number(b?.count || 0) - Number(a?.count || 0));
+  }, [popularLocations, popularLookup]);
+
+  const fetchPopularLocations = useCallback(async () => {
+    try {
+      const data = await popularAPI.getPopular();
+      setPopularLocations(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.warn('Could not fetch popular locations:', error);
+    } finally {
+      setPopularLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPopularLocations();
+    const intervalId = window.setInterval(fetchPopularLocations, 30000);
+    return () => window.clearInterval(intervalId);
+  }, [fetchPopularLocations]);
+
+  useEffect(() => {
+    const query = sidebarQuery.trim();
+    if (!query) return;
+
+    if (searchLogDebounceRef.current) {
+      window.clearTimeout(searchLogDebounceRef.current);
+    }
+
+    searchLogDebounceRef.current = window.setTimeout(async () => {
+      const bestRoom = filteredRooms[0] || null;
+      const bestOffice = filteredOffices[0] || null;
+      const bestBuilding = searchableBuildings[0] || null;
+
+      const bestMatch = bestRoom
+        ? { entity: bestRoom, entityType: 'room' }
+        : (bestOffice
+          ? { entity: bestOffice, entityType: 'office' }
+          : (bestBuilding
+            ? { entity: bestBuilding, entityType: 'building' }
+            : null));
+
+      if (!bestMatch?.entity) return;
+
+      const locationId = buildLocationId(bestMatch.entityType, bestMatch.entity);
+      const dedupeKey = `${query.toLowerCase()}|${locationId}`;
+      if (lastLoggedSearchRef.current === dedupeKey) return;
+      lastLoggedSearchRef.current = dedupeKey;
+
+      try {
+        await popularAPI.logLocation(locationId);
+        fetchPopularLocations();
+      } catch (error) {
+        console.warn('Could not log search interaction:', error);
+      }
+    }, 650);
+
+    return () => {
+      if (searchLogDebounceRef.current) {
+        window.clearTimeout(searchLogDebounceRef.current);
+      }
+    };
+  }, [sidebarQuery, filteredRooms, filteredOffices, searchableBuildings, fetchPopularLocations]);
+
+  const logLocationVisit = useCallback((entityType, entity) => {
+    if (!entity) return;
+
+    const locationId = buildLocationId(entityType, entity);
+    popularAPI.logLocation(locationId)
+      .then(() => fetchPopularLocations())
+      .catch((error) => {
+        console.warn('Could not log location interaction:', error);
+      });
+  }, [fetchPopularLocations]);
+
   const handleSidebarNavigate = useCallback((entity, entityType, fallbackEntity) => {
+    if (!entity) {
+      return;
+    }
+
     const coords = getCoords(entity) || getCoords(fallbackEntity);
+    const entityId = entity._id || entity.id || entity.name;
 
     // Track selected item
-    setSelectedItemId(entity._id);
+    setSelectedItemId(entityId);
     setSelectedItemType(entityType);
+
+    logLocationVisit(entityType, entity);
     
     // Open quick nav panel for buildings with enriched data
     if (entityType === 'building') {
@@ -793,10 +1710,17 @@ function GuestView() {
         setTimeout(() => { detailsContentRef.current?.scrollTo({ top: 0 }); }, 50);
       }
     } else if (entityType === 'office' && fallbackEntity) {
+      const fallbackBuildingId = fallbackEntity?._id || fallbackEntity?.id;
+      const fallbackBuildingName = fallbackEntity?.name;
+      const resolvedFallbackBuilding = buildings.find((b) => (
+        (fallbackBuildingId && String(b._id) === String(fallbackBuildingId)) ||
+        (fallbackBuildingName && b.name === fallbackBuildingName)
+      )) || fallbackEntity;
+
       const enrichedBuilding = {
-        ...fallbackEntity,
-        rooms: rooms.filter(r => r.building?._id === fallbackEntity._id),
-        offices: offices.filter(o => o.building?._id === fallbackEntity._id),
+        ...resolvedFallbackBuilding,
+        rooms: rooms.filter(r => r.building?._id === resolvedFallbackBuilding._id),
+        offices: offices.filter(o => o.building?._id === resolvedFallbackBuilding._id),
       };
       setQuickNavBuilding(enrichedBuilding);
       setIsQuickNavOpen(true);
@@ -804,11 +1728,33 @@ function GuestView() {
         setSheetSnap('full');
         setTimeout(() => { detailsContentRef.current?.scrollTo({ top: 0 }); }, 50);
       }
+    } else if (entityType === 'office') {
+      const enrichedOfficeDetail = {
+        ...entity,
+        name: entity.name || 'Office',
+        numberOfFloors: Number(entity.floor) || 1,
+        rooms: [],
+        offices: [entity],
+      };
+      setSelectedFloor(Number(entity.floor) || 1);
+      setQuickNavBuilding(enrichedOfficeDetail);
+      setIsQuickNavOpen(true);
+      if (isMobile) {
+        setSheetSnap('full');
+        setTimeout(() => { detailsContentRef.current?.scrollTo({ top: 0 }); }, 50);
+      }
     } else if (entityType === 'room' && fallbackEntity) {
+      const fallbackBuildingId = fallbackEntity?._id || fallbackEntity?.id;
+      const fallbackBuildingName = fallbackEntity?.name;
+      const resolvedFallbackBuilding = buildings.find((b) => (
+        (fallbackBuildingId && String(b._id) === String(fallbackBuildingId)) ||
+        (fallbackBuildingName && b.name === fallbackBuildingName)
+      )) || fallbackEntity;
+
       const enrichedBuilding = {
-        ...fallbackEntity,
-        rooms: rooms.filter(r => r.building?._id === fallbackEntity._id),
-        offices: offices.filter(o => o.building?._id === fallbackEntity._id),
+        ...resolvedFallbackBuilding,
+        rooms: rooms.filter(r => r.building?._id === resolvedFallbackBuilding._id),
+        offices: offices.filter(o => o.building?._id === resolvedFallbackBuilding._id),
       };
       setQuickNavBuilding(enrichedBuilding);
       setIsQuickNavOpen(true);
@@ -821,8 +1767,8 @@ function GuestView() {
     // Update recent locations
     setRecentLocations((prev) => {
       const newRecent = [
-        { id: entity._id, name: entity.name, type: entityType, timestamp: Date.now() },
-        ...prev.filter((item) => item.id !== entity._id),
+        { id: entityId, name: entity.name || 'Unknown', type: entityType, timestamp: Date.now() },
+        ...prev.filter((item) => item.id !== entityId),
       ].slice(0, 10);
       try {
         localStorage.setItem('alagad-recent-locations', JSON.stringify(newRecent));
@@ -833,10 +1779,19 @@ function GuestView() {
     });
     
     // Fly to location on map if coordinates exist — but skip if already viewing this building
-    if (coords && selectedItemId !== entity._id) {
+    if (coords && selectedItemId !== entityId) {
       flyToLocation(coords.lat, coords.lng);
     }
-  }, [flyToLocation, getCoords, rooms, offices, isMobile, selectedItemId]);
+
+    // Note: selecting rooms/offices in the sidebar should not auto-start routing.
+    // Routing starts only from explicit Navigate actions.
+  }, [flyToLocation, getCoords, rooms, offices, buildings, isMobile, selectedItemId, logLocationVisit]);
+
+  const handlePopularNavigate = useCallback((locationId) => {
+    const match = popularLookup[locationId];
+    if (!match?.entity) return;
+    handleSidebarNavigate(match.entity, match.entityType, match.fallbackEntity);
+  }, [handleSidebarNavigate, popularLookup]);
 
   // Show maintenance or offline screen
   const isUnavailable = systemStatus.maintenanceMode || systemStatus.kioskStatus === 'offline' || systemStatus.kioskStatus === 'maintenance';
@@ -934,7 +1889,7 @@ function GuestView() {
                   title="Get walking directions"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11" /></svg>
-                  {isNavigating && navigationTarget === quickNavBuilding.name ? 'Navigating...' : 'Navigate'}
+                  Navigate
                 </button>
               </div>
               <div className="bv-meta">
@@ -989,7 +1944,20 @@ function GuestView() {
                         <h4 className="bv-section-label">Offices</h4>
                         <div className="bv-cards-grid">
                           {floorOffices.map((office, idx) => (
-                            <div key={office._id || idx} className="bv-card bv-card--office">
+                            <div
+                              key={office._id || idx}
+                              className="bv-card bv-card--office"
+                              onClick={() => startNavigation(office, office.name, quickNavBuilding)}
+                              title="Navigate to this office"
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  startNavigation(office, office.name, quickNavBuilding);
+                                }
+                              }}
+                            >
                               <div className="bv-card-icon">💼</div>
                               <div className="bv-card-name">{office.name}</div>
                               {office.head && <div className="bv-card-sub">{office.head}</div>}
@@ -1004,7 +1972,20 @@ function GuestView() {
                         <h4 className="bv-section-label">Rooms</h4>
                         <div className="bv-cards-grid">
                           {floorRooms.map((room, idx) => (
-                            <div key={room._id || idx} className="bv-card bv-card--room">
+                            <div
+                              key={room._id || idx}
+                              className="bv-card bv-card--room"
+                              onClick={() => startNavigation(room, room.name, quickNavBuilding)}
+                              title="Navigate to this room"
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  startNavigation(room, room.name, quickNavBuilding);
+                                }
+                              }}
+                            >
                               <div className="bv-card-icon">🚪</div>
                               <div className="bv-card-name">{room.name}</div>
                               {room.capacity && <div className="bv-card-sub">Cap. {room.capacity}</div>}
@@ -1023,142 +2004,144 @@ function GuestView() {
           </div>
         </>
       ) : (
-        // Rooms & Offices List View
+        // Strict filtered Quick Navigation List View
         <>
           <div className="guest-sidebar-search">
             <input
               ref={sidebarInputRef}
               type="text"
-              placeholder="Search rooms, offices..."
+              placeholder={`Search ${quickNavMode.toLowerCase()}...`}
               value={sidebarQuery}
               onChange={(e) => setSidebarQuery(e.target.value)}
               onFocus={() => { if (isMobile && sheetSnap === 'peek') setSheetSnap('half'); }}
             />
+
+            {(popularLoading || quickNavPopularLocations.length > 0) && (
+              <div className="guest-search-most-visited" aria-label="Most visited shortcuts">
+                <div className="guest-search-most-visited-label">Most visited</div>
+                {popularLoading && (
+                  <div className="guest-search-visit-loading">Loading...</div>
+                )}
+
+                {!popularLoading && quickNavPopularLocations.slice(0, 6).map((entry) => {
+                  const match = popularLookup[entry.locationId];
+                  if (!match?.entity) return null;
+
+                  const displayName = match.displayName || 'Place';
+                  const compactLabel = (() => {
+                    const normalized = String(displayName || '').trim();
+                    if (!normalized) return 'Place';
+                    const firstSegment = normalized.split(/[–(]/)[0].trim();
+                    const firstWord = firstSegment.split(/\s+/)[0] || firstSegment;
+                    return firstWord.length > 10 ? `${firstWord.slice(0, 9)}…` : firstWord;
+                  })();
+
+                  const chipIcon = (() => {
+                    if (match.entityType === 'room') return 'Rm';
+                    if (match.entityType === 'office') return 'Of';
+                    return compactLabel.slice(0, 2).toUpperCase();
+                  })();
+
+                  return (
+                    <button
+                      key={entry.locationId}
+                      type="button"
+                      className="quick-visit-chip"
+                      onClick={() => handlePopularNavigate(entry.locationId)}
+                      title={displayName}
+                    >
+                      <span className="quick-visit-chip-icon" aria-hidden="true">{chipIcon}</span>
+                      <span className="quick-visit-chip-label">{compactLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="guest-search-divider" aria-hidden="true" />
           </div>
+
+          <div className="quick-nav-mode-switch" role="tablist" aria-label="Quick navigation mode">
+            {['Buildings', 'Rooms', 'Offices'].map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={quickNavMode === mode}
+                className={`quick-nav-mode-btn ${quickNavMode === mode ? 'active' : ''}`}
+                onClick={() => setQuickNavMode(mode)}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
           {sidebarQuery && (
             <div className="sidebar-results-info">
-              {filteredRooms.length + filteredOffices.length} results for "{sidebarQuery}"
+              {strictQuickNavItems.length} {quickNavMode.toLowerCase()} found for "{sidebarQuery}"
             </div>
           )}
-          <div className="guest-sidebar-content">
-          <section className="guest-sidebar-section">
-            <div className="guest-sidebar-section-header">
-              <h3>Rooms</h3>
-              <div className="section-header-right">
-                <span>{filteredRooms?.length || 0}</span>
-                <button 
-                  className="section-collapse-btn"
-                  onClick={() => setRoomsCollapsed(!roomsCollapsed)}
-                  aria-label={roomsCollapsed ? "Expand rooms" : "Collapse rooms"}
-                >
-                  <svg 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 16 16" 
-                    fill="none" 
-                    style={{ transform: roomsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
-                  >
-                    <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-            {!roomsCollapsed && (
-            <ul>
-              {filteredRooms.map((room) => {
-                const isSelected = selectedItemId === room._id && selectedItemType === 'room';
-                const roomType = room.type || 'Classroom';
-                return (
-                  <li key={room._id || room.name}>
-                    <button
-                      type="button"
-                      className={`sidebar-link ${isSelected ? 'active' : ''}`}
-                      onClick={() => handleSidebarNavigate(room, 'room', room.building)}
-                      title={room.name}
-                    >
-                      <div className="sidebar-link-header">
-                        <span className="sidebar-link-title">{room.name}</span>
-                      </div>
-                      <div className="sidebar-link-details">
-                        {room.building?.name && (
-                          <span className="sidebar-detail">{room.building.name}</span>
-                        )}
-                        <span className="sidebar-detail sidebar-type-badge">{roomType}</span>
-                      </div>
-                      {room.floor && (
-                        <div className="sidebar-link-department">Floor {room.floor}</div>
-                      )}
-                      {room.capacity && (
-                        <div className="sidebar-link-capacity">Cap. {room.capacity}</div>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-              {filteredRooms.length === 0 && (
-                <li className="sidebar-empty">No rooms found.</li>
-              )}
-            </ul>
-            )}
-          </section>
 
-          <section className="guest-sidebar-section">
+          <div className="guest-sidebar-content">
+          <section className="guest-sidebar-section guest-sidebar-section--quicknav">
             <div className="guest-sidebar-section-header">
-              <h3>Offices</h3>
+              <h3>{quickNavMode}</h3>
               <div className="section-header-right">
-                <span>{filteredOffices?.length || 0}</span>
+                <span>{strictQuickNavItems?.length || 0}</span>
                 <button 
                   className="section-collapse-btn"
-                  onClick={() => setOfficesCollapsed(!officesCollapsed)}
-                  aria-label={officesCollapsed ? "Expand offices" : "Collapse offices"}
+                  onClick={() => setQuickNavCollapsed(!quickNavCollapsed)}
+                  aria-label={quickNavCollapsed ? `Expand ${quickNavMode.toLowerCase()}` : `Collapse ${quickNavMode.toLowerCase()}`}
                 >
                   <svg 
                     width="16" 
                     height="16" 
                     viewBox="0 0 16 16" 
                     fill="none" 
-                    style={{ transform: officesCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
+                    style={{ transform: quickNavCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
                   >
                     <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
               </div>
             </div>
-            {!officesCollapsed && (
+            {!quickNavCollapsed && (
             <ul>
-              {filteredOffices.map((office) => {
-                const isSelected = selectedItemId === office._id && selectedItemType === 'office';
+              {strictQuickNavItems.map((item) => {
+                const isSelected = selectedItemId === (item.entity?._id || item.entity?.id || item.name)
+                  && selectedItemType === item.entityType;
                 return (
-                  <li key={office._id || office.name}>
+                  <li key={`${item.entityType}-${item.name}`}>
                     <button
                       type="button"
                       className={`sidebar-link ${isSelected ? 'active' : ''}`}
-                      onClick={() => handleSidebarNavigate(office, 'office', office.building)}
-                      title={office.name}
+                      onClick={() => {
+                        const fallbackEntity = item.entityType === 'building' ? null : item.entity.building;
+                        handleSidebarNavigate(item.entity, item.entityType, fallbackEntity);
+                      }}
+                      title={item.name}
                     >
                       <div className="sidebar-link-header">
-                        <span className="sidebar-link-title">{office.name}</span>
+                        <span className="sidebar-link-title">{item.name}</span>
                       </div>
-                      <div className="sidebar-link-details">
-                        {office.building?.name && (
-                          <span className="sidebar-detail">{office.building.name}</span>
-                        )}
-                        {office.department && (
-                          <span className="sidebar-detail sidebar-dept-badge">{office.department}</span>
-                        )}
-                      </div>
-                      {office.floor && (
-                        <div className="sidebar-link-department">Floor {office.floor}</div>
+
+                      {item.entityType !== 'building' && item.entity?.building?.name && (
+                        <div className="sidebar-link-department">{item.entity.building.name}</div>
                       )}
-                      {office.head && (
-                        <div className="sidebar-link-department">{office.head}</div>
+
+                      {item.entityType === 'office' && !item.entity?.building?.name && (
+                        <div className="sidebar-link-department">No building assigned</div>
+                      )}
+
+                      {item.entityType === 'room' && item.entity?.floor && (
+                        <div className="sidebar-link-department">Floor {item.entity.floor}</div>
                       )}
                     </button>
                   </li>
                 );
               })}
-              {filteredOffices.length === 0 && (
-                <li className="sidebar-empty">No offices found.</li>
+              {strictQuickNavItems.length === 0 && (
+                <li className="sidebar-empty">No {quickNavMode.toLowerCase()} found.</li>
               )}
             </ul>
             )}
@@ -1177,46 +2160,34 @@ function GuestView() {
           <p>Campus Navigation</p>
         </div>
       </header>
+
+      {/* Navigation Summary Strip */}
+      {isNavigating && navigationSummary && (
+        <div className="nav-strip">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11" /></svg>
+          <span className="nav-strip-name">{navigationDisplayName || 'Destination'}</span>
+          <span className="nav-strip-dot">·</span>
+          <span className="nav-strip-stat">{formatDistance(navigationSummary.distance)}</span>
+          <span className="nav-strip-dot">·</span>
+          <span className="nav-strip-stat">{formatDuration(navigationSummary.duration)}</span>
+          <button className="nav-strip-cancel" onClick={stopNavigation} title="Cancel navigation">Cancel</button>
+        </div>
+      )}
       <main className="guest-main">
         {/* Desktop sidebar */}
-        <aside className={`guest-sidebar desktop-sidebar ${isSidebarOpen ? 'open' : 'closed'}`} aria-label="Quick navigation">
+        <aside className="guest-sidebar desktop-sidebar open" aria-label="Quick navigation">
           <div className="guest-sidebar-header">
             <div>
               <h2>Navigation</h2>
-              <p>Buildings, rooms &amp; offices</p>
+              <p>Search for Buildings, Rooms and offices</p>
             </div>
           </div>
           {navigationContent}
         </aside>
 
-        {/* Desktop Sidebar Toggle Button */}
-        <button
-          className={`sidebar-toggle-btn ${isSidebarOpen ? 'open' : 'closed'}`}
-          onClick={() => setIsSidebarOpen((prev) => !prev)}
-          title={isSidebarOpen ? 'Hide navigation' : 'Show navigation'}
-          aria-label="Toggle sidebar"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {isSidebarOpen ? (
-              <path d="M15 19l-7-7 7-7" />
-            ) : (
-              <path d="M9 19l7-7-7-7" />
-            )}
-          </svg>
-        </button>
-
         <div className="guest-map-area">
           <div ref={wrapperRef} className="map-wrapper">
-            <Map
+            <MapView
               ref={mapRef}
               {...viewState}
               onMove={(evt) => setViewState(evt.viewState)}
@@ -1315,22 +2286,27 @@ function GuestView() {
                 </Source>
               )}
 
-              {/* User location marker — pulsing blue dot */}
-              {mapStyleLoaded && userLocation && (
+              {/* User location marker — compact live GPS indicator */}
+              {mapStyleLoaded && smoothedUserLocation && (
                 <Marker
-                  longitude={userLocation.lng}
-                  latitude={userLocation.lat}
+                  longitude={smoothedUserLocation.lng}
+                  latitude={smoothedUserLocation.lat}
                   anchor="center"
                 >
-                  <div className="user-location-marker">
+                  <div
+                    className={`user-location-marker ${(hasHeadingData || Number.isFinite(userLocation?.heading) || Number.isFinite(movementHeadingRef.current)) ? 'heading-available' : 'heading-unavailable'} ${routeSnapActive ? 'route-snapped' : ''}`}
+                    style={userIndicatorStyle}
+                  >
                     <div className="user-location-pulse" />
+                    <div
+                      className="user-location-direction"
+                      style={{ transform: `translate(-50%, -50%) rotate(${navigationHeading}deg)` }}
+                    >
+                      <svg viewBox="0 0 20 20" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+                        <path d="M10 1 L17 18 L10 14 L3 18 Z" />
+                      </svg>
+                    </div>
                     <div className="user-location-dot" />
-                    {heading > 0 && (
-                      <div
-                        className="user-location-heading"
-                        style={{ transform: `rotate(${heading}deg)` }}
-                      />
-                    )}
                   </div>
                 </Marker>
               )}
@@ -1376,7 +2352,10 @@ function GuestView() {
                   selectedBuildingId={selectedItemType === 'building' ? selectedItemId : null}
                   isNavigating={isNavigating}
                   navigationTarget={navigationTarget}
+                  blurMarkers={isNavigating}
+                  suppressNavTargetPin={isNavigating}
                   onMarkerClick={(building) => {
+                    logLocationVisit('building', building);
                     setSelectedItemId(building._id);
                     setSelectedItemType('building');
                     const coords = getCoords(building);
@@ -1404,20 +2383,24 @@ function GuestView() {
                       latitude={coords.lat}
                       anchor="center"
                       onClick={(e) => {
+                        if (isNavigating) return;
                         e.originalEvent.stopPropagation();
+                        logLocationVisit('office', office);
                         setSelectedItemId(office._id);
                         setSelectedItemType('office');
                         setPopupOffice(office);
                         flyToLocation(coords.lat, coords.lng, 19);
                       }}
                     >
-                      <BoxMarker
-                        name={office.name}
-                        color={office.markerColor || office.color || '#8b5cf6'}
-                        isSelected={isSelected}
-                      />
+                      <div className={isNavigating && !isSelected ? 'secondary-nav-marker secondary-nav-marker--blurred' : 'secondary-nav-marker'}>
+                        <BoxMarker
+                          name={office.name}
+                          color={office.markerColor || office.color || '#8b5cf6'}
+                          isSelected={isSelected}
+                        />
+                      </div>
                     </Marker>
-                    {popupOffice?._id === office._id && (
+                    {popupOffice?._id === office._id && !isNavigating && (
                       <Popup
                         longitude={coords.lng}
                         latitude={coords.lat}
@@ -1455,7 +2438,7 @@ function GuestView() {
                           )}
                           <button
                             onClick={() => {
-                              startNavigation(office, office.name);
+                              startNavigation(office, office.name, office.building || null);
                               setPopupOffice(null);
                             }}
                             style={{
@@ -1524,14 +2507,14 @@ function GuestView() {
                 );
               })}
 
-              {/* Navigation route line — red route along walkable paths, only visible during navigation */}
-              {mapStyleLoaded && isNavigating && navigationRoute && (
+              {/* Navigation route line — retracting route with directional arrows */}
+              {mapStyleLoaded && isNavigating && activeNavigationGeometry && (
                 <Source
                   id="navigation-route"
                   type="geojson"
                   data={{
                     type: 'Feature',
-                    geometry: navigationRoute,
+                    geometry: activeNavigationGeometry,
                   }}
                 >
                   {/* Outer glow — soft red halo for depth */}
@@ -1554,7 +2537,7 @@ function GuestView() {
                     id="navigation-route-casing"
                     type="line"
                     paint={{
-                      'line-color': '#B91C1C',
+                      'line-color': '#991B1B',
                       'line-width': 10,
                       'line-opacity': 0.45,
                     }}
@@ -1568,7 +2551,7 @@ function GuestView() {
                     id="navigation-route-line"
                     type="line"
                     paint={{
-                      'line-color': '#EF4444',
+                      'line-color': '#DC2626',
                       'line-width': 6,
                       'line-opacity': 1,
                     }}
@@ -1577,31 +2560,28 @@ function GuestView() {
                       'line-cap': 'round',
                     }}
                   />
+                  <Layer
+                    id="navigation-route-arrows"
+                    type="symbol"
+                    layout={{
+                      'symbol-placement': 'line',
+                      'symbol-spacing': 46,
+                      'text-field': '▶',
+                      'text-size': 14,
+                      'text-keep-upright': false,
+                    }}
+                    paint={{
+                      'text-color': '#7F1D1D',
+                      'text-halo-color': 'rgba(255,255,255,0.65)',
+                      'text-halo-width': 1,
+                    }}
+                  />
                 </Source>
               )}
 
-              {/* Navigation origin marker (user start point) — Google Maps green dot */}
-              {mapStyleLoaded && isNavigating && navigationRoute && (() => {
-                const routeCoords = navigationRoute.coordinates;
-                const origin = routeCoords[0];
-                if (!origin) return null;
-                return (
-                  <Marker longitude={origin[0]} latitude={origin[1]} anchor="center">
-                    <div style={{
-                      width: '16px',
-                      height: '16px',
-                      borderRadius: '50%',
-                      background: '#0F9D58',
-                      border: '3px solid #ffffff',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                    }} />
-                  </Marker>
-                );
-              })()}
-
               {/* Navigation destination pin — Google Maps red pin */}
-              {mapStyleLoaded && isNavigating && navigationRoute && (() => {
-                const routeCoords = navigationRoute.coordinates;
+              {mapStyleLoaded && isNavigating && activeNavigationGeometry && (() => {
+                const routeCoords = activeNavigationGeometry.coordinates;
                 const dest = routeCoords[routeCoords.length - 1];
                 if (!dest) return null;
                 return (
@@ -1620,7 +2600,7 @@ function GuestView() {
                 );
               })()}
 
-            </Map>
+            </MapView>
 
             {/* Navigation Error */}
             {navigationError && (
@@ -1725,7 +2705,7 @@ function GuestView() {
       
       {/* Campus Assistant Chatbot — rendered via portal to escape overflow:hidden */}
       {ReactDOM.createPortal(
-        <ChatBot onOpenChange={setChatbotOpen} buildings={buildings} onNavigate={startNavigation} />,
+        <ChatBot onOpenChange={setChatbotOpen} buildings={buildings} offices={offices} rooms={rooms} onNavigate={startNavigation} />,
         document.body
       )}
 

@@ -5,6 +5,9 @@ jest.mock('./context/AuthContext', () => ({
   useAuth: () => ({ user: null, login: jest.fn(), logout: jest.fn(), loading: false }),
 }));
 
+jest.mock('./views/GuestView', () => () => <div>Guest View</div>);
+jest.mock('./views/SuperAdminDashboard', () => () => <div>Super Admin Dashboard</div>);
+
 import App from './App';
 
 test('root renders the Admin / Super‑Admin login', () => {

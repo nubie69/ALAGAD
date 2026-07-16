@@ -8,8 +8,8 @@ import { BoxMarker } from './BoxMarker';
 import './MapEditor.css';
 
 const BUKSU_CAMPUS = {
-  center: { lat: 8.1574, lng: 125.1248 },
-  zoom: 17,
+  center: { lat: 8.156363, lng: 125.124143 },
+  zoom: 17.75,
 };
 
 // Campus boundaries - prevents scrolling outside this area
@@ -55,7 +55,7 @@ function MapEditor() {
     longitude: BUKSU_CAMPUS.center.lng,
     latitude: BUKSU_CAMPUS.center.lat,
     zoom: BUKSU_CAMPUS.zoom,
-    bearing: 0,
+    bearing: -140.75,
     pitch: 0,
   });
 
@@ -294,7 +294,7 @@ function MapEditor() {
         {/* ── Left Sidebar ── */}
         <aside className="me-sidebar">
           <div className="me-sidebar-header">
-            <h3 className="me-sidebar-title">Map Pins</h3>
+            <h3 className="me-sidebar-title">Map Markers</h3>
             <span className="me-pin-count">
               {buildingsWithPins.length + officesWithPins.length} pinned
             </span>

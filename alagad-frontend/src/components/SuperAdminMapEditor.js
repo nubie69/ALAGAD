@@ -10,8 +10,10 @@ import SafeGeoJSON from './SafeGeoJSON';
 import '../styles/SuperAdminMapEditor.css';
 
 const BUKSU_CAMPUS = {
-  center: { lat: 8.1574, lng: 125.1248 },
-  zoom: 17,
+  center: { lat: 8.156363, lng: 125.124143 },
+  zoom: 17.72,
+  pitch: 0.50,
+  bearing: -137.98,
   bounds: {
     north: 8.162,
     south: 8.150,
@@ -52,7 +54,7 @@ function SuperAdminMapEditor() {
     longitude: BUKSU_CAMPUS.center.lng,
     latitude: BUKSU_CAMPUS.center.lat,
     zoom: BUKSU_CAMPUS.zoom,
-    bearing: 0,
+    bearing: -140.75,
     pitch: 0,
   });
   

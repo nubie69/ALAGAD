@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Building = require('../models/Building');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const { syncRecordIndexByType, syncRecordDeactivationByType } = require('../services/retrieval/indexSyncService');
 
 // Helper: check if request has a valid admin token
 const isAuthenticated = (req) => {
@@ -70,7 +71,12 @@ router.post('/', protect, authorize('super_admin'), async (req, res) => {
       ...req.body,
       department,
     };
+    if (Object.prototype.hasOwnProperty.call(buildingData, 'is_active')) {
+      buildingData.isActive = Boolean(buildingData.is_active);
+      delete buildingData.is_active;
+    }
     const building = await Building.create(buildingData);
+    await syncRecordIndexByType('Building', building._id);
     res.status(201).json(building);
   } catch (error) {
     if (error.code === 11000) {
@@ -91,13 +97,18 @@ router.put('/:id', protect, authorize('super_admin'), async (req, res) => {
       return res.status(404).json({ message: 'Building not found' });
     }
 
-    const updateData = req.body;
+    const updateData = { ...req.body };
+    if (Object.prototype.hasOwnProperty.call(updateData, 'is_active')) {
+      updateData.isActive = Boolean(updateData.is_active);
+      delete updateData.is_active;
+    }
 
     const updatedBuilding = await Building.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
     );
+    await syncRecordIndexByType('Building', updatedBuilding?._id || req.params.id);
     res.json(updatedBuilding);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -115,6 +126,7 @@ router.delete('/:id', protect, authorize('super_admin'), async (req, res) => {
     }
     
     await Building.findByIdAndUpdate(req.params.id, { isActive: false });
+    await syncRecordDeactivationByType('Building', req.params.id, true);
     res.json({ message: 'Building deactivated successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -129,6 +141,8 @@ router.put('/:id/reactivate', protect, authorize('super_admin'), async (req, res
     const building = await Building.findById(req.params.id);
     if (!building) return res.status(404).json({ message: 'Building not found' });
     await Building.findByIdAndUpdate(req.params.id, { isActive: true });
+    await syncRecordIndexByType('Building', req.params.id);
+    await syncRecordDeactivationByType('Building', req.params.id, false);
     res.json({ message: 'Building reactivated successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

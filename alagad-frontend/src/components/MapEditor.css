@@ -5,7 +5,8 @@
 .me-container {
   position: relative;
   width: 100%;
-  height: 650px;
+  height: calc(108vh - 240px);
+  min-height: 500px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #e5e7eb;

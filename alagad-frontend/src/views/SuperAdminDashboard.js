@@ -20,6 +20,9 @@ import {
   MapPinIconOutline,
 } from '../utils/icons';
 
+const AVAILABILITY_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DEFAULT_AVAILABILITY_TIME_SLOT = '8:00 AM – 5:00 PM';
+
 function SuperAdminDashboard() {
   const { mapFeatures, refreshMapFeatures } = useMapState();
   const { user, logout } = useAuth();
@@ -93,6 +96,16 @@ function SuperAdminDashboard() {
     const suffix = ['th', 'st', 'nd', 'rd'][floorNum % 10] || 'th';
     const suffix2 = floorNum % 100 >= 11 && floorNum % 100 <= 13 ? 'th' : suffix;
     return `${floorNum}${suffix2} Floor`;
+  };
+
+  const normalizeAvailabilityDays = (days) => {
+    if (!Array.isArray(days)) return [];
+    const daySet = new Set(
+      days
+        .map((day) => String(day || '').trim())
+        .filter((day) => AVAILABILITY_DAYS.includes(day))
+    );
+    return AVAILABILITY_DAYS.filter((day) => daySet.has(day));
   };
 
   useEffect(() => {
@@ -230,7 +243,7 @@ function SuperAdminDashboard() {
     } else if (activeTab === 'offices') {
       setFormData({ name: '', building: '', floor: '', department: '' });
     } else if (activeTab === 'services') {
-      setFormData({ name: '', description: '', office: '', department: '', assignmentType: 'office' });
+      setFormData({ name: '', description: '', requirementsText: '', stepsText: '', office: '', department: '', assignmentType: 'office' });
     } else if (activeTab === 'faculty') {
       setFormData({ name: '', title: '', contactInfo: '', office: '', department: '', assignmentType: 'office' });
     } else {
@@ -267,6 +280,38 @@ function SuperAdminDashboard() {
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const getDepartmentSelectionValue = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    const byId = departments.find((dept) => String(dept?._id || '') === raw);
+    if (byId?._id) return String(byId._id);
+
+    const byName = departments.find((dept) => String(dept?.name || '').trim() === raw);
+    if (byName?._id) return String(byName._id);
+
+    const byCode = departments.find((dept) => String(dept?.code || '').trim() === raw);
+    if (byCode?._id) return String(byCode._id);
+
+    return '';
+  };
+
+  const getDepartmentNameFromSelection = (selectionValue) => {
+    const key = String(selectionValue || '').trim();
+    if (!key) return '';
+
+    const selected = departments.find((dept) => String(dept?._id || '') === key);
+    if (selected?.name) return String(selected.name).trim();
+
+    const byName = departments.find((dept) => String(dept?.name || '').trim() === key);
+    if (byName?.name) return String(byName.name).trim();
+
+    const byCode = departments.find((dept) => String(dept?.code || '').trim() === key);
+    if (byCode?.name) return String(byCode.name).trim();
+
+    return key;
   };
 
   const handleMaintenanceModeToggle = () => {
@@ -339,11 +384,28 @@ function SuperAdminDashboard() {
       });
     } else if (activeTab === 'services') {
       const hasOffice = !!(item.office?._id || item.office);
+      const normalizeStepLine = (line) => String(line || '')
+        .trim()
+        .replace(/^\d+\s*[).:-]\s*/, '')
+        .replace(/^[-*•]\s+/, '')
+        .trim();
+
+      const derivedSteps = Array.isArray(item.steps) && item.steps.length > 0
+        ? item.steps
+        : (typeof item.description === 'string'
+            ? item.description.split(/\r?\n/).map(normalizeStepLine).filter(Boolean)
+            : []);
+      const derivedRequirements = Array.isArray(item.requirements) && item.requirements.length > 0
+        ? item.requirements
+        : [];
+
       setFormData({
         name: item.name || '',
         description: item.description || '',
+        requirementsText: derivedRequirements.join('\n'),
+        stepsText: derivedSteps.join('\n'),
         office: item.office?._id || item.office || '',
-        department: item.department || '',
+        department: getDepartmentSelectionValue(item.department),
         assignmentType: hasOffice ? 'office' : 'department',
       });
     } else if (activeTab === 'faculty') {
@@ -353,8 +415,11 @@ function SuperAdminDashboard() {
         title: item.title || '',
         contactInfo: item.contactInfo || '',
         office: item.office?._id || item.office || '',
-        department: item.department || '',
+        department: getDepartmentSelectionValue(item.department),
         assignmentType: hasOffice ? 'office' : 'department',
+        isActive: item.isActive !== false,
+        availabilityDays: normalizeAvailabilityDays(item.availability?.daysAvailable),
+        availabilityTimeSlot: String(item.availability?.timeSlot || '').trim() || DEFAULT_AVAILABILITY_TIME_SLOT,
       });
     } else {
       setFormData(item);
@@ -566,10 +631,18 @@ function SuperAdminDashboard() {
             title: (formData.title || '').trim(),
             contactInfo: (formData.contactInfo || '').trim(),
           };
+
+          if (editingItem) {
+            facultyPayload.availability = {
+              daysAvailable: normalizeAvailabilityDays(formData.availabilityDays),
+              timeSlot: String(formData.availabilityTimeSlot || '').trim() || DEFAULT_AVAILABILITY_TIME_SLOT,
+            };
+          }
+
           if (aType === 'office') {
             facultyPayload.office = formData.office;
           } else {
-            facultyPayload.department = formData.department;
+            facultyPayload.department = getDepartmentNameFromSelection(formData.department);
           }
           console.log('Personnel payload:', facultyPayload);
           if (editingItem) {
@@ -587,11 +660,27 @@ function SuperAdminDashboard() {
           if (svcAssignType === 'department' && !formData.department) {
             throw new Error('Please assign this service to a department.');
           }
+          const normalizeStepLine = (line) => String(line || '')
+            .trim()
+            .replace(/^\d+\s*[).:-]\s*/, '')
+            .replace(/^[-*•]\s+/, '')
+            .trim();
+          const steps = (typeof formData.stepsText === 'string')
+            ? formData.stepsText.split(/\r?\n/).map(normalizeStepLine).filter(Boolean)
+            : [];
+          const requirements = (typeof formData.requirementsText === 'string')
+            ? formData.requirementsText.split(/\r?\n/).map((line) => String(line || '').trim()).filter(Boolean)
+            : [];
+
           const payload = {
             name: (formData.name || '').trim(),
             description: (formData.description || '').trim(),
+            requirements,
+            steps,
             office: svcAssignType === 'office' ? formData.office : null,
-            department: svcAssignType === 'department' ? formData.department : null,
+            department: svcAssignType === 'department'
+              ? getDepartmentNameFromSelection(formData.department)
+              : null,
           };
 
           if (!payload.name) {
@@ -1073,7 +1162,7 @@ function SuperAdminDashboard() {
                       >
                         <option value="">-- Select a Department --</option>
                         {departments.map((dept) => (
-                          <option key={dept._id} value={dept.code || dept.name}>
+                          <option key={dept._id} value={dept._id}>
                             {dept.name}
                           </option>
                         ))}
@@ -1083,6 +1172,72 @@ function SuperAdminDashboard() {
                   {formErrors.assignment && <span className="form-error-text">{formErrors.assignment}</span>}
                 </div>
               </div>
+
+              {editingItem && (
+                <div className="form-section-card">
+                  <h3 className="form-section-title">🗓 Availability</h3>
+                  <div className="form-grid">
+                    <div className="form-group form-group-full">
+                      <label className="form-label">
+                        Status
+                        <span className="form-label-hint">Current personnel status</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={formData.isActive !== false ? 'ACTIVE' : 'DEACTIVATE'}
+                        readOnly
+                        disabled
+                      />
+                    </div>
+
+                    <div className="form-group form-group-full">
+                      <label className="form-label">
+                        Days Available
+                        <span className="form-label-hint">Select all days this personnel is available</span>
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px', marginTop: '8px' }}>
+                        {AVAILABILITY_DAYS.map((day) => {
+                          const selectedDays = normalizeAvailabilityDays(formData.availabilityDays);
+                          const isChecked = selectedDays.includes(day);
+                          return (
+                            <label key={day} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#334155' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const nextDays = e.target.checked
+                                    ? [...selectedDays, day]
+                                    : selectedDays.filter((value) => value !== day);
+                                  setFormData({
+                                    ...formData,
+                                    availabilityDays: normalizeAvailabilityDays(nextDays),
+                                  });
+                                }}
+                              />
+                              <span>{day}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="form-group form-group-full">
+                      <label className="form-label">
+                        Time Slot
+                        <span className="form-label-hint">Default: 8:00 AM – 5:00 PM</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={formData.availabilityTimeSlot || DEFAULT_AVAILABILITY_TIME_SLOT}
+                        onChange={(e) => setFormData({ ...formData, availabilityTimeSlot: e.target.value })}
+                        placeholder={DEFAULT_AVAILABILITY_TIME_SLOT}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
           {activeTab === 'services' && (
@@ -1108,14 +1263,42 @@ function SuperAdminDashboard() {
                   <div className="form-group form-group-full">
                     <label className="form-label">
                       Description
-                      <span className="form-label-hint">Details about the service and requirements</span>
+                      <span className="form-label-hint">Brief details about the service</span>
                     </label>
                     <textarea
                       className="form-textarea"
                       value={formData.description || ''}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Describe the service, requirements, processing time, etc."
+                      placeholder="Describe what this service is for and important notes"
                       rows="3"
+                    />
+                  </div>
+
+                  <div className="form-group form-group-full">
+                    <label className="form-label">
+                      Requirements
+                      <span className="form-label-hint">One requirement per line</span>
+                    </label>
+                    <textarea
+                      className="form-textarea"
+                      value={formData.requirementsText || ''}
+                      onChange={(e) => setFormData({ ...formData, requirementsText: e.target.value })}
+                      placeholder={"Valid school ID\nRequest form\nOfficial receipt"}
+                      rows="4"
+                    />
+                  </div>
+
+                  <div className="form-group form-group-full">
+                    <label className="form-label">
+                      Steps / Process
+                      <span className="form-label-hint">One step per line (used by the chatbot for step-by-step instructions)</span>
+                    </label>
+                    <textarea
+                      className="form-textarea"
+                      value={formData.stepsText || ''}
+                      onChange={(e) => setFormData({ ...formData, stepsText: e.target.value })}
+                      placeholder={"1. Go to the office\n2. Fill out the form\n3. Pay the fee\n4. Wait for release"}
+                      rows="5"
                     />
                   </div>
                 </div>
@@ -1195,7 +1378,7 @@ function SuperAdminDashboard() {
                       >
                         <option value="">-- Select a Department --</option>
                         {departments.map((dept) => (
-                          <option key={dept._id} value={dept.code || dept.name}>
+                          <option key={dept._id} value={dept._id}>
                             {dept.name}
                           </option>
                         ))}
@@ -2294,7 +2477,7 @@ function SuperAdminDashboard() {
         {activeTab === 'map-editor' && (
           <div className="management-section">
             <h2>Map Editor</h2>
-            <p>Add, edit, and remove map pins for buildings and offices. Pins placed here will appear in the Guest View map.</p>
+            <p>Add, edit, and remove map markers for buildings and offices. Pins placed here will appear in the Guest View map.</p>
             <div style={{ marginTop: '16px' }}>
               <MapEditor />
             </div>

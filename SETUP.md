@@ -8,6 +8,12 @@ ALAGAD is a comprehensive campus navigation system with:
 - Full CRUD operations for campus data
 - Real-time map feature management
 
+## Mobile Navigation Testing
+
+For phone-based pre-deployment validation (LAN access, HTTPS/ngrok, GPS permissions, arrow heading, and retracting path checks), use:
+
+- `MOBILE_TESTING.md`
+
 ## System Architecture
 
 ### Backend (Node.js + Express + MongoDB)
@@ -24,6 +30,20 @@ ALAGAD is a comprehensive campus navigation system with:
 
 ## Setup Instructions
 
+### Quick Start (Backend + Frontend Together)
+
+From the project root, run:
+
+```bash
+npm install
+npm run install:all
+npm start
+```
+
+This starts:
+- Backend on `http://localhost:3001`
+- Frontend on `http://localhost:3000`
+
 ### 1. Backend Setup
 
 1. Navigate to the backend directory:
@@ -39,10 +59,16 @@ npm install
 3. Configure environment variables in `.env`:
 ```
 NODE_ENV=development
-PORT=5000
+PORT=3001
 MONGO_URI=mongodb+srv://Alagad:<db_password>@cluster0.99dcypv.mongodb.net/?appName=Cluster0
 JWT_SECRET=supersecretjwtkey
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o
 ```
+
+Security note:
+- Never commit API keys to the repo. Keep them in `.env` (already ignored by `.gitignore`).
+- If you ever paste/share an API key publicly, revoke it and generate a new one.
 
 **Important**: Replace `<db_password>` with your actual MongoDB password.
 
@@ -51,7 +77,7 @@ JWT_SECRET=supersecretjwtkey
 npm run dev
 ```
 
-The backend will run on `http://localhost:5000`
+The backend will run on `http://localhost:3001`
 
 ### 2. Frontend Setup
 
@@ -67,7 +93,7 @@ npm install
 
 3. Create a `.env` file with:
 ```
-REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_API_URL=http://localhost:3001/api
 REACT_APP_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
 

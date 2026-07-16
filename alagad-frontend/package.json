@@ -2,6 +2,7 @@
   "name": "alagad-frontend",
   "version": "0.1.0",
   "private": true,
+  "proxy": "http://localhost:3001",
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@mapbox/mapbox-gl-draw": "^1.4.0",
@@ -24,7 +25,10 @@
   },
   "scripts": {
     "start": "set \"HOST=0.0.0.0\"&& react-scripts start",
+    "start:https": "set \"HOST=0.0.0.0\"&& set \"HTTPS=true\"&& react-scripts start",
     "start:guest": "set \"HOST=0.0.0.0\"&& set \"PORT=3000\"&& set \"REACT_APP_MODE=guest\"&& set \"REACT_APP_HIDE_GUEST_LOGIN=true\"&& react-scripts start",
+    "start:guest:ngrok": "set \"HOST=0.0.0.0\"&& set \"PORT=3000\"&& set \"DANGEROUSLY_DISABLE_HOST_CHECK=true\"&& set \"WDS_SOCKET_PORT=443\"&& set \"REACT_APP_MODE=guest\"&& set \"REACT_APP_HIDE_GUEST_LOGIN=true\"&& react-scripts start",
+    "start:guest:https": "set \"HOST=0.0.0.0\"&& set \"HTTPS=true\"&& set \"PORT=3000\"&& set \"REACT_APP_MODE=guest\"&& set \"REACT_APP_HIDE_GUEST_LOGIN=true\"&& react-scripts start",
     "start:admin": "set \"HOST=0.0.0.0\"&& set \"PORT=3001\"&& set \"REACT_APP_MODE=admin\"&& set \"REACT_APP_HIDE_GUEST_LOGIN=false\"&& react-scripts start",
     "start:superadmin": "set \"HOST=0.0.0.0\"&& set \"PORT=3003\"&& set \"REACT_APP_HIDE_GUEST_LOGIN=false\"&& react-scripts start",
     "build": "react-scripts build",

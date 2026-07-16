@@ -46,6 +46,10 @@ const buildingSchema = mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    last_indexed: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

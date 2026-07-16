@@ -11,91 +11,131 @@ const LandingPage = () => {
         <img src="/bg.jpg" alt="" className="landing-bg-image" />
       </div>
 
-      {/* Hero Section with illustrated background */}
-      <div className="hero-section">
+      <section className="hero-section" aria-label="ALAGAD hero section">
+        <div className="hero-gradient" aria-hidden="true" />
         <div className="hero-content">
           <img src="/alagad.png" alt="ALAGAD Logo" className="landing-logo" />
-          <div className="hero-text">
-            <h1 className="hero-title">
-              ALAGAD: Navigate Your Campus Effortlessly
-            </h1>
-            <p className="hero-subtitle">
-              Your interactive guide to buildings, facilities, offices, and services on campus.
-            </p>
-          </div>
+          <h1 className="hero-title">YOUR SMART GUIDE TO BUKSU</h1>
+          <p className="hero-subtitle">ALAGAD &mdash; Navigate Your Campus Effortlessly.</p>
         </div>
-      </div>
+      </section>
 
-      {/* Portal Cards */}
-      <div className="cards-section">
-        <div className="cards-row">
-          {/* Public Map View */}
-          <div className="portal-card" onClick={() => navigate('/guest')}>
-            <div className="portal-card-illustration">
-              <img src="/p_map.png" alt="Public Map View" className="portal-card-img" />
+      <section className="main-panels" aria-label="Landing options">
+        <div className="panels-grid">
+          <article className="portal-card" role="button" tabIndex={0} onClick={() => navigate('/guest')}>
+            <div className="portal-icon-circle portal-icon-circle-blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6.5L9 4l6 3 6-2.5v13L15 20l-6-3-6 2.5v-13z" />
+                <path d="M9 4v13" />
+                <path d="M15 7v13" />
+                <path d="M7.2 10a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" />
+                <path d="M7.2 13.3v1.6" />
+                <path d="M16.9 8.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" />
+                <path d="M16.9 11.8v1.7" />
+              </svg>
             </div>
             <h2 className="portal-title">Public Map View</h2>
-            <p className="portal-description">Browse the interactive campus map to locate buildings, offices, and facilities — no account needed.</p>
-            <button className="portal-button guest-portal-btn">
-              Explore Map
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
+            <p className="portal-description">Explore BukSU&apos;s interactive map &mdash; locate buildings, offices, and facilities instantly.</p>
+            <button className="portal-button guest-portal-btn" onClick={(e) => { e.stopPropagation(); navigate('/guest'); }}>
+              Explore Map &rarr;
             </button>
-          </div>
+          </article>
 
-          {/* Admin Dashboard */}
-          <div className="portal-card" onClick={() => navigate('/super-admin-login-form')}>
-            <div className="portal-card-illustration">
-               <img src="/admin_dashboard.png" alt="Public Map View" className="portal-card-img" />
+          <article className="portal-card" role="button" tabIndex={0} onClick={() => navigate('/super-admin-login-form')}>
+            <div className="portal-icon-circle portal-icon-circle-gray" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="7" cy="6.2" r="2.2" />
+                <path d="M3.8 13c.6-1.9 2.1-3 4-3s3.4 1.1 4 3" />
+                <rect x="11.5" y="7.5" width="8.8" height="5.8" rx="1" />
+                <path d="M14.8 16.2h2.2" />
+                <circle cx="19.2" cy="16.6" r="1.4" />
+                <path d="M19.2 14.4v.8M19.2 18v.8M17.6 16.6h.8M20 16.6h.8" />
+              </svg>
             </div>
             <h2 className="portal-title">Admin Dashboard</h2>
-            <p className="portal-description">Manage campus records, map features, and system settings through a secure administrative portal.</p>
-            <button className="portal-button admin-portal-btn">
-              Sign In
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
+            <p className="portal-description">Manage records, customize maps, and control settings securely &mdash; all in one place.</p>
+            <button className="portal-button admin-portal-btn" onClick={(e) => { e.stopPropagation(); navigate('/super-admin-login-form'); }}>
+              Sign in &rarr;
             </button>
-          </div>
+          </article>
         </div>
-      </div>
+      </section>
 
-      {/* Key Features */}
-      <div className="features-section">
+      <section className="features-section" aria-label="Key features">
         <h2 className="features-heading">Key Features</h2>
-        <div className="features-row">
-          <div className="feature-box">
-            <div className="feature-box-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+        <div className="features-grid">
+          <article className="feature-box">
+            <div className="feature-box-icon feature-icon-map">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                role="img"
+                aria-label="Interactive map compass icon"
+              >
+                <circle cx="12" cy="12" r="6.8" />
+                <path d="M12 3.8v1.7M12 18.5v1.7M3.8 12h1.7M18.5 12h1.7" />
+                <path d="M9.2 14.8l2-5.6 5.6-2-2 5.6-5.6 2z" />
               </svg>
             </div>
-            <span className="feature-box-label">Interactive Map</span>
-          </div>
-          <div className="feature-box">
-            <div className="feature-box-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                <path d="M10 8v4m0 0l2 2m-2-2l-2 2" />
+            <h3 className="feature-box-label">Interactive Map</h3>
+            <p className="feature-box-description">Scan every campus spot in seconds.</p>
+          </article>
+          <article className="feature-box">
+            <div className="feature-box-icon feature-icon-directions">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                role="img"
+                aria-label="Smart directions pin and arrow icon"
+              >
+                <path d="M10.8 19.8s4.4-3.9 4.4-7.4a4.4 4.4 0 1 0-8.8 0c0 3.5 4.4 7.4 4.4 7.4z" />
+                <circle cx="10.8" cy="12.3" r="1.4" />
+                <path d="M16.6 5.5H21v4.4" />
+                <path d="M20.8 5.7l-3.4 3.4" />
               </svg>
             </div>
-            <span className="feature-box-label">Search &amp; Directions</span>
-          </div>
-          <div className="feature-box">
-            <div className="feature-box-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            <h3 className="feature-box-label">Smart Directions</h3>
+            <p className="feature-box-description">Get route hints to the right office fast.</p>
+          </article>
+          <article className="feature-box">
+            <div className="feature-box-icon feature-icon-ai">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                role="img"
+                aria-label="AI assistant brain icon"
+              >
+                <path d="M9.4 6.2a2.6 2.6 0 0 0-4.6 1.8 2.7 2.7 0 0 0 .6 5.3 2.5 2.5 0 0 0 3.8 2.1" />
+                <path d="M14.6 6.2a2.6 2.6 0 0 1 4.6 1.8 2.7 2.7 0 0 1-.6 5.3 2.5 2.5 0 0 1-3.8 2.1" />
+                <path d="M12 5.3v13.4" />
+                <path d="M9.3 9.2H12M9.3 12.4H12M12 9.2h2.7M12 12.4h2.7" />
               </svg>
             </div>
-            <span className="feature-box-label">AI Assistant</span>
-          </div>
+            <h3 className="feature-box-label">AI Assistant</h3>
+            <p className="feature-box-description">Ask naturally and get clear campus answers.</p>
+          </article>
         </div>
-      </div>
+      </section>
 
-      {/* Footer */}
       <footer className="landing-footer">
-        <p>&copy; 2026 ALAGAD &middot; BukSU Campus Navigation &amp; Assistant &middot; Powered by AI</p>
+        <nav className="landing-footer-links" aria-label="Footer links">
+          <a href="#privacy">Privacy Policy</a>
+          <a href="#contact">Contact</a>
+          <a href="#help">Help</a>
+        </nav>
+        <p className="landing-footer-copy">&copy; 2026 ALAGAD &middot; BukSU Campus Navigation &amp; Assistant &middot; Powered by AI.</p>
       </footer>
     </div>
   );

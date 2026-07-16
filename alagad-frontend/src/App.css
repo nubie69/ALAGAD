@@ -118,7 +118,7 @@
 /* ========== Guest Header ========== */
 .guest-header {
   background: linear-gradient(135deg, #0b3b66 0%, #1a5a96 100%);
-  color: white;
+  color: #0ac4e0;
   padding: 16px 20px;
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(11, 59, 102, 0.15);

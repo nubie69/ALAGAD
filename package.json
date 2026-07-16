@@ -1,0 +1,26 @@
+{
+  "name": "alagad",
+  "private": true,
+  "scripts": {
+    "dev": "npm start",
+    "install:all": "npm install --prefix alagad-backend && npm install --prefix alagad-frontend",
+    "start": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run dev --prefix alagad-backend\" \"npm run start --prefix alagad-frontend\"",
+    "start:mobile:lan": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run dev --prefix alagad-backend\" \"npm run start:guest --prefix alagad-frontend\"",
+    "start:mobile:https": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run dev --prefix alagad-backend\" \"npm run start:guest:https --prefix alagad-frontend\"",
+    "start:mobile:with-backend-tunnel": "concurrently -k -n backend,frontend,backend-tunnel -c yellow,cyan,blue \"npm run dev --prefix alagad-backend\" \"npm run start:guest --prefix alagad-frontend\" \"npm run tunnel:backend\"",
+    "prestart:mobile:single-ngrok": "kill-port 3000 3001 && powershell -NoProfile -Command \"$ErrorActionPreference='SilentlyContinue'; Get-Process ngrok | Stop-Process -Force; exit 0\"",
+    "start:mobile:single-ngrok": "concurrently -k -n backend,frontend,frontend-tunnel -c yellow,cyan,magenta \"npm run dev --prefix alagad-backend\" \"set REACT_APP_API_URL=/api&& npm run start:guest:ngrok --prefix alagad-frontend\" \"npm run tunnel:frontend\"",
+    "tunnel:frontend": "npx ngrok http 3000",
+    "tunnel:backend": "npx ngrok http 3001",
+    "tunnel:all": "concurrently -k -n frontend-tunnel,backend-tunnel -c magenta,blue \"npm run tunnel:frontend\" \"npm run tunnel:backend\"",
+    "tunnel:mobile": "npm run tunnel:backend",
+    "tunnel:single-link": "npm run tunnel:frontend",
+    "start:prod": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run start --prefix alagad-backend\" \"npm run start --prefix alagad-frontend\"",
+    "test:backend": "npm run test --prefix alagad-backend",
+    "test:frontend": "npm run test --prefix alagad-frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "kill-port": "^2.0.1"
+  }
+}

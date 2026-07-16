@@ -10,6 +10,14 @@ const serviceSchema = mongoose.Schema(
     description: {
       type: String,
     },
+    steps: {
+      type: [String],
+      default: [],
+    },
+    requirements: {
+      type: [String],
+      default: [],
+    },
     department: {
       type: String,
       default: null,
@@ -23,6 +31,10 @@ const serviceSchema = mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    last_indexed: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

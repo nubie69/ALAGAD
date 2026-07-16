@@ -1,0 +1,15 @@
+# Core runtime
+langdetect>=1.0.9
+
+# Optional: better NLP tokenization/lemmatization
+spacy>=3.8.0
+
+# Optional: offline speech-to-text
+vosk>=0.3.45
+
+# Optional: semantic matching
+sentence-transformers>=3.0.1
+numpy>=1.26.0
+
+# Optional: cloud response formatting
+openai>=1.40.0

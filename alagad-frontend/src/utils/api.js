@@ -1,14 +1,28 @@
+const MOBILE_TEST_API_URL = 'https://sedate-obstruct-gathering.ngrok-free.dev/api';
+
 const getApiBaseUrl = () => {
+  const hostname = window.location.hostname;
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+
   if (process.env.REACT_APP_API_URL) {
     // If env var is set but contains localhost, replace with current hostname for LAN access
     const envUrl = process.env.REACT_APP_API_URL;
     if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
-      return envUrl.replace(/localhost|127\.0\.0\.1/, window.location.hostname);
+      // For mobile/LAN testing, use ngrok backend instead of invalid host:3001 mappings.
+      if (!isLocalHost) {
+        return MOBILE_TEST_API_URL;
+      }
+      return envUrl.replace(/localhost|127\.0\.0\.1/, hostname);
     }
     return envUrl;
   }
+
+  if (!isLocalHost) {
+    return MOBILE_TEST_API_URL;
+  }
+
   // Default: use current hostname so it works on both localhost and LAN
-  return `http://${window.location.hostname}:3001/api`;
+  return `http://${hostname}:3001/api`;
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -61,7 +75,9 @@ const apiRequest = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      throw new Error(data.message || `API Error: ${response.status}`);
+      // Prefer backend-provided error message when available
+      const backendMessage = data && (data.error || data.message);
+      throw new Error(backendMessage || `API Error: ${response.status}`);
     }
 
     return data;
@@ -434,10 +450,41 @@ export const overviewAPI = {
 
 // Chat/Chatbot API
 export const chatAPI = {
-  sendMessage: async (message, language = 'en') => {
+  sendMessage: async (message, language = 'en', selectedSuggestion = null, conversationHistory = []) => {
     return await apiRequest('/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, language }),
+      body: JSON.stringify({ message, language, selectedSuggestion, conversationHistory }),
+    });
+  },
+
+  getSuggestions: async (partialQuery, language = 'en', limit = 5) => {
+    const query = encodeURIComponent(String(partialQuery || ''));
+    const lang = encodeURIComponent(String(language || 'en'));
+    const cappedLimit = Math.max(1, Math.min(10, Number(limit) || 5));
+    return await apiRequest(`/chat/suggestions?q=${query}&language=${lang}&limit=${cappedLimit}`);
+  },
+
+  logSuggestionSelection: async (partialQuery, suggestion) => {
+    return await apiRequest('/chat/suggestions/select', {
+      method: 'POST',
+      body: JSON.stringify({
+        partial_query: String(partialQuery || ''),
+        selected_suggestion: suggestion || null,
+      }),
+    });
+  },
+};
+
+// Popular locations API
+export const popularAPI = {
+  getPopular: async () => {
+    return await apiRequest('/popular');
+  },
+
+  logLocation: async (locationId) => {
+    return await apiRequest('/popular/log', {
+      method: 'POST',
+      body: JSON.stringify({ locationId }),
     });
   },
 };

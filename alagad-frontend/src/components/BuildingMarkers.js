@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Marker, Popup } from 'react-map-gl';
 import { BoxMarker } from './BoxMarker';
 
@@ -48,12 +48,20 @@ export const BuildingMarkers = ({
   selectedBuildingId = null,
   isNavigating = false,
   navigationTarget = null,
+  blurMarkers = false,
+  suppressNavTargetPin = false,
   onMarkerClick = null,
   onViewDetails = null,
   onPopupClose = null,
   onNavigate = null,
 }) => {
   const [popupInfo, setPopupInfo] = useState(null);
+
+  useEffect(() => {
+    if (blurMarkers && popupInfo) {
+      setPopupInfo(null);
+    }
+  }, [blurMarkers, popupInfo]);
 
   const validBuildings = useMemo(() => (
     buildings
@@ -70,21 +78,23 @@ export const BuildingMarkers = ({
         const rotation = typeof building.rotation === 'number' ? building.rotation : 0;
         const isSelected = selectedBuildingId === building._id || popupInfo?._id === building._id;
         const isNavTarget = isNavigating && navigationTarget === building.name;
+        const showNavTargetPin = isNavTarget && !suppressNavTargetPin;
 
         return (
           <React.Fragment key={building._id || building.name}>
             <Marker
               longitude={building.coords.lng}
               latitude={building.coords.lat}
-              anchor={isNavTarget ? 'bottom' : 'center'}
+              anchor={showNavTargetPin ? 'bottom' : 'center'}
               rotation={0}
               onClick={(e) => {
+                if (blurMarkers) return;
                 e.originalEvent.stopPropagation();
                 setPopupInfo(building);
                 onMarkerClick?.(building);
               }}
             >
-              {isNavTarget ? (
+              {showNavTargetPin ? (
                 /* Destination pin when navigating to this building */
                 <svg width="36" height="46" viewBox="0 0 32 42" fill="none" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
                   <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26C32 7.163 24.837 0 16 0z" fill={color}/>
@@ -92,15 +102,17 @@ export const BuildingMarkers = ({
                   <circle cx="16" cy="16" r="3.5" fill={color}/>
                 </svg>
               ) : (
-                <BoxMarker
-                  name={building.name}
-                  color={color}
-                  isSelected={isSelected}
-                />
+                <div className={blurMarkers && !isSelected ? 'secondary-nav-marker secondary-nav-marker--blurred' : 'secondary-nav-marker'}>
+                  <BoxMarker
+                    name={building.name}
+                    color={color}
+                    isSelected={isSelected}
+                  />
+                </div>
               )}
             </Marker>
 
-            {popupInfo?._id === building._id && (
+            {popupInfo?._id === building._id && !blurMarkers && (
               <Popup
                 longitude={building.coords.lng}
                 latitude={building.coords.lat}

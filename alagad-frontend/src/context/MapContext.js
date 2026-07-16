@@ -27,44 +27,96 @@ export const MapProvider = ({ children }) => {
       return;
     }
 
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isMobileBrowser = typeof navigator !== 'undefined'
+      && /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    const isSecureContext = typeof window !== 'undefined' ? window.isSecureContext : false;
+
+    // Mobile geolocation generally requires HTTPS (except localhost secure-context exemption).
+    if (isMobileBrowser && !isSecureContext && !isLocalhost) {
+      setLocationError('GPS requires HTTPS on mobile browsers. Open the app via an HTTPS URL (for example, ngrok).');
+      return;
+    }
+
     let watchId = null;
     let retryTimer = null;
-    let retryCount = 0;
-    const MAX_RETRIES = 5;
+    let highRetryCount = 0;
+    const MAX_HIGH_RETRIES = 3;
 
-    const startWatch = (highAccuracy) => {
+    const getWatchOptions = (mode) => {
+      if (mode === 'high') {
+        return {
+          enableHighAccuracy: true,
+          maximumAge: 1500,
+          timeout: 15000,
+        };
+      }
+
+      return {
+        enableHighAccuracy: false,
+        maximumAge: 60000,
+        timeout: 12000,
+      };
+    };
+
+    const normalizeLocation = (pos, mode) => ({
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      accuracy: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
+      heading: Number.isFinite(pos.coords.heading) ? pos.coords.heading : null,
+      speed: Number.isFinite(pos.coords.speed) ? pos.coords.speed : null,
+      timestamp: Number.isFinite(pos.timestamp) ? pos.timestamp : Date.now(),
+      source: mode === 'high' ? 'gps_high_accuracy' : 'network_fallback',
+    });
+
+    const startWatch = (mode = 'high') => {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
-          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setUserLocation(normalizeLocation(pos, mode));
           setLocationError(null);
-          retryCount = 0;
-          // Once we have a low-accuracy fix, upgrade to high accuracy
-          if (!highAccuracy) {
-            startWatch(true);
+          highRetryCount = 0;
+
+          // After a coarse fallback fix, periodically retry high-accuracy GPS.
+          if (mode !== 'high') {
+            if (retryTimer) clearTimeout(retryTimer);
+            retryTimer = setTimeout(() => startWatch('high'), 20000);
           }
         },
         (err) => {
-          // On timeout or position unavailable, retry silently
-          if ((err.code === 2 || err.code === 3) && retryCount < MAX_RETRIES) {
-            retryCount++;
-            retryTimer = setTimeout(() => startWatch(false), 3000);
-          } else if (err.code === 1) {
-            // Permission denied — don't retry, but don't set hard error
-            // User may grant later when startNavigation asks
-            setLocationError('Location permission not granted yet');
+          if (err.code === 1) {
+            // Permission denied: user can still allow later from browser prompt/settings.
+            setLocationError('Location permission denied. Allow location access to enable navigation.');
+            return;
+          }
+
+          if (mode === 'high' && (err.code === 2 || err.code === 3)) {
+            if (highRetryCount < MAX_HIGH_RETRIES) {
+              highRetryCount += 1;
+              if (retryTimer) clearTimeout(retryTimer);
+              retryTimer = setTimeout(() => startWatch('high'), 2500);
+              return;
+            }
+
+            setLocationError('High-accuracy GPS is weak; using Wi-Fi/cell fallback.');
+            startWatch('coarse');
+            return;
+          }
+
+          if (mode === 'coarse' && (err.code === 2 || err.code === 3)) {
+            setLocationError('Location signal is weak indoors. Move to an open area or near a window.');
+            if (retryTimer) clearTimeout(retryTimer);
+            retryTimer = setTimeout(() => startWatch('high'), 12000);
           }
         },
-        {
-          enableHighAccuracy: highAccuracy,
-          maximumAge: highAccuracy ? 10000 : 60000,
-          timeout: highAccuracy ? 20000 : 10000,
-        }
+        getWatchOptions(mode)
       );
     };
 
-    // Start with low accuracy for a quick initial fix
-    startWatch(false);
+    // Always request high-accuracy location first (navigation mode).
+    startWatch('high');
 
     return () => {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);

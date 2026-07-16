@@ -9,6 +9,7 @@ const Service = require('../models/Service');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const { syncRecordIndexByType, syncRecordDeactivationByType } = require('../services/retrieval/indexSyncService');
 
 // Helper: check if request has a valid admin token
 const isAuthenticated = (req) => {
@@ -55,10 +56,14 @@ router.get('/', async (req, res) => {
 // @access  Private (Super Admin only)
 router.post('/', protect, authorize('super_admin'), async (req, res) => {
   try {
-    const { name, code, description, building, floor, active } = req.body;
+    const { name, code, description, building, floor, active, is_active: isActiveInput } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Department name is required' });
     }
+
+    const resolvedActive = isActiveInput !== undefined
+      ? Boolean(isActiveInput)
+      : (active !== undefined ? active : true);
 
     const department = await Department.create({
       name: name.trim(),
@@ -66,10 +71,11 @@ router.post('/', protect, authorize('super_admin'), async (req, res) => {
       description: description ? description.trim() : '',
       building: building || undefined,
       floor: floor || undefined,
-      active: active !== undefined ? active : true,
+      active: resolvedActive,
     });
 
     await department.populate('building', 'name location');
+    await syncRecordIndexByType('Department', department._id);
     res.status(201).json(department);
   } catch (error) {
     if (error.code === 11000) {
@@ -85,7 +91,7 @@ router.post('/', protect, authorize('super_admin'), async (req, res) => {
 // @access  Private (Super Admin only)
 router.put('/:id', protect, authorize('super_admin'), async (req, res) => {
   try {
-    const { name, code, description, building, floor, active } = req.body;
+    const { name, code, description, building, floor, active, is_active: isActiveInput } = req.body;
     const department = await Department.findById(req.params.id);
     if (!department) {
       return res.status(404).json({ message: 'Department not found' });
@@ -96,10 +102,15 @@ router.put('/:id', protect, authorize('super_admin'), async (req, res) => {
     if (description !== undefined) department.description = description.trim();
     if (building !== undefined) department.building = building || undefined;
     if (floor !== undefined) department.floor = floor || undefined;
-    if (active !== undefined) department.active = active;
+    if (isActiveInput !== undefined) {
+      department.active = Boolean(isActiveInput);
+    } else if (active !== undefined) {
+      department.active = active;
+    }
 
     await department.save();
     await department.populate('building', 'name location');
+    await syncRecordIndexByType('Department', department._id);
     res.json(department);
   } catch (error) {
     if (error.code === 11000) {
@@ -121,6 +132,7 @@ router.delete('/:id', protect, authorize('super_admin'), async (req, res) => {
     }
 
     await Department.findByIdAndUpdate(req.params.id, { active: false });
+    await syncRecordDeactivationByType('Department', req.params.id, true);
     res.json({ message: 'Department deactivated successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -135,6 +147,8 @@ router.put('/:id/reactivate', protect, authorize('super_admin'), async (req, res
     const department = await Department.findById(req.params.id);
     if (!department) return res.status(404).json({ message: 'Department not found' });
     await Department.findByIdAndUpdate(req.params.id, { active: true });
+    await syncRecordIndexByType('Department', req.params.id);
+    await syncRecordDeactivationByType('Department', req.params.id, false);
     res.json({ message: 'Department reactivated successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
