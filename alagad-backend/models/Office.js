@@ -50,6 +50,10 @@ const officeSchema = mongoose.Schema(
       type: String,
       default: '#8b5cf6',
     },
+    pinColor: {
+      type: String,
+      default: '#8b5cf6',
+    },
     color: {
       type: String,
     },

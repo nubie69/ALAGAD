@@ -5,6 +5,17 @@ const Building = require('../models/Building');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { syncRecordIndexByType, syncRecordDeactivationByType } = require('../services/retrieval/indexSyncService');
 
+const normalizeBuildingColors = (payload) => {
+  const next = { ...payload };
+  const effectiveColor = String(next.pinColor || next.markerColor || next.color || '').trim();
+  if (effectiveColor) {
+    next.pinColor = effectiveColor;
+    next.markerColor = effectiveColor;
+    next.color = effectiveColor;
+  }
+  return next;
+};
+
 // Helper: check if request has a valid admin token
 const isAuthenticated = (req) => {
   try {
@@ -67,10 +78,10 @@ router.post('/', protect, authorize('super_admin'), async (req, res) => {
   try {
     const department = req.body.department || req.user.department || 'Unassigned';
 
-    const buildingData = {
+    const buildingData = normalizeBuildingColors({
       ...req.body,
       department,
-    };
+    });
     if (Object.prototype.hasOwnProperty.call(buildingData, 'is_active')) {
       buildingData.isActive = Boolean(buildingData.is_active);
       delete buildingData.is_active;
@@ -97,7 +108,7 @@ router.put('/:id', protect, authorize('super_admin'), async (req, res) => {
       return res.status(404).json({ message: 'Building not found' });
     }
 
-    const updateData = { ...req.body };
+    const updateData = normalizeBuildingColors({ ...req.body });
     if (Object.prototype.hasOwnProperty.call(updateData, 'is_active')) {
       updateData.isActive = Boolean(updateData.is_active);
       delete updateData.is_active;

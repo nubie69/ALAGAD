@@ -2,20 +2,22 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import ReactDOM from 'react-dom';
 import MapView, { Source, Layer, Marker, Popup } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
+import buffer from '@turf/buffer';
+import { polygon } from '@turf/helpers';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import SafeGeoJSON from '../components/SafeGeoJSON';
 import BuildingMarkers from '../components/BuildingMarkers';
-import { BoxMarker } from '../components/BoxMarker';
+import BuildingPinMarker from '../components/BuildingPinMarker';
 import ChatBot from '../components/ChatBot';
-import CampusBoundaryFocus from '../components/CampusBoundaryFocus';
 import { useMapState } from '../context/MapContext';
 import { useAuth } from '../context/AuthContext';
 import { buildingsAPI, roomsAPI, officesAPI, facultyAPI, settingsAPI, popularAPI } from '../utils/api';
 
 import '../App.css';
 import './GuestView.modern.css';
-import { BackIcon, MapPinIconOutline } from '../utils/icons';
+import { BackIcon, BuildingIcon, MapPinIconOutline, MicIcon, OfficeIcon, RoomIcon, StopMicIcon } from '../utils/icons';
 import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePathsGeoJSON } from '../utils/campusPathfinding';
+import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import streetNamesGeoJSON from '../data/streetNames.json';
 
 // Bukidnon State University campus bounds (Malaybalay, Bukidnon)
@@ -51,7 +53,60 @@ const FOCUS_POLYGON = [[
   [125.12456418217545, 8.154505505739735],
 ]];
 
+const WORLD_MASK_RING = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
+const CAMPUS_FADE_BUFFER_METERS = [18, 38, 68];
+
+const getPrimaryPolygonRing = (feature) => {
+  const geometry = feature?.geometry;
+  if (geometry?.type === 'Polygon') return geometry.coordinates?.[0] || null;
+  if (geometry?.type === 'MultiPolygon') return geometry.coordinates?.[0]?.[0] || null;
+  return null;
+};
+
+const createCampusFadeMasks = () => {
+  const campusFeature = polygon(FOCUS_POLYGON);
+  const buffers = CAMPUS_FADE_BUFFER_METERS
+    .map((meters) => buffer(campusFeature, meters, { units: 'meters', steps: 18 }))
+    .map(getPrimaryPolygonRing)
+    .filter(Boolean);
+
+  const transitionFeatures = buffers.map((outerRing, index) => {
+    const innerRing = index === 0 ? FOCUS_POLYGON[0] : buffers[index - 1];
+    return {
+      type: 'Feature',
+      properties: { band: index + 1 },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [outerRing, innerRing],
+      },
+    };
+  });
+
+  const farOutsideRing = buffers[buffers.length - 1] || FOCUS_POLYGON[0];
+
+  return {
+    transition: {
+      type: 'FeatureCollection',
+      features: transitionFeatures,
+    },
+    outside: {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'Polygon',
+        coordinates: [WORLD_MASK_RING, farOutsideRing],
+      },
+    },
+    boundary: campusFeature,
+  };
+};
+
+const CAMPUS_FADE_MASKS = createCampusFadeMasks();
+
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
+const LOCATION_PROMPT_DISMISSED_AT_KEY = 'alagad-location-prompt-dismissed-at';
+const LOCATION_REQUEST_EVENT = 'alagad:request-location-access';
+const LOCATION_PROMPT_COOLDOWN_MS = 10 * 60 * 1000;
 
 const USER_INDICATOR_CONFIG = Object.freeze({
   dotColor: '#2563eb',
@@ -67,6 +122,11 @@ const USER_INDICATOR_CONFIG = Object.freeze({
 });
 
 const INDICATOR_LOG_INTERVAL_MS = 1500;
+const KIOSK_CATEGORY_ITEMS = [
+  { id: 'buildings', label: 'Buildings', icon: BuildingIcon, mode: 'Buildings' },
+  { id: 'offices', label: 'Offices', icon: OfficeIcon, mode: 'Offices' },
+  { id: 'rooms', label: 'Rooms', icon: RoomIcon, mode: 'Rooms' },
+];
 
 const normalizeAngle = (value) => ((value % 360) + 360) % 360;
 
@@ -273,7 +333,6 @@ function GuestView() {
   const [mapStyleLoaded, setMapStyleLoaded] = useState(false);
 
   // Collapsed state for quick nav list section
-  const [quickNavCollapsed, setQuickNavCollapsed] = useState(false);
   const [quickNavMode, setQuickNavMode] = useState('Buildings');
 
   // Bottom sheet state for mobile (Google Maps style)
@@ -401,6 +460,7 @@ function GuestView() {
   const [faculty, setFaculty] = useState([]);
   const [popularLocations, setPopularLocations] = useState([]);
   const [popularLoading, setPopularLoading] = useState(true);
+  const [kioskNow, setKioskNow] = useState(() => new Date());
   
   // Chatbot opacity tracking for drag interactions
   const [chatbotOpacity, setChatbotOpacity] = useState(1);
@@ -428,7 +488,9 @@ function GuestView() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [locationPromptVisible, setLocationPromptVisible] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
+  const [locationPromptBusy, setLocationPromptBusy] = useState(false);
   const [pendingNavTarget, setPendingNavTarget] = useState(null);
+  const mobileLocationBootstrapRef = useRef(false);
   
   // Map view state
   const [viewState, setViewState] = useState({
@@ -511,7 +573,29 @@ function GuestView() {
     '--indicator-direction-size': `${USER_INDICATOR_CONFIG.directionSizePx}px`,
   }), []);
 
+  const compassNeedleRotation = useMemo(
+    () => normalizeAngle(-Number(viewState?.bearing || 0)),
+    [viewState?.bearing]
+  );
+
   const NAV_DEBUG = process.env.REACT_APP_NAV_DEBUG === 'true';
+
+  const shouldSuppressLocationPrompt = useCallback(() => {
+    try {
+      const dismissedAt = Number(localStorage.getItem(LOCATION_PROMPT_DISMISSED_AT_KEY) || 0);
+      return Number.isFinite(dismissedAt) && (Date.now() - dismissedAt) < LOCATION_PROMPT_COOLDOWN_MS;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const rememberLocationPromptDismissal = useCallback(() => {
+    try {
+      localStorage.setItem(LOCATION_PROMPT_DISMISSED_AT_KEY, String(Date.now()));
+    } catch {
+      // Ignore localStorage issues and keep the in-memory dismissal.
+    }
+  }, []);
 
   // Handle map load to ensure style is ready
   const onMapLoad = useCallback(() => {
@@ -1114,6 +1198,62 @@ function GuestView() {
     });
   }, []);
 
+  useEffect(() => {
+    if (mobileLocationBootstrapRef.current) return;
+
+    mobileLocationBootstrapRef.current = true;
+
+    let cancelled = false;
+    let permissionStatus = null;
+
+    const syncLocationPermission = async () => {
+      try {
+        if (!navigator.geolocation) return;
+
+        if (navigator.permissions?.query) {
+          permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+
+          if (cancelled) return;
+
+          if (permissionStatus.state === 'granted') {
+            setLocationPromptVisible(false);
+            setLocationDenied(false);
+            return;
+          }
+
+          if (permissionStatus.state === 'denied') {
+            setLocationPromptVisible(false);
+            setLocationDenied(true);
+            return;
+          }
+        }
+
+        if (!shouldSuppressLocationPrompt()) {
+          setLocationDenied(false);
+          setLocationPromptVisible(true);
+        }
+      } catch (err) {
+        console.warn('Unable to preflight geolocation permission:', err);
+      }
+    };
+
+    syncLocationPermission();
+
+    return () => {
+      cancelled = true;
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
+      }
+    };
+  }, [requestCurrentPosition, shouldSuppressLocationPrompt]);
+
+  const handleLocationPromptDismiss = useCallback(() => {
+    setLocationPromptBusy(false);
+    setLocationPromptVisible(false);
+    setLocationDenied(false);
+    rememberLocationPromptDismissal();
+  }, [rememberLocationPromptDismissal]);
+
   // Start navigation to a building/entity
   const startNavigation = useCallback(async (targetEntity, targetName, fallbackEntity = null) => {
     if (!targetEntity) {
@@ -1289,25 +1429,11 @@ function GuestView() {
 
     let loc = userLocation;
 
-    // If location not available, request it (triggers browser permission prompt)
     if (!loc) {
       setLocationDenied(false);
       setLocationPromptVisible(true);
-      setPendingNavTarget({ entity: targetEntity, name: targetName });
-      try {
-        loc = await requestCurrentPosition();
-      } catch (permErr) {
-        if (permErr && permErr.code === 1) {
-          // PERMISSION_DENIED — show persistent blocked dialog
-          setLocationPromptVisible(false);
-          setPendingNavTarget(null);
-          setLocationDenied(true);
-          return;
-        }
-        // Timeout / unavailable — fall through to generic error below
-      }
-      setLocationPromptVisible(false);
-      setPendingNavTarget(null);
+      setPendingNavTarget({ entity: targetEntity, name: targetName, fallbackEntity });
+      return;
     }
 
     // If still no location, show a helpful non-blocking message and exit
@@ -1366,7 +1492,40 @@ function GuestView() {
         map.fitBounds(bounds, { padding: 80, duration: 1000, maxZoom: 19 });
       }
     }
-  }, [userLocation, getCoords, computeRoute, requestCurrentPosition, isMobile, buildings, mapFeatures, NAV_DEBUG]);
+  }, [userLocation, getCoords, computeRoute, isMobile, buildings, mapFeatures, NAV_DEBUG]);
+
+  const handleAllowLocation = useCallback(async () => {
+    setLocationPromptBusy(true);
+    setLocationDenied(false);
+    setNavigationError(null);
+
+    window.dispatchEvent(new Event(LOCATION_REQUEST_EVENT));
+
+    try {
+      await requestCurrentPosition();
+      setLocationPromptVisible(false);
+      setLocationPromptBusy(false);
+
+      if (pendingNavTarget?.entity) {
+        const queuedTarget = pendingNavTarget;
+        setPendingNavTarget(null);
+        startNavigation(queuedTarget.entity, queuedTarget.name, queuedTarget.fallbackEntity || null);
+      }
+    } catch (err) {
+      setLocationPromptBusy(false);
+
+      if (err?.code === 1) {
+        setLocationPromptVisible(false);
+        setLocationDenied(true);
+        return;
+      }
+
+      setNavigationError('Could not get your location. Make sure location is enabled in your device settings and browser, then try again.');
+      setTimeout(() => setNavigationError((prev) =>
+        prev && prev.startsWith('Could not') ? null : prev
+      ), 5000);
+    }
+  }, [pendingNavTarget, requestCurrentPosition, startNavigation]);
 
   // Ref to hold the current navigation destination coords for live re-routing
   const navDestRef = useRef(null);
@@ -1494,7 +1653,48 @@ function GuestView() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setKioskNow(new Date());
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, []);
+
   const normalizedSidebarQuery = sidebarQuery.trim().toLowerCase();
+  const activeCategoryLabel = quickNavMode.toLowerCase();
+  const kioskDateLabel = useMemo(() => (
+    new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(kioskNow)
+  ), [kioskNow]);
+
+  const kioskTimeLabel = useMemo(() => (
+    new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(kioskNow)
+  ), [kioskNow]);
+
+  const {
+    isListening: isVoiceListening,
+    isSupported: isVoiceSupported,
+    startListening: startVoiceListening,
+    stopListening: stopVoiceListening,
+  } = useVoiceRecognition(
+    (transcript) => {
+      setSidebarQuery(String(transcript || '').trim());
+      if (isMobile) setSheetSnap('half');
+    },
+    (error) => {
+      console.warn('Voice search error:', error);
+    }
+  );
+
   const matchesSidebarQuery = useCallback((value) => {
     if (!normalizedSidebarQuery) return true;
     if (!value) return false;
@@ -1556,6 +1756,31 @@ function GuestView() {
 
     return buildEntityRows(activeOffices, 'office');
   }, [buildings, rooms, offices, activeBuildingIds, matchesSidebarQuery, quickNavMode]);
+
+  const activeCategoryCountLabel = useMemo(() => {
+    const count = strictQuickNavItems.length;
+    const singular = quickNavMode === 'Buildings'
+      ? 'building'
+      : quickNavMode === 'Offices'
+        ? 'office'
+        : 'room';
+    const plural = `${singular}s`;
+    return `${count} ${count === 1 ? singular : plural}`;
+  }, [quickNavMode, strictQuickNavItems.length]);
+
+  const quickNavEmptyState = useMemo(() => {
+    if (sidebarQuery.trim()) {
+      return {
+        title: 'No results found',
+        detail: 'Try another search.',
+      };
+    }
+
+    return {
+      title: `No ${activeCategoryLabel} found`,
+      detail: `There are no ${activeCategoryLabel} available right now.`,
+    };
+  }, [activeCategoryLabel, sidebarQuery]);
 
   const popularLookup = useMemo(() => {
     const lookup = {};
@@ -2007,14 +2232,26 @@ function GuestView() {
         // Strict filtered Quick Navigation List View
         <>
           <div className="guest-sidebar-search">
-            <input
-              ref={sidebarInputRef}
-              type="text"
-              placeholder={`Search ${quickNavMode.toLowerCase()}...`}
-              value={sidebarQuery}
-              onChange={(e) => setSidebarQuery(e.target.value)}
-              onFocus={() => { if (isMobile && sheetSnap === 'peek') setSheetSnap('half'); }}
-            />
+            <div className="guest-sidebar-search-field">
+              <input
+                ref={sidebarInputRef}
+                type="text"
+                placeholder="Where do you want to go?"
+                value={sidebarQuery}
+                onChange={(e) => setSidebarQuery(e.target.value)}
+                onFocus={() => { if (isMobile && sheetSnap === 'peek') setSheetSnap('half'); }}
+              />
+              <button
+                type="button"
+                className={`sidebar-voice-btn ${isVoiceListening ? 'listening' : ''}`}
+                onClick={() => (isVoiceListening ? stopVoiceListening() : startVoiceListening())}
+                disabled={!isVoiceSupported}
+                title={isVoiceSupported ? 'Voice search' : 'Voice search unavailable'}
+                aria-label={isVoiceListening ? 'Stop voice search' : 'Start voice search'}
+              >
+                {isVoiceListening ? <StopMicIcon size={18} /> : <MicIcon size={18} />}
+              </button>
+            </div>
 
             {(popularLoading || quickNavPopularLocations.length > 0) && (
               <div className="guest-search-most-visited" aria-label="Most visited shortcuts">
@@ -2061,91 +2298,108 @@ function GuestView() {
             <div className="guest-search-divider" aria-hidden="true" />
           </div>
 
-          <div className="quick-nav-mode-switch" role="tablist" aria-label="Quick navigation mode">
-            {['Buildings', 'Rooms', 'Offices'].map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                role="tab"
-                aria-selected={quickNavMode === mode}
-                className={`quick-nav-mode-btn ${quickNavMode === mode ? 'active' : ''}`}
-                onClick={() => setQuickNavMode(mode)}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-
-          {sidebarQuery && (
-            <div className="sidebar-results-info">
-              {strictQuickNavItems.length} {quickNavMode.toLowerCase()} found for "{sidebarQuery}"
-            </div>
-          )}
-
-          <div className="guest-sidebar-content">
-          <section className="guest-sidebar-section guest-sidebar-section--quicknav">
-            <div className="guest-sidebar-section-header">
-              <h3>{quickNavMode}</h3>
-              <div className="section-header-right">
-                <span>{strictQuickNavItems?.length || 0}</span>
-                <button 
-                  className="section-collapse-btn"
-                  onClick={() => setQuickNavCollapsed(!quickNavCollapsed)}
-                  aria-label={quickNavCollapsed ? `Expand ${quickNavMode.toLowerCase()}` : `Collapse ${quickNavMode.toLowerCase()}`}
-                >
-                  <svg 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 16 16" 
-                    fill="none" 
-                    style={{ transform: quickNavCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
-                  >
-                    <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
+          <div className="guest-sidebar-panel">
+            <div className="guest-sidebar-fixed-sections">
+              <div className="guest-kiosk-overview">
+                <section className="guest-kiosk-section">
+                  <div className="guest-kiosk-section-header">
+                    <h3>Quick Categories</h3>
+                  </div>
+                  <div className="guest-kiosk-category-grid">
+                    {KIOSK_CATEGORY_ITEMS.filter((item) => Boolean(item.mode)).map((item) => {
+                      const isActive = item.mode === quickNavMode;
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`guest-kiosk-category-card ${isActive ? 'active' : ''}`}
+                          onClick={() => setQuickNavMode(item.mode)}
+                        >
+                          <span className="guest-kiosk-category-icon" aria-hidden="true">
+                            <Icon size={20} />
+                          </span>
+                          <span className="guest-kiosk-category-label">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
               </div>
             </div>
-            {!quickNavCollapsed && (
-            <ul>
-              {strictQuickNavItems.map((item) => {
-                const isSelected = selectedItemId === (item.entity?._id || item.entity?.id || item.name)
-                  && selectedItemType === item.entityType;
-                return (
-                  <li key={`${item.entityType}-${item.name}`}>
-                    <button
-                      type="button"
-                      className={`sidebar-link ${isSelected ? 'active' : ''}`}
-                      onClick={() => {
-                        const fallbackEntity = item.entityType === 'building' ? null : item.entity.building;
-                        handleSidebarNavigate(item.entity, item.entityType, fallbackEntity);
-                      }}
-                      title={item.name}
-                    >
-                      <div className="sidebar-link-header">
-                        <span className="sidebar-link-title">{item.name}</span>
-                      </div>
 
-                      {item.entityType !== 'building' && item.entity?.building?.name && (
-                        <div className="sidebar-link-department">{item.entity.building.name}</div>
-                      )}
+            <div className="guest-sidebar-content">
+              <section className="guest-sidebar-results">
+                <div className="guest-sidebar-results-header">
+                  <div>
+                    <span className="guest-sidebar-results-kicker">{quickNavMode}</span>
+                    <h3>{activeCategoryCountLabel}</h3>
+                    <p>
+                      {sidebarQuery
+                        ? `Search results for "${sidebarQuery}".`
+                        : `Browse available ${activeCategoryLabel} across campus.`}
+                    </p>
+                  </div>
+                  <span className="guest-sidebar-results-count">{strictQuickNavItems?.length || 0}</span>
+                </div>
 
-                      {item.entityType === 'office' && !item.entity?.building?.name && (
-                        <div className="sidebar-link-department">No building assigned</div>
-                      )}
+                <ul className="guest-sidebar-results-list">
+                  {strictQuickNavItems.map((item) => {
+                    const isSelected = selectedItemId === (item.entity?._id || item.entity?.id || item.name)
+                      && selectedItemType === item.entityType;
+                    return (
+                      <li key={`${item.entityType}-${item.name}`}>
+                        <button
+                          type="button"
+                          className={`sidebar-link ${isSelected ? 'active' : ''}`}
+                          onClick={() => {
+                            const fallbackEntity = item.entityType === 'building' ? null : item.entity.building;
+                            handleSidebarNavigate(item.entity, item.entityType, fallbackEntity);
+                          }}
+                          title={item.name}
+                        >
+                          <div className="sidebar-link-header">
+                            <span className="sidebar-link-title">{item.name}</span>
+                            <span className="sidebar-link-chevron" aria-hidden="true">›</span>
+                          </div>
 
-                      {item.entityType === 'room' && item.entity?.floor && (
-                        <div className="sidebar-link-department">Floor {item.entity.floor}</div>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-              {strictQuickNavItems.length === 0 && (
-                <li className="sidebar-empty">No {quickNavMode.toLowerCase()} found.</li>
-              )}
-            </ul>
-            )}
-          </section>
+                          {item.entityType !== 'building' && item.entity?.building?.name && (
+                            <div className="sidebar-link-department">
+                              {item.entity.building.name}
+                              {item.entityType === 'room' && item.entity?.floor ? ` • Floor ${item.entity.floor}` : ''}
+                            </div>
+                          )}
+
+                          {item.entityType === 'office' && !item.entity?.building?.name && (
+                            <div className="sidebar-link-department">No building assigned</div>
+                          )}
+
+                          {item.entityType === 'building' && (
+                            <div className="sidebar-link-department">Campus destination</div>
+                          )}
+
+                          {item.entityType === 'room' && !item.entity?.building?.name && item.entity?.floor && (
+                            <div className="sidebar-link-department">Floor {item.entity.floor}</div>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+
+                  {strictQuickNavItems.length === 0 && (
+                    <li className="sidebar-empty">
+                      <strong>{quickNavEmptyState.title}</strong>
+                      <span>{quickNavEmptyState.detail}</span>
+                    </li>
+                  )}
+                </ul>
+              </section>
+            </div>
+
+            <div className="guest-sidebar-footer">
+              <span className="guest-sidebar-footer-date">{kioskDateLabel}</span>
+              <strong className="guest-sidebar-footer-time">{kioskTimeLabel}</strong>
+            </div>
           </div>
         </>
       )}
@@ -2156,8 +2410,8 @@ function GuestView() {
     <div className="App guest-view">
       <header className="guest-header">
         <div className="guest-header-content">
-          <h1>ALAGAD</h1>
-          <p>Campus Navigation</p>
+          <h1>ALAGAD Campus AI Navigation</h1>
+          <p>Interactive university wayfinding kiosk</p>
         </div>
       </header>
 
@@ -2178,8 +2432,8 @@ function GuestView() {
         <aside className="guest-sidebar desktop-sidebar open" aria-label="Quick navigation">
           <div className="guest-sidebar-header">
             <div>
-              <h2>Navigation</h2>
-              <p>Search for Buildings, Rooms and offices</p>
+              <h2>Campus Navigation</h2>
+              <p>Find buildings, offices, rooms, and services across campus.</p>
             </div>
           </div>
           {navigationContent}
@@ -2214,27 +2468,62 @@ function GuestView() {
               {mapStyleLoaded && (
                 <>
                   <Source
-                    id="campus-boundary-mask"
+                    id="campus-boundary-fade-transition"
                     type="geojson"
-                    data={{
-                      type: 'Feature',
-                      geometry: {
-                        type: 'Polygon',
-                        // Outer ring covers the world; inner ring (hole) is the campus
-                        coordinates: [
-                          [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]],
-                          ...FOCUS_POLYGON,
-                        ],
-                      },
-                    }}
+                    data={CAMPUS_FADE_MASKS.transition}
                   >
-                    {/* Dark overlay outside campus */}
                     <Layer
-                      id="campus-outside-mask"
+                      id="campus-boundary-fade-bands"
                       type="fill"
                       paint={{
-                        'fill-color': '#000000',
-                        'fill-opacity': 0.5,
+                        'fill-color': '#0f172a',
+                        'fill-opacity': [
+                          'match',
+                          ['get', 'band'],
+                          1, 0.08,
+                          2, 0.16,
+                          3, 0.25,
+                          0.12,
+                        ],
+                      }}
+                    />
+                  </Source>
+
+                  <Source
+                    id="campus-boundary-fade-outside"
+                    type="geojson"
+                    data={CAMPUS_FADE_MASKS.outside}
+                  >
+                    <Layer
+                      id="campus-outside-muted-area"
+                      type="fill"
+                      paint={{
+                        'fill-color': '#0f172a',
+                        'fill-opacity': 0.36,
+                      }}
+                    />
+                  </Source>
+
+                  <Source
+                    id="campus-boundary-soft-glow"
+                    type="geojson"
+                    data={CAMPUS_FADE_MASKS.boundary}
+                  >
+                    <Layer
+                      id="campus-boundary-soft-glow-line"
+                      type="line"
+                      paint={{
+                        'line-color': '#e2e8f0',
+                        'line-width': [
+                          'interpolate',
+                          ['linear'],
+                          ['zoom'],
+                          16, 7,
+                          18, 11,
+                          20, 16,
+                        ],
+                        'line-blur': 10,
+                        'line-opacity': 0.18,
                       }}
                     />
                   </Source>
@@ -2381,7 +2670,10 @@ function GuestView() {
                     <Marker
                       longitude={coords.lng}
                       latitude={coords.lat}
-                      anchor="center"
+                      anchor="bottom"
+                      rotation={0}
+                      rotationAlignment="viewport"
+                      pitchAlignment="viewport"
                       onClick={(e) => {
                         if (isNavigating) return;
                         e.originalEvent.stopPropagation();
@@ -2393,10 +2685,11 @@ function GuestView() {
                       }}
                     >
                       <div className={isNavigating && !isSelected ? 'secondary-nav-marker secondary-nav-marker--blurred' : 'secondary-nav-marker'}>
-                        <BoxMarker
-                          name={office.name}
-                          color={office.markerColor || office.color || '#8b5cf6'}
-                          isSelected={isSelected}
+                        <BuildingPinMarker
+                          label={office.name}
+                          color={office.pinColor || office.markerColor || office.color || '#8B5CF6'}
+                          highlighted={isSelected}
+                          dimmed={isNavigating && !isSelected}
                         />
                       </div>
                     </Marker>
@@ -2410,7 +2703,19 @@ function GuestView() {
                         onClose={() => { setPopupOffice(null); resetToOverview(); }}
                       >
                         <div style={{ padding: '12px', minWidth: '200px' }}>
-                          <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>{office.name}</h4>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '0 0 6px' }}>
+                            <div
+                              style={{
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '999px',
+                                backgroundColor: office.pinColor || office.markerColor || office.color || '#8B5CF6',
+                                border: '1px solid rgba(0,0,0,0.1)',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>{office.name}</h4>
+                          </div>
                           {office.building?.name && (
                             <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#6b7280' }}>
                               <span style={{ fontWeight: '600' }}>📍 Building:</span> {office.building.name}
@@ -2602,6 +2907,47 @@ function GuestView() {
 
             </MapView>
 
+            {!isMobile && (
+              <button
+                type="button"
+                className="map-compass-control"
+                onClick={() => {
+                  if (mapRef.current) {
+                    mapRef.current.flyTo({
+                      center: [viewState.longitude, viewState.latitude],
+                      zoom: viewState.zoom,
+                      pitch: viewState.pitch,
+                      bearing: 0,
+                      duration: 700,
+                      essential: true,
+                    });
+                  } else {
+                    setViewState((prev) => ({
+                      ...prev,
+                      bearing: 0,
+                    }));
+                  }
+                }}
+                title="Align map to north"
+                aria-label="Align map to north"
+              >
+                <span className="map-compass-cardinal map-compass-cardinal--north">N</span>
+                <span className="map-compass-cardinal map-compass-cardinal--east">E</span>
+                <span className="map-compass-cardinal map-compass-cardinal--south">S</span>
+                <span className="map-compass-cardinal map-compass-cardinal--west">W</span>
+                <span className="map-compass-ring" aria-hidden="true" />
+                <span
+                  className="map-compass-needle"
+                  aria-hidden="true"
+                  style={{ transform: `translate(-50%, -50%) rotate(${compassNeedleRotation}deg)` }}
+                >
+                  <span className="map-compass-needle-north" />
+                  <span className="map-compass-needle-south" />
+                  <span className="map-compass-needle-center" />
+                </span>
+              </button>
+            )}
+
             {/* Navigation Error */}
             {navigationError && (
               <div className="navigation-error">
@@ -2705,16 +3051,23 @@ function GuestView() {
       
       {/* Campus Assistant Chatbot — rendered via portal to escape overflow:hidden */}
       {ReactDOM.createPortal(
-        <ChatBot onOpenChange={setChatbotOpen} buildings={buildings} offices={offices} rooms={rooms} onNavigate={startNavigation} />,
+        <ChatBot
+          onOpenChange={setChatbotOpen}
+          buildings={buildings}
+          offices={offices}
+          rooms={rooms}
+          onNavigate={startNavigation}
+          onViewLocation={handleSidebarNavigate}
+        />,
         document.body
       )}
 
-      {/* Location Permission Prompt Overlay */}
+      {/* Location Permission Bubble */}
       {(locationPromptVisible || locationDenied) && (
-        <div className="location-prompt-overlay">
+        <div className="location-prompt-anchor" role="dialog" aria-live="polite" aria-label="Location access prompt">
           <div className="location-prompt-card">
             <div className="location-prompt-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={locationDenied ? '#ef4444' : '#4285F4'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={locationDenied ? '#ef4444' : '#4285F4'} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
                 {locationDenied && <line x1="3" y1="3" x2="21" y2="21" />}
@@ -2723,42 +3076,41 @@ function GuestView() {
 
             {locationDenied ? (
               <>
-                <h3 className="location-prompt-title">Location Access Blocked</h3>
+                <h3 className="location-prompt-title">Location access blocked</h3>
                 <p className="location-prompt-text">
-                  ALAGAD needs your location to calculate the shortest walking route. Location access has been blocked. To enable it:
+                  ALAGAD still works without location, but live positioning and navigation need browser location access.
                 </p>
-                <ol className="location-prompt-steps">
-                  <li>Tap the <strong>lock / info</strong> icon in your browser address bar</li>
-                  <li>Find <strong>Location</strong> and set it to <strong>Allow</strong></li>
-                  <li>Reload the page and try navigating again</li>
-                </ol>
-                <button
-                  className="location-prompt-cancel"
-                  style={{ background: '#1a73e8', color: 'white', border: 'none', marginTop: 8 }}
-                  onClick={() => setLocationDenied(false)}
-                >
-                  Got it
-                </button>
+                <div className="location-prompt-actions">
+                  <button className="location-prompt-secondary" onClick={handleLocationPromptDismiss}>Close</button>
+                </div>
               </>
             ) : (
               <>
-                <h3 className="location-prompt-title">Enable Location</h3>
+                <h3 className="location-prompt-title">Allow location access?</h3>
                 <p className="location-prompt-text">
-                  ALAGAD needs your location to provide the shortest walking route. Please allow location access when prompted by your browser.
+                  Share your current location to show it on the map and enable location-based navigation.
                 </p>
-                <div className="location-prompt-spinner">
-                  <div className="location-spinner" />
-                  <span>Waiting for location access...</span>
+                {locationPromptBusy && (
+                  <div className="location-prompt-spinner">
+                    <div className="location-spinner" />
+                    <span>Waiting for browser location access...</span>
+                  </div>
+                )}
+                <div className="location-prompt-actions">
+                  <button className="location-prompt-primary" onClick={handleAllowLocation} disabled={locationPromptBusy}>
+                    Allow Location
+                  </button>
+                  <button
+                    className="location-prompt-secondary"
+                    onClick={() => {
+                      setPendingNavTarget(null);
+                      handleLocationPromptDismiss();
+                    }}
+                    disabled={locationPromptBusy}
+                  >
+                    Not Now
+                  </button>
                 </div>
-                <button
-                  className="location-prompt-cancel"
-                  onClick={() => {
-                    setLocationPromptVisible(false);
-                    setPendingNavTarget(null);
-                  }}
-                >
-                  Cancel
-                </button>
               </>
             )}
           </div>

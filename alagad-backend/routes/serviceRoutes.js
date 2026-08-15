@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const Service = require('../models/Service');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { syncRecordIndexByType, syncRecordDeactivationByType } = require('../services/retrieval/indexSyncService');
+const { normalizeStakeholders } = require('../services/retrieval/stakeholderUtils');
 
 const normalizeStepsInput = (steps, description) => {
   const normalizeLine = (line) => String(line || '')
@@ -56,6 +57,24 @@ const normalizeRequirementsInput = (requirements) => {
     .filter(Boolean);
 };
 
+const normalizeServiceKnowledgePayload = (payload) => {
+  const data = { ...payload };
+  const stakeholders = normalizeStakeholders(data.stakeholders || data.stakeholder);
+  data.stakeholders = stakeholders;
+  data.stakeholder = stakeholders[0] || '';
+  data.category = String(data.category || '').trim();
+  data.deadline = String(data.deadline || '').trim();
+  data.processingTime = String(data.processingTime || '').trim();
+  data.verificationStatus = String(data.verificationStatus || 'verified').trim().toLowerCase();
+  data.verifiedBy = String(data.verifiedBy || '').trim();
+  data.sourceOffice = String(data.sourceOffice || '').trim();
+  data.source = String(data.source || '').trim();
+  data.verifiedAt = data.verificationStatus === 'verified'
+    ? (data.verifiedAt ? new Date(data.verifiedAt) : new Date())
+    : (data.verifiedAt || null);
+  return data;
+};
+
 // Helper: check if request has a valid admin token
 const isAuthenticated = (req) => {
   try {
@@ -72,7 +91,7 @@ const isAuthenticated = (req) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const filter = isAuthenticated(req) ? {} : { isActive: { $ne: false } };
+    const filter = isAuthenticated(req) ? {} : { isActive: { $ne: false }, verificationStatus: 'verified' };
     const services = await Service.find(filter)
       .populate({ path: 'office', populate: { path: 'building', select: 'name location' } })
       .sort({ name: 1 });
@@ -105,6 +124,9 @@ router.get('/:id', async (req, res) => {
     if (!service) {
       return res.status(404).json({ message: 'Service not found' });
     }
+    if (!isAuthenticated(req) && (service.isActive === false || service.verificationStatus !== 'verified')) {
+      return res.status(404).json({ message: 'Service not found' });
+    }
     res.json(service);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -116,7 +138,7 @@ router.get('/:id', async (req, res) => {
 // @access  Private (Super Admin)
 router.post('/', protect, authorize('super_admin'), async (req, res) => {
   try {
-    const serviceData = { ...req.body };
+    const serviceData = normalizeServiceKnowledgePayload(req.body);
     if (Object.prototype.hasOwnProperty.call(serviceData, 'is_active')) {
       serviceData.isActive = Boolean(serviceData.is_active);
       delete serviceData.is_active;
@@ -138,7 +160,11 @@ router.post('/', protect, authorize('super_admin'), async (req, res) => {
     }
 
     const service = await Service.create(serviceData);
-    await syncRecordIndexByType('Service', service._id);
+    if (service.isActive === false || service.verificationStatus !== 'verified') {
+      await syncRecordDeactivationByType('Service', service._id, true);
+    } else {
+      await syncRecordIndexByType('Service', service._id);
+    }
     res.status(201).json(service);
   } catch (error) {
     if (error.code === 11000) {
@@ -159,7 +185,7 @@ router.put('/:id', protect, authorize('super_admin'), async (req, res) => {
       return res.status(404).json({ message: 'Service not found' });
     }
     
-    const updateData = { ...req.body };
+    const updateData = normalizeServiceKnowledgePayload(req.body);
     if (Object.prototype.hasOwnProperty.call(updateData, 'is_active')) {
       updateData.isActive = Boolean(updateData.is_active);
       delete updateData.is_active;
@@ -183,7 +209,12 @@ router.put('/:id', protect, authorize('super_admin'), async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     );
-    await syncRecordIndexByType('Service', updatedService?._id || req.params.id);
+    if (updatedService?.isActive === false || updatedService?.verificationStatus !== 'verified') {
+      await syncRecordDeactivationByType('Service', req.params.id, true);
+    } else {
+      await syncRecordIndexByType('Service', updatedService?._id || req.params.id);
+      await syncRecordDeactivationByType('Service', req.params.id, false);
+    }
     res.json(updatedService);
   } catch (error) {
     res.status(500).json({ message: error.message });

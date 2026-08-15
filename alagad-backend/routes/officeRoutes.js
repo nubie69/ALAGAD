@@ -5,6 +5,17 @@ const Office = require('../models/Office');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { syncRecordIndexByType, syncRecordDeactivationByType } = require('../services/retrieval/indexSyncService');
 
+const normalizeOfficeColors = (payload) => {
+  const next = { ...payload };
+  const effectiveColor = String(next.pinColor || next.markerColor || next.color || '').trim();
+  if (effectiveColor) {
+    next.pinColor = effectiveColor;
+    next.markerColor = effectiveColor;
+    next.color = effectiveColor;
+  }
+  return next;
+};
+
 // Helper: check if request has a valid admin token
 const isAuthenticated = (req) => {
   try {
@@ -74,10 +85,10 @@ router.post('/', protect, authorize('super_admin'), async (req, res) => {
   try {
     const department = req.body.department || req.user.department || 'Unassigned';
 
-    const officeData = {
+    const officeData = normalizeOfficeColors({
       ...req.body,
       department,
-    };
+    });
     if (Object.prototype.hasOwnProperty.call(officeData, 'is_active')) {
       officeData.isActive = Boolean(officeData.is_active);
       delete officeData.is_active;
@@ -107,7 +118,7 @@ router.put('/:id', protect, authorize('super_admin'), async (req, res) => {
       return res.status(404).json({ message: 'Office not found' });
     }
 
-    const updateData = { ...req.body };
+    const updateData = normalizeOfficeColors({ ...req.body });
     if (Object.prototype.hasOwnProperty.call(updateData, 'is_active')) {
       updateData.isActive = Boolean(updateData.is_active);
       delete updateData.is_active;

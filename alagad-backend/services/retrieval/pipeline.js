@@ -13,6 +13,12 @@ const { rerankResults } = require('./reranker');
 const { exactMatchFallback } = require('./exactFallback');
 const { buildIndexPayloadFromDatabase } = require('./documentIndexer');
 const { sharedVectorIndexManager, INDEX_TTL_MS } = require('./vectorIndexManager');
+const { detectStakeholderFromQuery, normalizeStakeholders, stakeholderMatches } = require('./stakeholderUtils');
+const {
+	isCurrentVerifiedKnowledge,
+	detectResponsibleOfficeFromQuery,
+	sourceOfficeMatches,
+} = require('./knowledgePolicy');
 
 const DEFAULT_TOP_K = 10;
 const PREFILTER_TOP_K_MULTIPLIER = 4;
@@ -164,6 +170,9 @@ class RetrievalPipeline {
 		const metadataFilters = options?.metadataFilters && typeof options.metadataFilters === 'object'
 			? options.metadataFilters
 			: {};
+		const excludedTypeSet = new Set((options?.excludeTypes || [])
+			.map((item) => String(item || '').trim().toLowerCase())
+			.filter(Boolean));
 		const query = String(userQuery || '').trim();
 		const indexState = await this.ensureIndex();
 
@@ -171,14 +180,18 @@ class RetrievalPipeline {
 		const queryEmbeddingId = `query:${crypto.createHash('sha1').update(normalized.normalized || query).digest('hex').slice(0, 16)}`;
 		const explicitTypeFilters = inferTypeFilters(normalized.normalized);
 		const intent = classifyIntent(normalized.original);
+		const detectedStakeholder = options?.stakeholder
+			? normalizeStakeholders(options.stakeholder)[0] || null
+			: detectStakeholderFromQuery(normalized.original || query);
 		let retrievalCategory = classifyRetrievalCategory(normalized.original);
 		const intentTypeFilters = inferIntentTypeFilters(intent);
 		let typeFilters = explicitTypeFilters.length > 0 ? explicitTypeFilters : intentTypeFilters;
 		if (intent === 'service') {
 			typeFilters = ['Service'];
+			retrievalCategory = 'Service';
 		}
 
-		if (explicitTypeFilters.length > 0 && !explicitTypeFilters.includes('Service')) {
+		if (intent !== 'service' && explicitTypeFilters.length > 0 && !explicitTypeFilters.includes('Service')) {
 			if (explicitTypeFilters.includes('Personnel')) {
 				retrievalCategory = 'Personnel';
 			} else {
@@ -194,6 +207,16 @@ class RetrievalPipeline {
 			retrievalCategory = 'Personnel';
 		}
 
+		const canonicalDocumentPool = this.indexManager
+			? this.indexManager.getCanonicalDocuments({ includeDeactivated: true, includeAdminUser: true, categoryFilters: [] })
+			: indexState.canonicalDocuments;
+		const explicitResponsibleOffice = String(options?.responsibleOffice || '').trim();
+		const shouldInferResponsibleOffice = !['Location', 'Personnel'].includes(retrievalCategory);
+		const detectedResponsibleOffice = explicitResponsibleOffice
+			|| (shouldInferResponsibleOffice
+				? detectResponsibleOfficeFromQuery(normalized.original || query, canonicalDocumentPool)
+				: null);
+
 		const categoryFilters = inferCategoryFilters(retrievalCategory);
 		const queryEmbedding = await this.embed(normalized.normalized || normalized.normalizedRaw || query);
 
@@ -201,15 +224,20 @@ class RetrievalPipeline {
 			category: String(metadataFilters.category || '').trim().toLowerCase(),
 			assigned_building: String(metadataFilters.assigned_building || metadataFilters.assignedBuilding || '').trim().toLowerCase(),
 			floor_location: String(metadataFilters.floor_location || metadataFilters.floorLocation || '').trim().toLowerCase(),
+			stakeholder: String(metadataFilters.stakeholder || detectedStakeholder || '').trim().toLowerCase(),
+			source_office: String(metadataFilters.source_office || metadataFilters.sourceOffice || detectedResponsibleOffice || '').trim().toLowerCase(),
 		};
 
 		const hasMetadataFilters = Boolean(
 			normalizedMetadataFilters.category
 			|| normalizedMetadataFilters.assigned_building
 			|| normalizedMetadataFilters.floor_location
+			|| normalizedMetadataFilters.stakeholder
+			|| normalizedMetadataFilters.source_office
 		);
 
 		const matchesTypeFilters = (metadata) => {
+			if (excludedTypeSet.has(String(metadata?.type || '').trim().toLowerCase())) return false;
 			if (typeFilters.length === 0) return true;
 			return typeFilters.includes(String(metadata?.type || ''));
 		};
@@ -230,6 +258,7 @@ class RetrievalPipeline {
 			const category = String(metadata?.category || '').trim().toLowerCase();
 			const assignedBuilding = String(metadata?.assigned_building || '').trim().toLowerCase();
 			const floorLocation = String(metadata?.floor_location || '').trim().toLowerCase();
+			const stakeholders = normalizeStakeholders(metadata?.stakeholders || metadata?.stakeholder);
 
 			if (normalizedMetadataFilters.category && category !== normalizedMetadataFilters.category) {
 				return false;
@@ -249,8 +278,24 @@ class RetrievalPipeline {
 				}
 			}
 
+			if (normalizedMetadataFilters.stakeholder && !stakeholderMatches(stakeholders, normalizedMetadataFilters.stakeholder)) {
+				return false;
+			}
+
+			if (normalizedMetadataFilters.source_office && !sourceOfficeMatches(metadata, normalizedMetadataFilters.source_office)) {
+				return false;
+			}
+
 			return true;
 		};
+
+		const matchesAuthorityFilters = (metadata) => (
+			includeDeactivated || isCurrentVerifiedKnowledge({
+				...metadata,
+				is_active: metadata?.is_active !== false,
+				deactivated: metadata?.deactivated,
+			})
+		);
 
 		const searchFn = this.indexManager
 			? this.indexManager.search.bind(this.indexManager)
@@ -268,6 +313,7 @@ class RetrievalPipeline {
 			.filter((item) => matchesTypeFilters(item?.metadata))
 			.filter((item) => matchesCategoryFilters(item?.metadata))
 			.filter((item) => matchesMetadataFilters(item?.metadata))
+			.filter((item) => matchesAuthorityFilters(item?.metadata))
 			.slice(0, DEFAULT_TOP_K);
 
 		const reranked = rerankResults(topVectorResults, normalized.normalized, typeFilters);
@@ -283,6 +329,7 @@ class RetrievalPipeline {
 				: indexState.canonicalDocuments.filter((doc) => {
 					const type = String(doc?.type || '').toLowerCase();
 					if (!includeAdminUser && (type === 'admin' || type === 'user')) return false;
+					if (excludedTypeSet.has(type)) return false;
 
 					if (!includeDeactivated && doc.deactivated === true) return false;
 
@@ -305,7 +352,8 @@ class RetrievalPipeline {
 			const filteredCanonicalDocuments = canonicalDocuments
 				.filter((doc) => matchesTypeFilters(doc))
 				.filter((doc) => matchesCategoryFilters(doc))
-				.filter((doc) => matchesMetadataFilters(doc));
+				.filter((doc) => matchesMetadataFilters(doc))
+				.filter((doc) => matchesAuthorityFilters(doc));
 
 			fallback = exactMatchFallback({
 				normalizedQuery: normalized.normalized,
@@ -343,6 +391,18 @@ class RetrievalPipeline {
 			description: item.metadata?.description,
 			requirements: item.metadata?.requirements,
 			process: item.metadata?.process,
+			verification_status: item.metadata?.verification_status,
+			status: item.metadata?.status,
+			verified_by: item.metadata?.verified_by,
+			verified_at: item.metadata?.verified_at,
+			source_office: item.metadata?.source_office,
+			stakeholder: item.metadata?.stakeholder,
+			stakeholders: item.metadata?.stakeholders,
+			deadline: item.metadata?.deadline,
+			processing_time: item.metadata?.processing_time,
+			effective_date: item.metadata?.effective_date,
+			expiration_date: item.metadata?.expiration_date,
+			source_url: item.metadata?.source_url,
 			last_updated: item.metadata?.last_updated,
 			source: item.metadata?.source,
 			content: item.content,
@@ -362,6 +422,8 @@ class RetrievalPipeline {
 			normalizedQuery: normalized.normalized,
 			intent,
 			retrievalCategory,
+			detectedStakeholder,
+			detectedResponsibleOffice,
 			explicitTypeFilters,
 			intentTypeFilters,
 			typeFilters,
@@ -404,7 +466,7 @@ class RetrievalPipeline {
 			fallback,
 			candidateContexts,
 			finalContext,
-			hasReliableInfo: finalContext.length > 0 && finalContext[0].is_active !== false,
+			hasReliableInfo: finalContext.length > 0 && isCurrentVerifiedKnowledge(finalContext[0]),
 		};
 	}
 }

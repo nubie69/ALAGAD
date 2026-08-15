@@ -3,6 +3,8 @@ import { mapAPI } from '../utils/api';
 
 // Bukidnon State University, Malaybalay Campus - Fortich St, Malaybalay City, Bukidnon
 const BUKSU_CAMPUS_CENTER = { lat: 8.1564, lng: 125.1247 };
+const LOCATION_REQUEST_EVENT = 'alagad:request-location-access';
+const LOCATION_REQUEST_STORAGE_KEY = 'alagad-location-access-requested';
 
 const MapContext = createContext(null);
 
@@ -42,6 +44,7 @@ export const MapProvider = ({ children }) => {
     let watchId = null;
     let retryTimer = null;
     let highRetryCount = 0;
+    let cancelled = false;
     const MAX_HIGH_RETRIES = 3;
 
     const getWatchOptions = (mode) => {
@@ -71,6 +74,7 @@ export const MapProvider = ({ children }) => {
     });
 
     const startWatch = (mode = 'high') => {
+      if (cancelled) return;
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
 
       watchId = navigator.geolocation.watchPosition(
@@ -115,10 +119,53 @@ export const MapProvider = ({ children }) => {
       );
     };
 
-    // Always request high-accuracy location first (navigation mode).
-    startWatch('high');
+    const beginLocationTracking = () => {
+      if (cancelled || watchId !== null) return;
+      startWatch('high');
+    };
+
+    const hydrateLocationTracking = async () => {
+      if (cancelled) return;
+
+      try {
+        if (navigator.permissions?.query) {
+          const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+          if (cancelled) return;
+
+          if (permissionStatus.state === 'granted') {
+            beginLocationTracking();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Unable to inspect geolocation permission state:', err);
+      }
+
+      try {
+        const previouslyRequested = localStorage.getItem(LOCATION_REQUEST_STORAGE_KEY) === 'true';
+        if (previouslyRequested) {
+          beginLocationTracking();
+        }
+      } catch (err) {
+        console.warn('Unable to read persisted location request state:', err);
+      }
+    };
+
+    const handleLocationRequest = () => {
+      try {
+        localStorage.setItem(LOCATION_REQUEST_STORAGE_KEY, 'true');
+      } catch (err) {
+        console.warn('Unable to persist location request state:', err);
+      }
+      beginLocationTracking();
+    };
+
+    window.addEventListener(LOCATION_REQUEST_EVENT, handleLocationRequest);
+    hydrateLocationTracking();
 
     return () => {
+      cancelled = true;
+      window.removeEventListener(LOCATION_REQUEST_EVENT, handleLocationRequest);
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       if (retryTimer) clearTimeout(retryTimer);
     };

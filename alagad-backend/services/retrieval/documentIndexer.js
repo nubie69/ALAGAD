@@ -4,8 +4,12 @@ const Office = require('../../models/Office');
 const Room = require('../../models/Room');
 const FacultyStaff = require('../../models/FacultyStaff');
 const Service = require('../../models/Service');
+const FAQ = require('../../models/FAQ');
+const Resource = require('../../models/Resource');
 const { chunkContent } = require('./chunker');
 const { translateToEnglishLexicon } = require('./languageService');
+const { normalizeStakeholders } = require('./stakeholderUtils');
+const { normalizeStatus, isCurrentVerifiedKnowledge } = require('./knowledgePolicy');
 
 const TYPE_TO_COLLECTION = {
   Building: 'buildings',
@@ -14,6 +18,8 @@ const TYPE_TO_COLLECTION = {
   Room: 'rooms',
   Personnel: 'personnel',
   Service: 'services',
+  FAQ: 'faqs',
+  Resource: 'resources',
 };
 
 const PERSONNEL_NICKNAMES = Object.freeze({
@@ -53,6 +59,8 @@ const CATEGORY_TAGS_BY_TYPE = Object.freeze({
   Room: ['location', 'description'],
   Personnel: ['personnel', 'location', 'description'],
   Service: ['service', 'process', 'requirements', 'location', 'description'],
+  FAQ: ['faq', 'question', 'answer', 'requirements', 'process', 'service', 'description'],
+  Resource: ['resource', 'requirements', 'guide', 'form', 'description'],
 });
 
 const CATEGORY_BY_TYPE = Object.freeze({
@@ -62,6 +70,8 @@ const CATEGORY_BY_TYPE = Object.freeze({
   Room: 'room',
   Personnel: 'personnel',
   Service: 'service',
+  FAQ: 'faq',
+  Resource: 'resource',
 });
 
 const MULTILINGUAL_CATEGORY_KEYWORDS = Object.freeze({
@@ -71,6 +81,8 @@ const MULTILINGUAL_CATEGORY_KEYWORDS = Object.freeze({
   personnel: ['personnel', 'person', 'faculty', 'staff', 'sino', 'kinsa'],
   location: ['location', 'where', 'saan', 'asa', 'nasaan'],
   description: ['description', 'details', 'about', 'ano', 'unsa'],
+  faq: ['faq', 'question', 'answer', 'pangutana', 'tanong'],
+  answer: ['answer', 'response', 'sagot', 'tubag'],
 });
 
 const toIso = (value) => {
@@ -251,6 +263,18 @@ const toCanonicalDocument = ({
   description,
   requirements,
   process,
+  verification_status,
+  verified_by,
+  verified_at,
+  source_office,
+  stakeholder,
+  stakeholders,
+  status,
+  effective_date,
+  expiration_date,
+  deadline,
+  processing_time,
+  source_url,
   is_active,
 }) => ({
   id: String(id),
@@ -270,6 +294,18 @@ const toCanonicalDocument = ({
   description: englishIndexText(description),
   requirements: toAliasString((Array.isArray(requirements) ? requirements : String(requirements || '').split(';')).map((value) => englishIndexText(value))),
   process: toAliasString((Array.isArray(process) ? process : String(process || '').split(';')).map((value) => englishIndexText(value))),
+  verification_status: clean(verification_status),
+  verified_by: clean(verified_by),
+  verified_at: verified_at ? toIso(verified_at) : '',
+  source_office: clean(source_office),
+  stakeholder: clean(stakeholder),
+  stakeholders: toAliasString(normalizeStakeholders(stakeholders || stakeholder)),
+  status: normalizeStatus(status),
+  effective_date: effective_date ? toIso(effective_date) : '',
+  expiration_date: expiration_date ? toIso(expiration_date) : '',
+  deadline: clean(deadline),
+  processing_time: clean(processing_time),
+  source_url: clean(source_url),
   is_active: typeof is_active === 'boolean' ? is_active : !Boolean(deactivated),
   last_updated: toIso(last_updated),
   last_indexed: toIso(last_indexed),
@@ -341,6 +377,18 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
       description: clean(item.description),
       requirements: [],
       process: [],
+      verification_status: 'verified',
+      verified_by: clean(item.verifiedBy),
+      verified_at: '',
+      source_office: 'Campus map records',
+      stakeholder: '',
+      stakeholders: [],
+      status: 'verified',
+      effective_date: '',
+      expiration_date: '',
+      deadline: '',
+      processing_time: '',
+      source_url: '',
       is_active: !inactive,
       last_updated: item.updatedAt,
       last_indexed: item.last_indexed,
@@ -385,6 +433,18 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
       description: clean(item.description),
       requirements: [],
       process: [],
+      verification_status: 'verified',
+      verified_by: clean(item.verifiedBy),
+      verified_at: '',
+      source_office: clean(item.name),
+      stakeholder: '',
+      stakeholders: [],
+      status: item.active === false ? 'archived' : 'verified',
+      effective_date: '',
+      expiration_date: '',
+      deadline: '',
+      processing_time: '',
+      source_url: '',
       is_active: !inactive,
       last_updated: item.updatedAt,
       last_indexed: item.last_indexed,
@@ -430,6 +490,18 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
       description: clean(item.description),
       requirements: [],
       process: [],
+      verification_status: 'verified',
+      verified_by: '',
+      verified_at: '',
+      source_office: clean(item.name),
+      stakeholder: '',
+      stakeholders: [],
+      status: item.isActive === false ? 'archived' : 'verified',
+      effective_date: '',
+      expiration_date: '',
+      deadline: '',
+      processing_time: '',
+      source_url: '',
       is_active: !inactive,
       last_updated: item.updatedAt,
       last_indexed: item.last_indexed,
@@ -476,6 +548,18 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
       description: clean(item.description),
       requirements: [],
       process: [],
+      verification_status: 'verified',
+      verified_by: '',
+      verified_at: '',
+      source_office: buildingName,
+      stakeholder: '',
+      stakeholders: [],
+      status: item.isActive === false ? 'archived' : 'verified',
+      effective_date: '',
+      expiration_date: '',
+      deadline: '',
+      processing_time: '',
+      source_url: '',
       is_active: !inactive,
       last_updated: item.updatedAt,
       last_indexed: item.last_indexed,
@@ -528,6 +612,18 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
       description: clean(item.department),
       requirements: [],
       process: [],
+      verification_status: 'verified',
+      verified_by: '',
+      verified_at: '',
+      source_office: officeName || clean(item.department),
+      stakeholder: '',
+      stakeholders: [],
+      status: item.isActive === false ? 'archived' : 'verified',
+      effective_date: '',
+      expiration_date: '',
+      deadline: '',
+      processing_time: '',
+      source_url: '',
       is_active: !inactive,
       last_updated: item.updatedAt,
       last_indexed: item.last_indexed,
@@ -552,7 +648,14 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
     const steps = Array.isArray(item.steps) ? item.steps.join('; ') : '';
     const name = clean(item.name);
     const roleTitle = clean(item.department) || officeName || 'Service';
-    const inactive = isDeactivatedRecord('Service', item);
+    const currentVerified = isCurrentVerifiedKnowledge({
+      ...item,
+      verification_status: item.verificationStatus,
+      status: item.status || item.knowledgeStatus,
+      expiration_date: item.expirationDate,
+      is_active: item.isActive !== false,
+    });
+    const inactive = isDeactivatedRecord('Service', item) || !currentVerified;
     const categoryTags = CATEGORY_TAGS_BY_TYPE.Service;
     const acronym = name
       .split(' ')
@@ -571,10 +674,10 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
       alias_keywords: buildMultilingualAliasKeywords({
         canonicalName: item.name,
         aliases,
-        categoryTags,
+        categoryTags: [...categoryTags, ...normalizeStakeholders(item.stakeholders || item.stakeholder)],
         departmentName: item.department,
       }),
-      category_tags: categoryTags,
+      category_tags: [...categoryTags, ...normalizeStakeholders(item.stakeholders || item.stakeholder)],
       department_name: item.department,
       assigned_building: buildingName,
       floor_location: officeFloor,
@@ -583,6 +686,18 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
       description: clean(item.description),
       requirements: Array.isArray(item.requirements) ? item.requirements : [],
       process: Array.isArray(item.steps) ? item.steps : [],
+      verification_status: normalizeStatus(item.verificationStatus) || 'verified',
+      verified_by: clean(item.verifiedBy),
+      verified_at: item.verifiedAt,
+      source_office: clean(item.sourceOffice) || officeName || clean(item.department),
+      stakeholder: item.stakeholder,
+      stakeholders: item.stakeholders,
+      status: item.status || item.knowledgeStatus || item.verificationStatus || 'verified',
+      effective_date: item.effectiveDate,
+      expiration_date: item.expirationDate,
+      deadline: item.deadline,
+      processing_time: item.processingTime,
+      source_url: item.source,
       is_active: !inactive,
       last_updated: item.updatedAt,
       last_indexed: item.last_indexed,
@@ -594,9 +709,160 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
         `Description: ${clean(item.description)}`,
         `Requirements: ${requirements}`,
         `Process Steps: ${steps}`,
+        `Responsible Office: ${clean(item.sourceOffice) || officeName || clean(item.department)}`,
+        `Stakeholder Audience: ${normalizeStakeholders(item.stakeholders || item.stakeholder).join('; ')}`,
+        `Category: ${clean(item.category)}`,
+        `Deadline: ${clean(item.deadline)}`,
+        `Processing Time: ${clean(item.processingTime)}`,
+        `Source: ${clean(item.source)}`,
         `Department: ${clean(item.department)}`,
         `Office: ${officeName}`,
         `Building: ${buildingName}`,
+      ].join('. '),
+    }));
+  }
+
+  for (const item of (recordsByType.faqs || [])) {
+    const officeName = clean(item?.office?.name);
+    const officeDepartment = clean(item?.office?.department);
+    const departmentName = clean(item?.department?.name) || officeDepartment;
+    const category = 'FAQ';
+    const question = clean(item.name || item.question);
+    const answer = clean(item.verifiedAnswer || item.answer);
+    const keywords = Array.isArray(item.keywords) ? item.keywords : [];
+    const alternativeQuestions = Array.isArray(item.alternativeQuestions) ? item.alternativeQuestions : [];
+    const published = ['published', 'verified'].includes(clean(item.status || 'published').toLowerCase());
+    const currentVerified = isCurrentVerifiedKnowledge({
+      ...item,
+      verification_status: item.verified === true && published ? 'verified' : 'unverified',
+      status: item.status,
+      expiration_date: item.expirationDate,
+      is_active: item.isActive !== false,
+    });
+    const inactive = item?.isActive === false || item?.verified !== true || !currentVerified;
+    const categoryTags = CATEGORY_TAGS_BY_TYPE.FAQ;
+    const aliases = withAliasVariants([question, category, officeName, departmentName, ...keywords, ...alternativeQuestions]);
+
+    canonicalDocuments.push(toCanonicalDocument({
+      id: item._id,
+      type: 'FAQ',
+      category: CATEGORY_BY_TYPE.FAQ,
+      canonical_name: question,
+      role_title: 'FAQ',
+      aliases,
+      alias_keywords: buildMultilingualAliasKeywords({
+        canonicalName: question,
+        aliases,
+        categoryTags: [...categoryTags, ...normalizeStakeholders(item.stakeholders || item.stakeholder)],
+        departmentName,
+      }),
+      category_tags: [...categoryTags, ...normalizeStakeholders(item.stakeholders || item.stakeholder)],
+      department_name: departmentName,
+      assigned_building: '',
+      floor_location: '',
+      number_of_floors: '',
+      location: officeName || departmentName,
+      description: [answer, ...alternativeQuestions, ...keywords].filter(Boolean).join('. '),
+      requirements: [],
+      process: [],
+      verification_status: item.verified === true && published ? 'verified' : 'unverified',
+      verified_by: '',
+      verified_at: item.lastVerified,
+      source_office: officeName || departmentName,
+      stakeholder: item.stakeholder,
+      stakeholders: item.stakeholders,
+      status: item.status || (item.verified ? 'verified' : 'draft'),
+      effective_date: item.effectiveDate,
+      expiration_date: item.expirationDate,
+      deadline: '',
+      processing_time: '',
+      source_url: item.source,
+      is_active: !inactive && published,
+      last_updated: item.updatedAt,
+      last_indexed: item.last_indexed,
+      deactivated: inactive || !published,
+      source: 'faqs',
+      content: [
+        `FAQ Question: ${question}`,
+        `Alternative Questions: ${alternativeQuestions.join('; ')}`,
+        `Keywords: ${keywords.join('; ')}`,
+        `Category: ${clean(item.category)}`,
+        `Answer: ${answer}`,
+        `Responsible Office: ${officeName || departmentName}`,
+        `Stakeholder Audience: ${normalizeStakeholders(item.stakeholders || item.stakeholder).join('; ')}`,
+        `Source: ${clean(item.source)}`,
+        `Office: ${officeName}`,
+        `Department: ${departmentName}`,
+      ].join('. '),
+    }));
+  }
+
+  for (const item of (recordsByType.resources || [])) {
+    const officeName = clean(item?.office?.name);
+    const officeDepartment = clean(item?.office?.department);
+    const departmentName = clean(item?.department?.name) || officeDepartment;
+    const title = clean(item.title);
+    const currentVerified = isCurrentVerifiedKnowledge({
+      ...item,
+      verification_status: item.verified === true ? 'verified' : 'unverified',
+      status: item.status || (item.verified ? 'verified' : 'draft'),
+      expiration_date: item.expirationDate,
+      is_active: item.isActive !== false,
+    });
+    const inactive = item?.isActive === false || item?.verified !== true || !currentVerified;
+    const categoryTags = CATEGORY_TAGS_BY_TYPE.Resource;
+    const stakeholders = normalizeStakeholders(item.stakeholders || item.stakeholder);
+    const aliases = withAliasVariants([title, item.type, item.category, officeName, departmentName, ...stakeholders]);
+
+    canonicalDocuments.push(toCanonicalDocument({
+      id: item._id,
+      type: 'Resource',
+      category: CATEGORY_BY_TYPE.Resource,
+      canonical_name: title,
+      role_title: clean(item.type) || 'Resource',
+      aliases,
+      alias_keywords: buildMultilingualAliasKeywords({
+        canonicalName: title,
+        aliases,
+        categoryTags: [...categoryTags, ...stakeholders],
+        departmentName,
+      }),
+      category_tags: [...categoryTags, ...stakeholders],
+      department_name: departmentName,
+      assigned_building: '',
+      floor_location: '',
+      number_of_floors: '',
+      location: officeName || departmentName,
+      description: clean(item.description),
+      requirements: [],
+      process: [],
+      verification_status: item.verified === true ? 'verified' : 'unverified',
+      verified_by: clean(item.verifiedBy),
+      verified_at: item.lastVerified,
+      source_office: officeName || departmentName,
+      stakeholder: item.stakeholder,
+      stakeholders: item.stakeholders,
+      status: item.verified === true ? 'verified' : 'draft',
+      effective_date: item.effectiveDate,
+      expiration_date: item.expirationDate,
+      deadline: '',
+      processing_time: '',
+      source_url: item.source || item.url,
+      is_active: !inactive,
+      last_updated: item.updatedAt,
+      last_indexed: item.last_indexed,
+      deactivated: inactive,
+      source: 'resources',
+      content: [
+        `Resource: ${title}`,
+        `Type: ${clean(item.type)}`,
+        `Description: ${clean(item.description)}`,
+        `Category: ${clean(item.category)}`,
+        `Responsible Office: ${officeName || departmentName}`,
+        `Stakeholder Audience: ${stakeholders.join('; ')}`,
+        `Office: ${officeName}`,
+        `Department: ${departmentName}`,
+        `Source: ${clean(item.source || item.url)}`,
       ].join('. '),
     }));
   }
@@ -605,13 +871,21 @@ const buildCanonicalDocumentsFromRecords = (recordsByType) => {
 };
 
 const loadRecordsFromDatabase = async () => {
-  const [buildings, departments, offices, rooms, personnel, services] = await Promise.all([
+  const [buildings, departments, offices, rooms, personnel, services, faqs, resources] = await Promise.all([
     Building.find().lean(),
     Department.find().populate('building', 'name').lean(),
     Office.find().populate('building', 'name').populate('room', 'name').lean(),
     Room.find().populate('building', 'name').lean(),
     FacultyStaff.find().populate({ path: 'office', select: 'name building floor room', populate: { path: 'building', select: 'name' } }).lean(),
     Service.find().populate({ path: 'office', select: 'name building floor room', populate: { path: 'building', select: 'name' } }).lean(),
+    FAQ.find()
+      .populate('office', 'name department')
+      .populate('department', 'name code')
+      .lean(),
+    Resource.find()
+      .populate('office', 'name department')
+      .populate('department', 'name code')
+      .lean(),
   ]);
 
   return {
@@ -621,6 +895,8 @@ const loadRecordsFromDatabase = async () => {
     rooms,
     personnel,
     services,
+    faqs,
+    resources,
   };
 };
 
@@ -665,6 +941,20 @@ const loadRecordByTypeAndId = async (type, recordId) => {
     return Service.findById(id).populate({ path: 'office', select: 'name building floor room', populate: { path: 'building', select: 'name' } }).lean();
   }
 
+  if (type === 'FAQ') {
+    return FAQ.findById(id)
+      .populate('office', 'name department')
+      .populate('department', 'name code')
+      .lean();
+  }
+
+  if (type === 'Resource') {
+    return Resource.findById(id)
+      .populate('office', 'name department')
+      .populate('department', 'name code')
+      .lean();
+  }
+
   return null;
 };
 
@@ -687,6 +977,8 @@ const buildIndexPayloadForSingleRecord = async (type, recordId) => {
     rooms: type === 'Room' ? [record] : [],
     personnel: type === 'Personnel' ? [record] : [],
     services: type === 'Service' ? [record] : [],
+    faqs: type === 'FAQ' ? [record] : [],
+    resources: type === 'Resource' ? [record] : [],
   };
 
   const payload = buildIndexPayloadFromRecords(recordsByType);
@@ -709,6 +1001,8 @@ const saveLastIndexedByTypeAndId = async (type, recordId, lastIndexed = new Date
   if (type === 'Room') return Room.findByIdAndUpdate(id, update, { new: true }).lean();
   if (type === 'Personnel') return FacultyStaff.findByIdAndUpdate(id, update, { new: true }).lean();
   if (type === 'Service') return Service.findByIdAndUpdate(id, update, { new: true }).lean();
+  if (type === 'FAQ') return FAQ.findByIdAndUpdate(id, update, { new: true }).lean();
+  if (type === 'Resource') return Resource.findByIdAndUpdate(id, update, { new: true }).lean();
   return null;
 };
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapState } from '../context/MapContext';
 import { useAuth } from '../context/AuthContext';
-import { buildingsAPI, roomsAPI, officesAPI, facultyAPI, servicesAPI, departmentsAPI, settingsAPI, overviewAPI, authAPI } from '../utils/api';
+import { buildingsAPI, roomsAPI, officesAPI, facultyAPI, servicesAPI, faqsAPI, resourcesAPI, departmentsAPI, settingsAPI, overviewAPI, authAPI } from '../utils/api';
 import './SuperAdminDashboard.css';
 import MapEditor from '../components/MapEditor';
 import {
@@ -21,6 +21,17 @@ import {
 } from '../utils/icons';
 
 const AVAILABILITY_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const RESOURCE_TYPES = ['PDF', 'DOC', 'DOCX', 'FORM', 'REQUIREMENTS', 'GUIDE', 'OFFICIAL WEBSITE', 'OTHER'];
+const STAKEHOLDER_OPTIONS = [
+  { value: 'student', label: 'Students' },
+  { value: 'faculty', label: 'Faculty' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'visitor', label: 'Visitors' },
+  { value: 'applicant', label: 'Applicants' },
+  { value: 'parent_guardian', label: 'Parents/Guardians' },
+  { value: 'alumni', label: 'Alumni' },
+  { value: 'other', label: 'Other' },
+];
 const DEFAULT_AVAILABILITY_TIME_SLOT = '8:00 AM – 5:00 PM';
 
 function SuperAdminDashboard() {
@@ -35,6 +46,8 @@ function SuperAdminDashboard() {
   const [offices, setOffices] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [services, setServices] = useState([]);
+  const [faqs, setFaqs] = useState([]);
+  const [resources, setResources] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [overviewStats, setOverviewStats] = useState({
     counts: {
@@ -62,6 +75,11 @@ function SuperAdminDashboard() {
   const [serviceSearch, setServiceSearch] = useState('');
   const [serviceDepartmentFilter, setServiceDepartmentFilter] = useState('');
   const [serviceStatusFilter, setServiceStatusFilter] = useState('');
+  const [faqSearch, setFaqSearch] = useState('');
+  const [faqOfficeFilter, setFaqOfficeFilter] = useState('');
+  const resourceSearch = '';
+  const resourceTypeFilter = '';
+  const resourceStatusFilter = '';
   const [departmentSearch, setDepartmentSearch] = useState('');
   const [departmentStatusFilter, setDepartmentStatusFilter] = useState('');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -217,6 +235,30 @@ function SuperAdminDashboard() {
           setBuildings(servicesBuildingsData);
           break;
         }
+        case 'faqs': {
+          const [faqsData, faqOfficesData, faqDepartmentsData] = await Promise.all([
+            faqsAPI.getAll(),
+            officesAPI.getAll(),
+            departmentsAPI.getAll(),
+          ]);
+          setFaqs(faqsData);
+          setOffices(faqOfficesData);
+          setDepartments(faqDepartmentsData);
+          break;
+        }
+        case 'resources': {
+          const [resourcesData, resourceFaqsData, resourceOfficesData, resourceDepartmentsData] = await Promise.all([
+            resourcesAPI.getAll(),
+            faqsAPI.getAll(),
+            officesAPI.getAll(),
+            departmentsAPI.getAll(),
+          ]);
+          setResources(resourcesData);
+          setFaqs(resourceFaqsData);
+          setOffices(resourceOfficesData);
+          setDepartments(resourceDepartmentsData);
+          break;
+        }
         case 'departments':
           const [departmentsData, deptBuildingsData] = await Promise.all([
             departmentsAPI.getAll(),
@@ -243,7 +285,48 @@ function SuperAdminDashboard() {
     } else if (activeTab === 'offices') {
       setFormData({ name: '', building: '', floor: '', department: '' });
     } else if (activeTab === 'services') {
-      setFormData({ name: '', description: '', requirementsText: '', stepsText: '', office: '', department: '', assignmentType: 'office' });
+      setFormData({
+        name: '',
+        description: '',
+        category: '',
+        stakeholders: [],
+        requirementsText: '',
+        stepsText: '',
+        deadline: '',
+        processingTime: '',
+        sourceOffice: '',
+        source: '',
+        verifiedBy: '',
+        verificationStatus: 'verified',
+        office: '',
+        department: '',
+        assignmentType: 'office',
+      });
+    } else if (activeTab === 'faqs') {
+      setFormData({
+        name: '',
+        verifiedAnswer: '',
+        office: '',
+        department: '',
+        downloadableResourcesText: '',
+      });
+    } else if (activeTab === 'resources') {
+      setFormData({
+        title: '',
+        description: '',
+        type: 'PDF',
+        category: '',
+        stakeholders: [],
+        url: '',
+        office: '',
+        department: '',
+        faqs: [],
+        verified: true,
+        isActive: true,
+        lastVerified: new Date().toISOString().slice(0, 10),
+        verifiedBy: '',
+        source: '',
+      });
     } else if (activeTab === 'faculty') {
       setFormData({ name: '', title: '', contactInfo: '', office: '', department: '', assignmentType: 'office' });
     } else {
@@ -312,6 +395,74 @@ function SuperAdminDashboard() {
     if (byCode?.name) return String(byCode.name).trim();
 
     return key;
+  };
+
+  const getItemId = (item) => String(item?._id || item || '');
+
+  const getMultiSelectValues = (event) => Array.from(event.target.selectedOptions || [])
+    .map((option) => option.value)
+    .filter(Boolean);
+
+  const splitTextareaLines = (value) => Array.from(new Set(String(value || '')
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)));
+
+  const getDownloadableResourceText = (item) => {
+    const resourcesList = Array.isArray(item?.downloadableResources) ? item.downloadableResources : [];
+    return resourcesList
+      .map((resource) => {
+        const title = String(resource?.name || resource?.title || '').trim();
+        const url = String(resource?.url || '').trim();
+        if (!url) return '';
+        return title ? `${title} | ${url}` : url;
+      })
+      .filter(Boolean)
+      .join('\n');
+  };
+
+  const parseDownloadableResourceText = (value) => splitTextareaLines(value)
+    .map((line) => {
+      const parts = line.split('|').map((part) => part.trim()).filter(Boolean);
+      const url = parts.length > 1 ? parts[parts.length - 1] : line.trim();
+      const explicitName = parts.length > 1 ? parts.slice(0, -1).join(' | ') : '';
+      let fallbackName = url;
+      try {
+        const parsed = new URL(url);
+        const filename = parsed.pathname.split('/').filter(Boolean).pop();
+        fallbackName = filename || parsed.hostname;
+      } catch {
+        fallbackName = explicitName || url;
+      }
+      return {
+        name: explicitName || fallbackName,
+        url,
+        type: 'FORM',
+        description: '',
+      };
+    });
+
+  const isSafeHttpUrl = (value) => {
+    try {
+      const parsed = new URL(String(value || '').trim());
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  const getDepartmentDisplayName = (value) => {
+    const key = String(value?._id || value || '').trim();
+    if (!key) return '';
+    const match = departments.find((dept) => String(dept._id) === key || dept.name === key || dept.code === key);
+    return match?.name || value?.name || key;
+  };
+
+  const getOfficeDisplayName = (value) => {
+    const key = String(value?._id || value || '').trim();
+    if (!key) return '';
+    const match = offices.find((office) => String(office._id) === key);
+    return match?.name || value?.name || key;
   };
 
   const handleMaintenanceModeToggle = () => {
@@ -402,11 +553,44 @@ function SuperAdminDashboard() {
       setFormData({
         name: item.name || '',
         description: item.description || '',
+        category: item.category || '',
+        stakeholders: Array.isArray(item.stakeholders) ? item.stakeholders : (item.stakeholder ? [item.stakeholder] : []),
         requirementsText: derivedRequirements.join('\n'),
         stepsText: derivedSteps.join('\n'),
+        deadline: item.deadline || '',
+        processingTime: item.processingTime || '',
+        sourceOffice: item.sourceOffice || '',
+        source: item.source || '',
+        verifiedBy: item.verifiedBy || '',
+        verificationStatus: item.verificationStatus || 'verified',
         office: item.office?._id || item.office || '',
         department: getDepartmentSelectionValue(item.department),
         assignmentType: hasOffice ? 'office' : 'department',
+      });
+    } else if (activeTab === 'faqs') {
+      setFormData({
+        name: item.name || item.question || '',
+        verifiedAnswer: item.verifiedAnswer || item.answer || '',
+        office: item.office?._id || item.office || '',
+        department: item.department?._id || item.department || '',
+        downloadableResourcesText: getDownloadableResourceText(item),
+      });
+    } else if (activeTab === 'resources') {
+      setFormData({
+        title: item.title || '',
+        description: item.description || '',
+        type: item.type || 'PDF',
+        category: item.category || '',
+        stakeholders: Array.isArray(item.stakeholders) ? item.stakeholders : (item.stakeholder ? [item.stakeholder] : []),
+        url: item.url || '',
+        office: item.office?._id || item.office || '',
+        department: item.department?._id || item.department || '',
+        faqs: (item.faqs || []).map(getItemId).filter(Boolean),
+        verified: item.verified === true,
+        isActive: item.isActive !== false,
+        lastVerified: item.lastVerified ? new Date(item.lastVerified).toISOString().slice(0, 10) : '',
+        verifiedBy: item.verifiedBy || '',
+        source: item.source || '',
       });
     } else if (activeTab === 'faculty') {
       const hasOffice = !!(item.office?._id || item.office);
@@ -460,6 +644,14 @@ function SuperAdminDashboard() {
           await servicesAPI.delete(id);
           setServices((prev) => prev.map((s) => s._id === id ? { ...s, isActive: false } : s));
           break;
+        case 'faq':
+          await faqsAPI.delete(id);
+          setFaqs((prev) => prev.map((faq) => faq._id === id ? { ...faq, isActive: false } : faq));
+          break;
+        case 'resource':
+          await resourcesAPI.delete(id);
+          setResources((prev) => prev.map((resource) => resource._id === id ? { ...resource, isActive: false } : resource));
+          break;
         default:
           throw new Error('Unknown delete type');
       }
@@ -498,6 +690,14 @@ function SuperAdminDashboard() {
         case 'service':
           await servicesAPI.reactivate(id);
           setServices((prev) => prev.map((s) => s._id === id ? { ...s, isActive: true } : s));
+          break;
+        case 'faq':
+          await faqsAPI.reactivate(id);
+          setFaqs((prev) => prev.map((faq) => faq._id === id ? { ...faq, isActive: true } : faq));
+          break;
+        case 'resource':
+          await resourcesAPI.reactivate(id);
+          setResources((prev) => prev.map((resource) => resource._id === id ? { ...resource, isActive: true } : resource));
           break;
         default:
           throw new Error('Unknown reactivate type');
@@ -675,8 +875,16 @@ function SuperAdminDashboard() {
           const payload = {
             name: (formData.name || '').trim(),
             description: (formData.description || '').trim(),
+            category: (formData.category || '').trim(),
+            stakeholders: Array.isArray(formData.stakeholders) ? formData.stakeholders : [],
             requirements,
             steps,
+            deadline: (formData.deadline || '').trim(),
+            processingTime: (formData.processingTime || '').trim(),
+            sourceOffice: (formData.sourceOffice || '').trim(),
+            source: (formData.source || '').trim(),
+            verifiedBy: (formData.verifiedBy || '').trim(),
+            verificationStatus: formData.verificationStatus || 'verified',
             office: svcAssignType === 'office' ? formData.office : null,
             department: svcAssignType === 'department'
               ? getDepartmentNameFromSelection(formData.department)
@@ -694,13 +902,65 @@ function SuperAdminDashboard() {
           }
           break;
         }
+        case 'faqs': {
+          const errors = {};
+          if (!formData.name || !formData.name.trim()) errors.name = 'FAQ name / question is required.';
+          if (!formData.verifiedAnswer || !formData.verifiedAnswer.trim()) errors.verifiedAnswer = 'Verified answer is required.';
+          if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            return;
+          }
+          const payload = {
+            name: (formData.name || '').trim(),
+            verifiedAnswer: (formData.verifiedAnswer || '').trim(),
+            office: formData.office || null,
+            department: formData.department || null,
+            resources: [],
+            downloadableResources: parseDownloadableResourceText(formData.downloadableResourcesText),
+          };
+
+          if (editingItem) {
+            await faqsAPI.update(editingItem._id, payload);
+          } else {
+            await faqsAPI.create(payload);
+          }
+          break;
+        }
+        case 'resources': {
+          const payload = {
+            title: (formData.title || '').trim(),
+            description: (formData.description || '').trim(),
+            type: formData.type || 'PDF',
+            category: (formData.category || '').trim(),
+            stakeholders: Array.isArray(formData.stakeholders) ? formData.stakeholders : [],
+            url: (formData.url || '').trim(),
+            office: formData.office || null,
+            department: formData.department || null,
+            faqs: Array.isArray(formData.faqs) ? formData.faqs : [],
+            verified: Boolean(formData.verified),
+            isActive: formData.isActive !== false,
+            lastVerified: formData.verified && formData.lastVerified ? formData.lastVerified : null,
+            verifiedBy: (formData.verifiedBy || '').trim(),
+            source: (formData.source || '').trim(),
+          };
+
+          if (!payload.title) throw new Error('Resource title is required.');
+          if (!isSafeHttpUrl(payload.url)) throw new Error('Resource URL must be a valid HTTP or HTTPS URL.');
+
+          if (editingItem) {
+            await resourcesAPI.update(editingItem._id, payload);
+          } else {
+            await resourcesAPI.create(payload);
+          }
+          break;
+        }
         default:
           throw new Error('Unknown form type');
       }
       await fetchData();
       setShowForm(false);
       setEditingItem(null);
-      if (activeTab !== 'departments') {
+      if (!['departments', 'faqs', 'resources'].includes(activeTab)) {
         await refreshMapFeatures();
       }
       const entityName = activeTab.charAt(0).toUpperCase() + activeTab.slice(1, -1);
@@ -879,6 +1139,55 @@ function SuperAdminDashboard() {
                     <div className="form-info-text">
                       After creating the building, use the Map Editor tool to add its geometric boundaries and mark specific locations on the campus map.
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section-card">
+                <h3 className="form-section-title">Verification</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">Verification Status</label>
+                    <select
+                      className="form-select"
+                      value={formData.verificationStatus || 'verified'}
+                      onChange={(e) => setFormData({ ...formData, verificationStatus: e.target.value })}
+                    >
+                      <option value="verified">Verified</option>
+                      <option value="unverified">Unverified</option>
+                      <option value="outdated">Outdated</option>
+                      <option value="conflicting">Conflicting</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Verified By</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.verifiedBy || ''}
+                      onChange={(e) => setFormData({ ...formData, verifiedBy: e.target.value })}
+                      placeholder="Verifier name or office"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Source Office</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.sourceOffice || ''}
+                      onChange={(e) => setFormData({ ...formData, sourceOffice: e.target.value })}
+                      placeholder="Office that verified this process"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Source</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.source || ''}
+                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                      placeholder="Memo, office record, URL, or document title"
+                    />
                   </div>
                 </div>
               </div>
@@ -1274,6 +1583,32 @@ function SuperAdminDashboard() {
                     />
                   </div>
 
+                  <div className="form-group">
+                    <label className="form-label">Stakeholders</label>
+                    <select
+                      multiple
+                      className="form-select"
+                      value={formData.stakeholders || []}
+                      onChange={(e) => setFormData({ ...formData, stakeholders: getMultiSelectValues(e) })}
+                      style={{ minHeight: 120 }}
+                    >
+                      {STAKEHOLDER_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Category</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.category || ''}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      placeholder="Scholarship, Clearance, Admission"
+                    />
+                  </div>
+
                   <div className="form-group form-group-full">
                     <label className="form-label">
                       Requirements
@@ -1299,6 +1634,28 @@ function SuperAdminDashboard() {
                       onChange={(e) => setFormData({ ...formData, stepsText: e.target.value })}
                       placeholder={"1. Go to the office\n2. Fill out the form\n3. Pay the fee\n4. Wait for release"}
                       rows="5"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Deadline</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.deadline || ''}
+                      onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                      placeholder="Only enter a verified deadline"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Processing Time</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.processingTime || ''}
+                      onChange={(e) => setFormData({ ...formData, processingTime: e.target.value })}
+                      placeholder="Only enter verified processing time"
                     />
                   </div>
                 </div>
@@ -1386,6 +1743,228 @@ function SuperAdminDashboard() {
                     </>
                   )}
                   {formErrors.assignment && <span className="form-error-text">{formErrors.assignment}</span>}
+                </div>
+              </div>
+            </>
+          )}
+          {activeTab === 'faqs' && (
+            <>
+              <div className="form-section-card">
+                <h3 className="form-section-title">FAQ Details</h3>
+                <div className="form-grid">
+                  <div className="form-group form-group-full">
+                    <label className="form-label required">FAQ Name / Question</label>
+                    <input
+                      type="text"
+                      className={`form-input ${formErrors.name ? 'form-input-error' : ''}`}
+                      value={formData.name || ''}
+                      onChange={(e) => { setFormData({ ...formData, name: e.target.value }); setFormErrors({ ...formErrors, name: '' }); }}
+                      placeholder="What are the requirements for scholarship renewal?"
+                      required
+                    />
+                    {formErrors.name && <span className="form-error-text">{formErrors.name}</span>}
+                  </div>
+                  <div className="form-group form-group-full">
+                    <label className="form-label required">Verified Answer</label>
+                    <textarea
+                      className={`form-textarea ${formErrors.verifiedAnswer ? 'form-input-error' : ''}`}
+                      value={formData.verifiedAnswer || ''}
+                      onChange={(e) => { setFormData({ ...formData, verifiedAnswer: e.target.value }); setFormErrors({ ...formErrors, verifiedAnswer: '' }); }}
+                      placeholder="Enter the official answer the chatbot may use."
+                      rows="5"
+                      required
+                    />
+                    {formErrors.verifiedAnswer && <span className="form-error-text">{formErrors.verifiedAnswer}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Office</label>
+                    <select
+                      className="form-select"
+                      value={formData.office || ''}
+                      onChange={(e) => setFormData({ ...formData, office: e.target.value })}
+                    >
+                      <option value="">No office</option>
+                      {offices.map((office) => (
+                        <option key={office._id} value={office._id}>{office.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Department</label>
+                    <select
+                      className="form-select"
+                      value={formData.department || ''}
+                      onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    >
+                      <option value="">No department</option>
+                      {departments.map((dept) => (
+                        <option key={dept._id} value={dept._id}>{dept.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group form-group-full">
+                    <label className="form-label">Downloadable Resources</label>
+                    <textarea
+                      className="form-textarea"
+                      value={formData.downloadableResourcesText || ''}
+                      onChange={(e) => setFormData({ ...formData, downloadableResourcesText: e.target.value })}
+                      placeholder="Paste one link per line, or use: Form Name | https://example.edu.ph/form.pdf"
+                      rows="4"
+                    />
+                    <span className="form-help-text">Optional. Leave blank to show N/A. Valid links become clickable in the chatbot.</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+          {activeTab === 'resources' && (
+            <>
+              <div className="form-section-card">
+                <h3 className="form-section-title">Resource Details</h3>
+                <div className="form-grid">
+                  <div className="form-group form-group-full">
+                    <label className="form-label required">Resource Title</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.title || ''}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Scholarship Renewal Form"
+                      required
+                    />
+                  </div>
+                  <div className="form-group form-group-full">
+                    <label className="form-label">Description</label>
+                    <textarea
+                      className="form-textarea"
+                      value={formData.description || ''}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Official form for scholarship renewal."
+                      rows="3"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Resource Type</label>
+                    <select
+                      className="form-select"
+                      value={formData.type || 'PDF'}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    >
+                      {RESOURCE_TYPES.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Category</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.category || ''}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      placeholder="Guide, Form, Requirements"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label required">Download / Website URL</label>
+                    <input
+                      type="url"
+                      className="form-input"
+                      value={formData.url || ''}
+                      onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                      placeholder="https://example.edu.ph/forms/scholarship-renewal.pdf"
+                      required
+                    />
+                  </div>
+                  <div className="form-group form-group-full">
+                    <label className="form-label">Stakeholders</label>
+                    <select
+                      multiple
+                      className="form-select"
+                      value={formData.stakeholders || []}
+                      onChange={(e) => setFormData({ ...formData, stakeholders: getMultiSelectValues(e) })}
+                      style={{ minHeight: 120 }}
+                    >
+                      {STAKEHOLDER_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Office</label>
+                    <select
+                      className="form-select"
+                      value={formData.office || ''}
+                      onChange={(e) => setFormData({ ...formData, office: e.target.value })}
+                    >
+                      <option value="">No office</option>
+                      {offices.map((office) => (
+                        <option key={office._id} value={office._id}>{office.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Department</label>
+                    <select
+                      className="form-select"
+                      value={formData.department || ''}
+                      onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    >
+                      <option value="">No department</option>
+                      {departments.map((dept) => (
+                        <option key={dept._id} value={dept._id}>{dept.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group form-group-full">
+                    <label className="form-label">Related FAQ</label>
+                    <select
+                      multiple
+                      className="form-select"
+                      value={formData.faqs || []}
+                      onChange={(e) => setFormData({ ...formData, faqs: getMultiSelectValues(e) })}
+                      style={{ minHeight: 120 }}
+                    >
+                      {faqs.map((faq) => (
+                        <option key={faq._id} value={faq._id}>{faq.question}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <label className="form-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.verified !== false}
+                      onChange={(e) => setFormData({ ...formData, verified: e.target.checked, lastVerified: e.target.checked && !formData.lastVerified ? new Date().toISOString().slice(0, 10) : formData.lastVerified })}
+                    />
+                    Verified
+                  </label>
+                  <label className="form-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.isActive !== false}
+                      onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    />
+                    Active
+                  </label>
+                  <div className="form-group">
+                    <label className="form-label">Last Verified</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={formData.lastVerified || ''}
+                      onChange={(e) => setFormData({ ...formData, lastVerified: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Verified By</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.verifiedBy || ''}
+                      onChange={(e) => setFormData({ ...formData, verifiedBy: e.target.value })}
+                      placeholder="Verifier name or office"
+                    />
+                  </div>
                 </div>
               </div>
             </>
@@ -1549,6 +2128,8 @@ function SuperAdminDashboard() {
       offices,
       faculty,
       services,
+      faqs,
+      resources,
       departments,
     };
 
@@ -1661,6 +2242,53 @@ function SuperAdminDashboard() {
       }
     }
 
+    if (activeTab === 'faqs') {
+      const normalizedQuery = faqSearch.trim().toLowerCase();
+      data = data.filter((faq) => {
+        const officeName = getOfficeDisplayName(faq.office);
+        const departmentName = getDepartmentDisplayName(faq.department);
+        const matchesQuery = normalizedQuery
+          ? [
+              faq.name || faq.question,
+              faq.verifiedAnswer || faq.answer,
+              faq.category,
+              ...(Array.isArray(faq.keywords) ? faq.keywords : []),
+              ...(Array.isArray(faq.alternativeQuestions) ? faq.alternativeQuestions : []),
+              officeName,
+              departmentName,
+            ]
+              .filter(Boolean)
+              .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+          : true;
+        const matchesOffice = faqOfficeFilter ? String(faq.office?._id || faq.office || '') === faqOfficeFilter : true;
+        return matchesQuery && matchesOffice;
+      });
+    }
+
+    if (activeTab === 'resources') {
+      const normalizedQuery = resourceSearch.trim().toLowerCase();
+      data = data.filter((resource) => {
+        const officeName = getOfficeDisplayName(resource.office);
+        const departmentName = getDepartmentDisplayName(resource.department);
+        const relatedQuestions = (resource.faqs || []).map((faq) => faq.name || faq.question).join(' ');
+        const matchesQuery = normalizedQuery
+          ? [resource.title, resource.description, resource.type, officeName, departmentName, relatedQuestions]
+              .filter(Boolean)
+              .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+          : true;
+        const matchesType = resourceTypeFilter ? resource.type === resourceTypeFilter : true;
+        return matchesQuery && matchesType;
+      });
+      if (resourceStatusFilter) {
+        data = data.filter((resource) => {
+          if (resourceStatusFilter === 'verified') return resource.verified === true && resource.isActive !== false;
+          if (resourceStatusFilter === 'unverified') return resource.verified !== true && resource.isActive !== false;
+          if (resourceStatusFilter === 'inactive') return resource.isActive === false;
+          return true;
+        });
+      }
+    }
+
     if (loading) return <p>Loading...</p>;
     if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
 
@@ -1712,6 +2340,23 @@ function SuperAdminDashboard() {
                 <th>Service Name</th>
                 <th>Office / Department</th>
                 <th>Description</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </>
+            )}
+            {activeTab === 'faqs' && (
+              <>
+                <th>FAQ Name / Question</th>
+                <th>Office / Department</th>
+                <th>Actions</th>
+              </>
+            )}
+            {activeTab === 'resources' && (
+              <>
+                <th>Resource</th>
+                <th>Type</th>
+                <th>Office / Department</th>
+                <th>Verification</th>
                 <th>Status</th>
                 <th>Actions</th>
               </>
@@ -1867,6 +2512,65 @@ function SuperAdminDashboard() {
                       {item.isActive !== false
                         ? <button className="btn-deactivate" onClick={() => handleDelete(item._id, 'service')}>Deactivate</button>
                         : <button className="btn-activate" onClick={() => handleReactivate(item._id, 'service')}>Activate</button>
+                      }
+                    </div>
+                  </td>
+                </>
+              )}
+              {activeTab === 'faqs' && (
+                <>
+                  <td className="td-name">
+                    <div>{item.name || item.question}</div>
+                    <div style={{ color: '#64748b', fontSize: 12 }}>{item.verifiedAnswer || item.answer}</div>
+                  </td>
+                  <td>
+                    {getOfficeDisplayName(item.office)
+                      ? <span className="assignment-badge assignment-badge--office">{getOfficeDisplayName(item.office)}</span>
+                      : getDepartmentDisplayName(item.department)
+                        ? <span className="assignment-badge assignment-badge--dept">{getDepartmentDisplayName(item.department)}</span>
+                        : '-'}
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      <button className="btn-icon-expanded" onClick={() => handleEdit(item)} title="Edit FAQ"><EditIcon /></button>
+                      {item.isActive !== false
+                        ? <button className="btn-deactivate" onClick={() => handleDelete(item._id, 'faq')}>Deactivate</button>
+                        : <button className="btn-activate" onClick={() => handleReactivate(item._id, 'faq')}>Activate</button>
+                      }
+                    </div>
+                  </td>
+                </>
+              )}
+              {activeTab === 'resources' && (
+                <>
+                  <td className="td-name">
+                    <div>{item.title}</div>
+                    <div style={{ color: '#64748b', fontSize: 12 }}>{item.description || '-'}</div>
+                  </td>
+                  <td>{item.type || '-'}</td>
+                  <td>
+                    {getOfficeDisplayName(item.office)
+                      ? <span className="assignment-badge assignment-badge--office">{getOfficeDisplayName(item.office)}</span>
+                      : getDepartmentDisplayName(item.department)
+                        ? <span className="assignment-badge assignment-badge--dept">{getDepartmentDisplayName(item.department)}</span>
+                        : '-'}
+                  </td>
+                  <td className="td-center">
+                    <span className={`status-pill ${item.verified === true ? 'status-pill--active' : 'status-pill--inactive'}`}>
+                      {item.verified === true ? 'VERIFIED' : 'UNVERIFIED'}
+                    </span>
+                  </td>
+                  <td className="td-center">
+                    <span className={`status-pill ${item.isActive !== false ? 'status-pill--active' : 'status-pill--inactive'}`}>
+                      {item.isActive !== false ? 'ACTIVE' : 'INACTIVE'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      <button className="btn-icon-expanded" onClick={() => handleEdit(item)} title="Edit Resource"><EditIcon /></button>
+                      {item.isActive !== false
+                        ? <button className="btn-deactivate" onClick={() => handleDelete(item._id, 'resource')}>Deactivate</button>
+                        : <button className="btn-activate" onClick={() => handleReactivate(item._id, 'resource')}>Activate</button>
                       }
                     </div>
                   </td>
@@ -2242,6 +2946,19 @@ function SuperAdminDashboard() {
               </span>
             </button>
           </div>
+
+          <div className="nav-section">
+            <h4 className="nav-section-title">FAQ & Knowledge</h4>
+            <button
+              className={`nav-item ${activeTab === 'faqs' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('faqs'); setShowForm(false); }}
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <ServiceIcon />
+                FAQs
+              </span>
+            </button>
+          </div>
           
           <div className="nav-section">
             <h4 className="nav-section-title">Tools</h4>
@@ -2473,7 +3190,38 @@ function SuperAdminDashboard() {
             {renderTable()}
           </div>
         )}
-        
+
+        {activeTab === 'faqs' && (
+          <div className="management-section">
+            <div className="section-header">
+              <h2>FAQ Management</h2>
+              <button onClick={handleCreate} className="btn-primary">+ Add FAQ</button>
+            </div>
+            <p>Manage verified campus answers that the chatbot can use as authoritative information.</p>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <input
+                type="text"
+                value={faqSearch}
+                onChange={(e) => setFaqSearch(e.target.value)}
+                placeholder="Search FAQs..."
+                style={{ flex: '1 1 240px', padding: '10px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+              />
+              <select
+                value={faqOfficeFilter}
+                onChange={(e) => setFaqOfficeFilter(e.target.value)}
+                style={{ flex: '0 1 220px', padding: '10px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+              >
+                <option value="">All Offices</option>
+                {offices.map((office) => (
+                  <option key={office._id} value={office._id}>{office.name}</option>
+                ))}
+              </select>
+            </div>
+            {renderForm()}
+            {renderTable()}
+          </div>
+        )}
+
         {activeTab === 'map-editor' && (
           <div className="management-section">
             <h2>Map Editor</h2>

@@ -2,6 +2,9 @@ const Building = require('../../models/Building');
 const Room = require('../../models/Room');
 const FacultyStaff = require('../../models/FacultyStaff');
 const Service = require('../../models/Service');
+const FAQ = require('../../models/FAQ');
+const Resource = require('../../models/Resource');
+const { isSafeResourceUrl } = require('../../utils/resourceUrl');
 
 const clean = (value) => {
   const text = String(value || '').trim();
@@ -87,8 +90,145 @@ const get_service_details = async (id) => {
       ? item.steps.map((entry) => String(entry || '').trim()).filter(Boolean)
       : [],
     contact: clean(item?.office?.contactInfo),
+    stakeholder: clean(item.stakeholder),
+    stakeholders: Array.isArray(item.stakeholders) ? item.stakeholders.map(clean).filter(Boolean) : [],
+    category: clean(item.category),
+    deadline: clean(item.deadline),
+    processingTime: clean(item.processingTime),
+    source: clean(item.source),
+    verificationStatus: clean(item.verificationStatus) || 'verified',
+    verifiedBy: clean(item.verifiedBy),
+    verifiedAt: item.verifiedAt ? new Date(item.verifiedAt).toISOString() : null,
+    sourceOffice: clean(item.sourceOffice) || clean(item?.office?.name) || clean(item.department),
+    status: clean(item.status) || clean(item.verificationStatus) || 'verified',
+    effectiveDate: item.effectiveDate ? new Date(item.effectiveDate).toISOString() : null,
+    expirationDate: item.expirationDate ? new Date(item.expirationDate).toISOString() : null,
     last_updated: item.updatedAt ? new Date(item.updatedAt).toISOString() : null,
   };
+};
+
+const serializeResource = (item) => {
+  if (!item || isInactive(item) || item.verified !== true || !isSafeResourceUrl(item.url)) return null;
+  const title = clean(item.title || item.name);
+  return {
+    id: String(item._id),
+    title,
+    name: title,
+    description: clean(item.description),
+    type: clean(item.type),
+    url: clean(item.url),
+    officeId: item?.office?._id ? String(item.office._id) : null,
+    officeName: clean(item?.office?.name),
+    departmentId: item?.department?._id ? String(item.department._id) : null,
+    departmentName: clean(item?.department?.name),
+    stakeholder: clean(item.stakeholder),
+    stakeholders: Array.isArray(item.stakeholders) ? item.stakeholders.map(clean).filter(Boolean) : [],
+    category: clean(item.category),
+    verified: true,
+    verifiedBy: clean(item.verifiedBy),
+    lastVerified: item.lastVerified ? new Date(item.lastVerified).toISOString() : null,
+  };
+};
+
+const serializeRelatedFaq = (item) => {
+  if (!item || isInactive(item) || item.verified !== true || ['draft', 'pending_review', 'archived'].includes(String(item.status || '').toLowerCase())) return null;
+  return {
+    id: String(item._id),
+    question: clean(item.name || item.question),
+    name: clean(item.name || item.question),
+    officeName: clean(item?.office?.name),
+    departmentName: clean(item?.department?.name),
+  };
+};
+
+const get_faq_details = async (id) => {
+    const item = await FAQ.findById(id)
+    .populate('office', 'name department contactInfo')
+    .populate('department', 'name code')
+    .populate({
+      path: 'relatedFaqs',
+      select: 'question category office department verified isActive status',
+      populate: [
+        { path: 'office', select: 'name' },
+        { path: 'department', select: 'name code' },
+      ],
+    })
+    .populate({
+      path: 'resources',
+      select: 'title description type url office department verified isActive lastVerified',
+      populate: [
+        { path: 'office', select: 'name department contactInfo' },
+        { path: 'department', select: 'name code' },
+      ],
+    })
+    .lean();
+
+  if (!item || isInactive(item) || item.verified !== true || ['draft', 'pending_review', 'archived'].includes(String(item.status || '').toLowerCase())) return null;
+
+  const linkedResourceIds = new Set((item.resources || []).map((resource) => String(resource?._id || resource)));
+  const reverseResources = await Resource.find({
+    faqs: item._id,
+    _id: { $nin: Array.from(linkedResourceIds) },
+    verified: true,
+    isActive: { $ne: false },
+  })
+    .populate('office', 'name department contactInfo')
+    .populate('department', 'name code')
+    .lean();
+
+  const inlineResources = (item.downloadableResources || [])
+    .map((resource) => serializeResource({
+      ...resource,
+      _id: resource._id || `${item._id}:${resource.name}`,
+      verified: true,
+      isActive: true,
+    }))
+    .filter(Boolean);
+
+  const linkedResources = [...(item.resources || []), ...reverseResources]
+    .map(serializeResource)
+    .filter(Boolean);
+  const resources = [...inlineResources, ...linkedResources];
+
+  return {
+    id: String(item._id),
+    question: clean(item.name || item.question),
+    name: clean(item.name || item.question),
+    answer: clean(item.verifiedAnswer || item.answer),
+    verifiedAnswer: clean(item.verifiedAnswer || item.answer),
+    category: clean(item.category),
+    keywords: Array.isArray(item.keywords) ? item.keywords.map(clean).filter(Boolean) : [],
+    alternativeQuestions: Array.isArray(item.alternativeQuestions) ? item.alternativeQuestions.map(clean).filter(Boolean) : [],
+    stakeholder: clean(item.stakeholder),
+    stakeholders: Array.isArray(item.stakeholders) ? item.stakeholders.map(clean).filter(Boolean) : [],
+    source: clean(item.source),
+    status: clean(item.status),
+    effectiveDate: item.effectiveDate ? new Date(item.effectiveDate).toISOString() : null,
+    expirationDate: item.expirationDate ? new Date(item.expirationDate).toISOString() : null,
+    officeId: item?.office?._id ? String(item.office._id) : null,
+    officeName: clean(item?.office?.name),
+    departmentId: item?.department?._id ? String(item.department._id) : null,
+    departmentName: clean(item?.department?.name) || clean(item?.office?.department),
+    contact: clean(item?.office?.contactInfo),
+    relatedFaqs: (item.relatedFaqs || []).map(serializeRelatedFaq).filter(Boolean).slice(0, 5),
+    resources,
+    downloadableResources: resources,
+    verificationStatus: 'verified',
+    verified: true,
+    verifiedBy: clean(item.verifiedBy),
+    lastVerified: item.lastVerified ? new Date(item.lastVerified).toISOString() : null,
+    sourceOffice: clean(item?.office?.name) || clean(item?.department?.name),
+    last_updated: item.updatedAt ? new Date(item.updatedAt).toISOString() : null,
+  };
+};
+
+const get_resource_details = async (id) => {
+  const item = await Resource.findById(id)
+    .populate('office', 'name department contactInfo')
+    .populate('department', 'name code')
+    .lean();
+
+  return serializeResource(item);
 };
 
 const fetchStructuredByType = async (type, id) => {
@@ -96,6 +236,8 @@ const fetchStructuredByType = async (type, id) => {
   if (type === 'Room') return get_room(id);
   if (type === 'Personnel') return get_personnel(id);
   if (type === 'Service') return get_service_details(id);
+  if (type === 'FAQ') return get_faq_details(id);
+  if (type === 'Resource') return get_resource_details(id);
   return null;
 };
 
@@ -104,5 +246,7 @@ module.exports = {
   get_room,
   get_personnel,
   get_service_details,
+  get_faq_details,
+  get_resource_details,
   fetchStructuredByType,
 };

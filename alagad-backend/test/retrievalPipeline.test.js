@@ -576,4 +576,240 @@ describe('Retrieval Pipeline', () => {
     expect(result.finalContext).to.have.length(1);
     expect(result.finalContext[0].id).to.equal('service-issuance');
   });
+
+  it('can exclude FAQ records from automatic chatbot retrieval', async () => {
+    const customPipeline = new RetrievalPipeline({
+      indexLoader: async () => ({
+        canonicalDocuments: [
+          {
+            id: 'faq-good-moral',
+            record_id: 'faq-good-moral',
+            type: 'FAQ',
+            canonical_name: 'How can I request a Good Moral Certificate?',
+            aliases: 'good moral certificate',
+            category_tags: 'faq;question;answer',
+            last_updated: new Date().toISOString(),
+            source: 'faqs',
+            content: 'FAQ Question: How can I request a Good Moral Certificate? Answer: Request it through Student Services.',
+          },
+        ],
+        chunkDocuments: [
+          {
+            id: 'faq-good-moral:0',
+            canonical_id: 'faq-good-moral',
+            chunk_index: 0,
+            content: 'FAQ Question: How can I request a Good Moral Certificate? Answer: Request it through Student Services.',
+            metadata: {
+              id: 'faq-good-moral:0',
+              canonical_id: 'faq-good-moral',
+              record_id: 'faq-good-moral',
+              type: 'FAQ',
+              canonical_name: 'How can I request a Good Moral Certificate?',
+              aliases: 'good moral certificate',
+              category_tags: 'faq;question;answer',
+              source: 'faqs',
+            },
+          },
+        ],
+      }),
+      useSharedIndex: false,
+    });
+
+    const result = await customPipeline.retrieve('good moral certificate', {
+      excludeTypes: ['FAQ'],
+    });
+
+    expect(result.hasReliableInfo).to.equal(false);
+    expect(result.finalContext).to.have.length(0);
+  });
+
+  it('excludes expired verified records from authoritative retrieval', async () => {
+    const expiredDate = new Date(Date.now() - 86400000).toISOString();
+    const customVectorStore = {
+      docs: [],
+      clear() {
+        this.docs = [];
+      },
+      upsertMany(items) {
+        this.docs = Array.isArray(items) ? items : [];
+      },
+      search() {
+        return this.docs.map((doc) => ({ ...doc, similarity: 0.96 }));
+      },
+    };
+
+    const customPipeline = new RetrievalPipeline({
+      vectorStore: customVectorStore,
+      indexLoader: async () => ({
+        canonicalDocuments: [
+          {
+            id: 'service-expired-scholarship',
+            record_id: 'service-expired-scholarship',
+            type: 'Service',
+            canonical_name: 'Scholarship Renewal',
+            aliases: 'scholarship renewal',
+            category_tags: 'service;requirements',
+            source_office: 'Scholarship Office',
+            verification_status: 'verified',
+            status: 'verified',
+            expiration_date: expiredDate,
+            last_updated: new Date().toISOString(),
+            source: 'services',
+            content: 'Service: Scholarship Renewal. Requirements: Application form.',
+          },
+        ],
+        chunkDocuments: [
+          {
+            id: 'service-expired-scholarship:0',
+            canonical_id: 'service-expired-scholarship',
+            chunk_index: 0,
+            content: 'Service: Scholarship Renewal. Requirements: Application form.',
+            metadata: {
+              id: 'service-expired-scholarship:0',
+              canonical_id: 'service-expired-scholarship',
+              record_id: 'service-expired-scholarship',
+              type: 'Service',
+              canonical_name: 'Scholarship Renewal',
+              aliases: 'scholarship renewal',
+              category_tags: 'service;requirements',
+              source_office: 'Scholarship Office',
+              verification_status: 'verified',
+              status: 'verified',
+              expiration_date: expiredDate,
+              last_updated: new Date().toISOString(),
+              source: 'services',
+            },
+          },
+        ],
+      }),
+      useSharedIndex: false,
+    });
+
+    const result = await customPipeline.retrieve('scholarship renewal requirements');
+
+    expect(result.hasReliableInfo).to.equal(false);
+    expect(result.finalContext).to.have.length(0);
+  });
+
+  it('filters ambiguous service results by the responsible office named in the query', async () => {
+    const customVectorStore = {
+      docs: [],
+      clear() {
+        this.docs = [];
+      },
+      upsertMany(items) {
+        this.docs = Array.isArray(items) ? items : [];
+      },
+      search() {
+        return this.docs
+          .map((doc) => ({
+            ...doc,
+            similarity: String(doc?.metadata?.source_id || doc?.metadata?.canonical_id || '').includes('registrar')
+              ? 0.97
+              : 0.95,
+          }))
+          .sort((a, b) => b.similarity - a.similarity);
+      },
+    };
+
+    const now = new Date().toISOString();
+    const customPipeline = new RetrievalPipeline({
+      vectorStore: customVectorStore,
+      indexLoader: async () => ({
+        canonicalDocuments: [
+          {
+            id: 'office-scholarship',
+            record_id: 'office-scholarship',
+            type: 'Office',
+            canonical_name: 'Scholarship Office',
+            aliases: 'Scholarship',
+            source_office: 'Scholarship Office',
+            category_tags: 'location',
+            verification_status: 'verified',
+            status: 'verified',
+            last_updated: now,
+            source: 'offices',
+            content: 'Office: Scholarship Office.',
+          },
+          {
+            id: 'service-registrar-application',
+            record_id: 'service-registrar-application',
+            type: 'Service',
+            canonical_name: 'Application Requirements',
+            aliases: 'requirements',
+            source_office: 'Registrar Office',
+            category_tags: 'service;requirements',
+            verification_status: 'verified',
+            status: 'verified',
+            last_updated: now,
+            source: 'services',
+            content: 'Service: Application Requirements. Responsible Office: Registrar Office.',
+          },
+          {
+            id: 'service-scholarship-application',
+            record_id: 'service-scholarship-application',
+            type: 'Service',
+            canonical_name: 'Application Requirements',
+            aliases: 'requirements',
+            source_office: 'Scholarship Office',
+            category_tags: 'service;requirements',
+            verification_status: 'verified',
+            status: 'verified',
+            last_updated: now,
+            source: 'services',
+            content: 'Service: Application Requirements. Responsible Office: Scholarship Office.',
+          },
+        ],
+        chunkDocuments: [
+          {
+            id: 'service-registrar-application:0',
+            canonical_id: 'service-registrar-application',
+            chunk_index: 0,
+            content: 'Service: Application Requirements. Responsible Office: Registrar Office.',
+            metadata: {
+              id: 'service-registrar-application:0',
+              canonical_id: 'service-registrar-application',
+              record_id: 'service-registrar-application',
+              type: 'Service',
+              canonical_name: 'Application Requirements',
+              aliases: 'requirements',
+              source_office: 'Registrar Office',
+              category_tags: 'service;requirements',
+              verification_status: 'verified',
+              status: 'verified',
+              last_updated: now,
+              source: 'services',
+            },
+          },
+          {
+            id: 'service-scholarship-application:0',
+            canonical_id: 'service-scholarship-application',
+            chunk_index: 0,
+            content: 'Service: Application Requirements. Responsible Office: Scholarship Office.',
+            metadata: {
+              id: 'service-scholarship-application:0',
+              canonical_id: 'service-scholarship-application',
+              record_id: 'service-scholarship-application',
+              type: 'Service',
+              canonical_name: 'Application Requirements',
+              aliases: 'requirements',
+              source_office: 'Scholarship Office',
+              category_tags: 'service;requirements',
+              verification_status: 'verified',
+              status: 'verified',
+              last_updated: now,
+              source: 'services',
+            },
+          },
+        ],
+      }),
+      useSharedIndex: false,
+    });
+
+    const result = await customPipeline.retrieve('scholarship office application requirements');
+
+    expect(result.detectedResponsibleOffice).to.equal('Scholarship Office');
+    expect(result.hasReliableInfo).to.equal(true);
+    expect(result.finalContext[0].id).to.equal('service-scholarship-application');
+  });
 });

@@ -1,10 +1,10 @@
-import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map, { Marker } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapState } from '../context/MapContext';
 import { buildingsAPI, officesAPI, mapAPI } from '../utils/api';
 import SafeGeoJSON from './SafeGeoJSON';
-import { BoxMarker } from './BoxMarker';
+import BuildingPinMarker from './BuildingPinMarker';
 import './MapEditor.css';
 
 const BUKSU_CAMPUS = {
@@ -12,45 +12,61 @@ const BUKSU_CAMPUS = {
   zoom: 17.75,
 };
 
-// Campus boundaries - prevents scrolling outside this area
 const CAMPUS_BOUNDS = [[125.1210, 8.1535], [125.1270, 8.1595]];
-
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
+const DEFAULT_BUILDING_PIN_COLOR = '#D93025';
+const DEFAULT_OFFICE_PIN_COLOR = '#8B5CF6';
+const PIN_PALETTE = [
+  { color: '#D93025', name: 'Red' },
+  { color: '#2563EB', name: 'Blue' },
+  { color: '#16A34A', name: 'Green' },
+  { color: '#EA580C', name: 'Orange' },
+  { color: '#7C3AED', name: 'Purple' },
+  { color: '#0F766E', name: 'Teal' },
+  { color: '#CA8A04', name: 'Gold' },
+  { color: '#1D4ED8', name: 'Dark Blue' },
+];
 
-// Pin color based on type/name
+const formatCoord = (value, digits = 6) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num.toFixed(digits) : '';
+};
+
+const parseCoord = (value) => {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const getPinColor = (item, type) => {
-  if (type === 'office') return '#8b5cf6';
-  const name = (item.name || '').toLowerCase();
-  if (name.includes('admin') || name.includes('registrar')) return '#8b5cf6';
-  if (name.includes('library') || name.includes('cafeteria') || name.includes('gym')) return '#10b981';
-  if (name.includes('dorm') || name.includes('residential')) return '#f59e0b';
-  return '#3b82f6';
+  if (type === 'office') {
+    return item?.pinColor || item?.markerColor || item?.color || DEFAULT_OFFICE_PIN_COLOR;
+  }
+  return item?.pinColor || item?.markerColor || item?.color || DEFAULT_BUILDING_PIN_COLOR;
 };
 
 function MapEditor() {
   const { mapFeatures, refreshMapFeatures } = useMapState();
   const mapRef = useRef(null);
 
-  // Data
   const [buildings, setBuildings] = useState([]);
   const [offices, setOffices] = useState([]);
-
-  // UI state
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState(null);
   const [mapStyleLoaded, setMapStyleLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState('buildings');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Pin placement mode
   const [placingPin, setPlacingPin] = useState(null);
   const [tempPin, setTempPin] = useState(null);
-
-  // Selected marker + live-edit state (inline panel, no modal)
-  const [selectedPin, setSelectedPin] = useState(null);   // { ...item, pinType }
-  const [liveEdit, setLiveEdit] = useState({ rotation: 0, color: '#569ec2', name: '', description: '' });
-
-  // Map view
+  const [selectedPin, setSelectedPin] = useState(null);
+  const [liveEdit, setLiveEdit] = useState({
+    color: DEFAULT_BUILDING_PIN_COLOR,
+    name: '',
+    description: '',
+    latitude: '',
+    longitude: '',
+  });
   const [viewState, setViewState] = useState({
     longitude: BUKSU_CAMPUS.center.lng,
     latitude: BUKSU_CAMPUS.center.lat,
@@ -59,7 +75,11 @@ function MapEditor() {
     pitch: 0,
   });
 
-  // Load data
+  const showNotification = useCallback((message, type = 'success') => {
+    setNotification({ message, type });
+    window.setTimeout(() => setNotification(null), 3000);
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       const [buildingsData, officesData] = await Promise.all([
@@ -77,13 +97,6 @@ function MapEditor() {
     loadData();
   }, [loadData]);
 
-  // Show notification
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  // Map load handler
   const onMapLoad = useCallback(() => {
     if (!mapRef.current) return;
     const map = mapRef.current.getMap();
@@ -94,85 +107,141 @@ function MapEditor() {
     }
   }, []);
 
-  // Get coordinates from geometry
   const getCoords = useCallback((item) => {
     const geom = item?.geometry;
     if (!geom || !geom.coordinates) return null;
+
     if (geom.type === 'Point') {
       const [lng, lat] = geom.coordinates;
       if (typeof lng === 'number' && typeof lat === 'number') return { lat, lng };
     }
-    if (geom.type === 'Polygon' && Array.isArray(geom.coordinates[0])) {
+
+    if (geom.type === 'Polygon' && Array.isArray(geom.coordinates?.[0])) {
       const ring = geom.coordinates[0];
-      let lngSum = 0, latSum = 0;
-      ring.forEach(([lng, lat]) => { lngSum += lng; latSum += lat; });
+      let lngSum = 0;
+      let latSum = 0;
+      ring.forEach(([lng, lat]) => {
+        lngSum += lng;
+        latSum += lat;
+      });
       return { lng: lngSum / ring.length, lat: latSum / ring.length };
     }
+
     return null;
   }, []);
 
-  // Buildings and offices with/without pins
-  const buildingsWithPins = useMemo(() => buildings.filter(b => getCoords(b)), [buildings, getCoords]);
-  const officesWithPins = useMemo(() => offices.filter(o => getCoords(o)), [offices, getCoords]);
+  const validFeatures = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: (mapFeatures?.features || []).filter((feature) => {
+      try {
+        const geom = feature?.geometry;
+        if (!geom || !geom.coordinates) return false;
+        return geom.type !== 'Point';
+      } catch {
+        return false;
+      }
+    }),
+  }), [mapFeatures]);
 
-  // Filtered lists
+  const buildingsWithPins = useMemo(
+    () => buildings.filter((building) => getCoords(building)),
+    [buildings, getCoords]
+  );
+
+  const officesWithPins = useMemo(
+    () => offices.filter((office) => getCoords(office)),
+    [offices, getCoords]
+  );
+
   const query = searchQuery.trim().toLowerCase();
   const filteredBuildings = useMemo(() => {
     if (!query) return buildings;
-    return buildings.filter(b => b.name?.toLowerCase().includes(query) || b.location?.toLowerCase().includes(query));
+    return buildings.filter((building) => building.name?.toLowerCase().includes(query));
   }, [buildings, query]);
 
   const filteredOffices = useMemo(() => {
     if (!query) return offices;
-    return offices.filter(o => o.name?.toLowerCase().includes(query) || o.building?.name?.toLowerCase().includes(query));
+    return offices.filter((office) =>
+      office.name?.toLowerCase().includes(query)
+      || office.building?.name?.toLowerCase().includes(query)
+    );
   }, [offices, query]);
 
-  // Valid GeoJSON features (polygons only - points handled by markers)
-  const validFeatures = useMemo(() => ({
-    type: 'FeatureCollection',
-    features: (mapFeatures?.features || []).filter(f => {
-      try {
-        const geom = f?.geometry;
-        if (!geom || !geom.coordinates) return false;
-        if (geom.type === 'Point') return false;
-        return true;
-      } catch { return false; }
-    }),
-  }), [mapFeatures]);
+  const selectedCoords = useMemo(() => ({
+    lat: parseCoord(liveEdit.latitude),
+    lng: parseCoord(liveEdit.longitude),
+  }), [liveEdit.latitude, liveEdit.longitude]);
 
-  // Handle map click for pin placement
-  const handleMapClick = useCallback((e) => {
+  const findItemByType = useCallback((type, id) => {
+    if (type === 'office') return offices.find((office) => office._id === id) || null;
+    return buildings.find((building) => building._id === id) || null;
+  }, [buildings, offices]);
+
+  const flyToCoords = useCallback((lat, lng) => {
+    setViewState((prev) => ({ ...prev, longitude: lng, latitude: lat, zoom: 19 }));
+  }, []);
+
+  const flyToPin = useCallback((item) => {
+    const coords = getCoords(item);
+    if (coords) flyToCoords(coords.lat, coords.lng);
+  }, [flyToCoords, getCoords]);
+
+  const handleMapClick = useCallback((event) => {
     if (!placingPin) return;
-    const { lng, lat } = e.lngLat;
-    setTempPin({ lng, lat });
+    setTempPin({ lng: event.lngLat.lng, lat: event.lngLat.lat });
   }, [placingPin]);
 
-  // Start placing pin for an item
-  const startPlacingPin = (item, type) => {
-    setPlacingPin({ id: item._id, name: item.name, type });
-    setTempPin(null);
-    setSelectedPin(null);
-    showNotification(`Click on the map to place pin for "${item.name}"`, 'info');
-  };
-
-  // Cancel pin placement
-  const cancelPlacing = () => {
+  const openEditPanel = useCallback((item, type) => {
+    const coords = getCoords(item);
+    setSelectedPin({ ...item, pinType: type });
+    setLiveEdit({
+      name: item.name || '',
+      description: item.description || '',
+      color: getPinColor(item, type),
+      latitude: formatCoord(coords?.lat),
+      longitude: formatCoord(coords?.lng),
+    });
     setPlacingPin(null);
     setTempPin(null);
-  };
+  }, [getCoords]);
 
-  // Save pin placement
-  const savePin = async () => {
+  const startPlacingPin = useCallback((item, type) => {
+    const existingCoords = getCoords(item);
+    setPlacingPin({ id: item._id, name: item.name, type });
+    setTempPin(existingCoords);
+    setSelectedPin(null);
+    showNotification(`Place or drag the marker for "${item.name}", then save.`, 'info');
+    if (existingCoords) {
+      flyToCoords(existingCoords.lat, existingCoords.lng);
+    }
+  }, [flyToCoords, getCoords, showNotification]);
+
+  const relocatePin = useCallback((item, type) => {
+    const coords = getCoords(item);
+    setPlacingPin({ id: item._id, name: item.name, type });
+    setTempPin(coords);
+    setSelectedPin(null);
+    showNotification(`Drag or reposition "${item.name}" on the map, then confirm.`, 'info');
+    if (coords) {
+      flyToCoords(coords.lat, coords.lng);
+    }
+  }, [flyToCoords, getCoords, showNotification]);
+
+  const cancelPlacing = useCallback(() => {
+    setPlacingPin(null);
+    setTempPin(null);
+  }, []);
+
+  const savePin = useCallback(async () => {
     if (!placingPin || !tempPin) return;
     try {
       setSaving(true);
-      const geometry = {
+      await mapAPI.setPin(placingPin.id, placingPin.type, {
         type: 'Point',
         coordinates: [tempPin.lng, tempPin.lat],
-      };
-      await mapAPI.setPin(placingPin.id, placingPin.type, geometry);
+      });
       await Promise.all([loadData(), refreshMapFeatures()]);
-      showNotification(`Pin placed for "${placingPin.name}"`);
+      showNotification(`Pin saved for "${placingPin.name}"`);
       setPlacingPin(null);
       setTempPin(null);
     } catch (err) {
@@ -180,10 +249,9 @@ function MapEditor() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [loadData, placingPin, refreshMapFeatures, showNotification, tempPin]);
 
-  // Remove pin from item
-  const removePin = async (item, type) => {
+  const removePin = useCallback(async (item, type) => {
     if (!window.confirm(`Remove the map pin from "${item.name}"?`)) return;
     try {
       setSaving(true);
@@ -196,45 +264,44 @@ function MapEditor() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [loadData, refreshMapFeatures, showNotification]);
 
-  // Open inline properties panel for a marker
-  const openEditPanel = (item, type) => {
-    setSelectedPin({ ...item, pinType: type });
-    setLiveEdit({
-      name: item.name || '',
-      description: item.description || '',
-      color: item.markerColor || item.color || getPinColor(item, type),
-      rotation: typeof item.rotation === 'number' ? item.rotation : 0,
-    });
-    setPlacingPin(null);
-  };
-
-  // Save live-edited properties to DB
-  const saveEditedPin = async () => {
+  const saveEditedPin = useCallback(async () => {
     if (!selectedPin) return;
+
+    const lat = parseCoord(liveEdit.latitude);
+    const lng = parseCoord(liveEdit.longitude);
+    if (lat === null || lng === null) {
+      showNotification('Enter valid latitude and longitude before saving.', 'error');
+      return;
+    }
+
+    const baseUpdate = {
+      name: liveEdit.name.trim(),
+      description: liveEdit.description.trim(),
+      pinColor: liveEdit.color,
+      markerColor: liveEdit.color,
+      color: liveEdit.color,
+      geometry: {
+        type: 'Point',
+        coordinates: [lng, lat],
+      },
+    };
+
     try {
       setSaving(true);
-      const updateData = {
-        name: liveEdit.name.trim(),
-        description: liveEdit.description.trim(),
-        markerColor: liveEdit.color,
-        color: liveEdit.color,
-        rotation: Number(liveEdit.rotation),
-      };
-      if (selectedPin.pinType === 'building') {
-        await buildingsAPI.update(selectedPin._id, {
-          ...updateData,
-          location: selectedPin.location || liveEdit.name.trim(),
-        });
-      } else {
+
+      if (selectedPin.pinType === 'office') {
         await officesAPI.update(selectedPin._id, {
-          ...updateData,
+          ...baseUpdate,
           building: selectedPin.building?._id || selectedPin.building,
           floor: selectedPin.floor,
           department: selectedPin.department,
         });
+      } else {
+        await buildingsAPI.update(selectedPin._id, baseUpdate);
       }
+
       await Promise.all([loadData(), refreshMapFeatures()]);
       showNotification(`"${liveEdit.name}" saved`);
       setSelectedPin(null);
@@ -243,42 +310,117 @@ function MapEditor() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [liveEdit, loadData, refreshMapFeatures, selectedPin, showNotification]);
 
-  // Relocate pin
-  const relocatePin = (item, type) => {
-    setPlacingPin({ id: item._id, name: item.name, type });
-    setTempPin(null);
-    setSelectedPin(null);
-    showNotification(`Click on the map to move pin for "${item.name}"`, 'info');
-  };
+  const handleSelectedMarkerDragEnd = useCallback((event) => {
+    if (!selectedPin) return;
+    setLiveEdit((prev) => ({
+      ...prev,
+      latitude: formatCoord(event.lngLat.lat),
+      longitude: formatCoord(event.lngLat.lng),
+    }));
+  }, [selectedPin]);
 
-  // Fly to pin
-  const flyToPin = (item) => {
-    const coords = getCoords(item);
-    if (coords) {
-      setViewState(prev => ({ ...prev, longitude: coords.lng, latitude: coords.lat, zoom: 19 }));
-    }
+  const handleTempPinCoordChange = useCallback((field, value) => {
+    const parsed = parseCoord(value);
+    if (parsed === null) return;
+    setTempPin((prev) => ({
+      ...(prev || { lng: viewState.longitude, lat: viewState.latitude }),
+      [field]: parsed,
+    }));
+  }, [viewState.latitude, viewState.longitude]);
+
+  const renderList = (items, type) => {
+    const filtered = type === 'office' ? filteredOffices : filteredBuildings;
+    return (
+      <>
+        {filtered.filter((item) => getCoords(item)).map((item) => {
+          const isActive = selectedPin?._id === item._id;
+          const pinColor = getPinColor(item, type);
+          return (
+            <div
+              key={item._id}
+              className={`me-list-item ${isActive ? 'me-list-item--active' : ''}`}
+              onClick={() => { flyToPin(item); openEditPanel(item, type); }}
+            >
+              <span className="me-list-swatch" style={{ backgroundColor: pinColor }} />
+              <div className="me-list-item-info">
+                <span className="me-list-item-name">{item.name}</span>
+                <span className="me-list-item-meta">
+                  {type === 'office'
+                    ? (item.building?.name || `${formatCoord(getCoords(item)?.lat, 5)}, ${formatCoord(getCoords(item)?.lng, 5)}`)
+                    : `${formatCoord(getCoords(item)?.lat, 5)}, ${formatCoord(getCoords(item)?.lng, 5)}`}
+                </span>
+              </div>
+              <div className="me-list-item-actions">
+                <button className="me-icon-btn" onClick={(e) => { e.stopPropagation(); relocatePin(item, type); }} title="Move pin">↔</button>
+                <button className="me-icon-btn me-icon-btn--danger" onClick={(e) => { e.stopPropagation(); removePin(item, type); }} title="Remove pin">✕</button>
+              </div>
+            </div>
+          );
+        })}
+
+        {filtered.filter((item) => !getCoords(item)).length > 0 && (
+          <div className="me-list-divider">Without Pins</div>
+        )}
+
+        {filtered.filter((item) => !getCoords(item)).map((item) => (
+          <div key={item._id} className="me-list-item me-list-item--unpinned">
+            <span className="me-list-swatch me-list-swatch--empty" />
+            <div className="me-list-item-info">
+              <span className="me-list-item-name">{item.name}</span>
+            </div>
+            <button className="me-btn me-btn--small" onClick={() => startPlacingPin(item, type)}>
+              + Pin
+            </button>
+          </div>
+        ))}
+
+        {filtered.length === 0 && (
+          <div className="me-list-empty">No {type === 'office' ? 'offices' : 'buildings'} found</div>
+        )}
+      </>
+    );
   };
 
   return (
     <div className="me-container">
-      {/* Notification Toast */}
       {notification && (
         <div className={`me-toast me-toast--${notification.type}`}>
           {notification.message}
         </div>
       )}
 
-      {/* Pin Placement Bar */}
       {placingPin && (
         <div className="me-placement-bar">
           <span>
             {tempPin
-              ? <>Pin placed at <strong>{tempPin.lat.toFixed(5)}, {tempPin.lng.toFixed(5)}</strong> — drag to adjust</>
+              ? <>Marker preview at <strong>{formatCoord(tempPin.lat)}, {formatCoord(tempPin.lng)}</strong> - drag or fine-tune before saving</>
               : <>Click on the map to place <strong>{placingPin.name}</strong></>
             }
           </span>
+          {tempPin && (
+            <div className="me-coord-inline">
+              <label className="me-coord-inline-field">
+                <span>Lat</span>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={tempPin.lat}
+                  onChange={(e) => handleTempPinCoordChange('lat', e.target.value)}
+                />
+              </label>
+              <label className="me-coord-inline-field">
+                <span>Lng</span>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={tempPin.lng}
+                  onChange={(e) => handleTempPinCoordChange('lng', e.target.value)}
+                />
+              </label>
+            </div>
+          )}
           <div className="me-placement-actions">
             {tempPin && (
               <button className="me-btn me-btn--save" onClick={savePin} disabled={saving}>
@@ -291,19 +433,30 @@ function MapEditor() {
       )}
 
       <div className="me-layout">
-        {/* ── Left Sidebar ── */}
         <aside className="me-sidebar">
           <div className="me-sidebar-header">
-            <h3 className="me-sidebar-title">Map Markers</h3>
-            <span className="me-pin-count">
-              {buildingsWithPins.length + officesWithPins.length} pinned
-            </span>
+            <div className="me-sidebar-heading">
+              <span className="me-sidebar-kicker">ALAGAD Marker Studio</span>
+              <h3 className="me-sidebar-title">Map Markers</h3>
+            </div>
+            <span className="me-pin-count">{buildingsWithPins.length + officesWithPins.length} pinned</span>
+          </div>
+
+          <div className="me-sidebar-summary">
+            <div className="me-summary-card">
+              <span className="me-summary-label">Buildings</span>
+              <strong className="me-summary-value">{buildings.length}</strong>
+            </div>
+            <div className="me-summary-card">
+              <span className="me-summary-label">Offices</span>
+              <strong className="me-summary-value">{offices.length}</strong>
+            </div>
           </div>
 
           <div className="me-search">
             <input
               type="text"
-              placeholder="Search buildings..."
+              placeholder="Search locations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="me-search-input"
@@ -326,112 +479,15 @@ function MapEditor() {
           </div>
 
           <div className="me-list">
-            {activeTab === 'buildings' && (
-              <>
-                {filteredBuildings.filter(b => getCoords(b)).map((building) => {
-                  const bColor = building.markerColor || building.color || getPinColor(building, 'building');
-                  const bRot = typeof building.rotation === 'number' ? building.rotation : 0;
-                  const isActive = selectedPin?._id === building._id;
-                  return (
-                    <div
-                      key={building._id}
-                      className={`me-list-item ${isActive ? 'me-list-item--active' : ''}`}
-                      onClick={() => { flyToPin(building); openEditPanel(building, 'building'); }}
-                    >
-                      <span className="me-list-swatch" style={{ backgroundColor: bColor }} />
-                      <div className="me-list-item-info">
-                        <span className="me-list-item-name">{building.name}</span>
-                        <span className="me-list-item-meta">
-                          {bRot !== 0 && <span className="me-list-rotation">{bRot}°</span>}
-                          {building.location || ''}
-                        </span>
-                      </div>
-                      <div className="me-list-item-actions">
-                        <button className="me-icon-btn" onClick={(e) => { e.stopPropagation(); relocatePin(building, 'building'); }} title="Move pin">⇄</button>
-                        <button className="me-icon-btn me-icon-btn--danger" onClick={(e) => { e.stopPropagation(); removePin(building, 'building'); }} title="Remove pin">✕</button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {filteredBuildings.filter(b => !getCoords(b)).length > 0 && (
-                  <div className="me-list-divider">Without Pins</div>
-                )}
-                {filteredBuildings.filter(b => !getCoords(b)).map((building) => (
-                  <div key={building._id} className="me-list-item me-list-item--unpinned">
-                    <span className="me-list-swatch me-list-swatch--empty" />
-                    <div className="me-list-item-info">
-                      <span className="me-list-item-name">{building.name}</span>
-                    </div>
-                    <button className="me-btn me-btn--small" onClick={() => startPlacingPin(building, 'building')}>
-                      + Pin
-                    </button>
-                  </div>
-                ))}
-
-                {filteredBuildings.length === 0 && (
-                  <div className="me-list-empty">No buildings found</div>
-                )}
-              </>
-            )}
-
-            {activeTab === 'offices' && (
-              <>
-                {filteredOffices.filter(o => getCoords(o)).map((office) => {
-                  const oColor = office.markerColor || office.color || getPinColor(office, 'office');
-                  const oRot = typeof office.rotation === 'number' ? office.rotation : 0;
-                  const isActive = selectedPin?._id === office._id;
-                  return (
-                    <div
-                      key={office._id}
-                      className={`me-list-item ${isActive ? 'me-list-item--active' : ''}`}
-                      onClick={() => { flyToPin(office); openEditPanel(office, 'office'); }}
-                    >
-                      <span className="me-list-swatch" style={{ backgroundColor: oColor }} />
-                      <div className="me-list-item-info">
-                        <span className="me-list-item-name">{office.name}</span>
-                        <span className="me-list-item-meta">
-                          {oRot !== 0 && <span className="me-list-rotation">{oRot}°</span>}
-                          {office.building?.name || ''}
-                        </span>
-                      </div>
-                      <div className="me-list-item-actions">
-                        <button className="me-icon-btn" onClick={(e) => { e.stopPropagation(); relocatePin(office, 'office'); }} title="Move pin">⇄</button>
-                        <button className="me-icon-btn me-icon-btn--danger" onClick={(e) => { e.stopPropagation(); removePin(office, 'office'); }} title="Remove pin">✕</button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {filteredOffices.filter(o => !getCoords(o)).length > 0 && (
-                  <div className="me-list-divider">Without Pins</div>
-                )}
-                {filteredOffices.filter(o => !getCoords(o)).map((office) => (
-                  <div key={office._id} className="me-list-item me-list-item--unpinned">
-                    <span className="me-list-swatch me-list-swatch--empty" />
-                    <div className="me-list-item-info">
-                      <span className="me-list-item-name">{office.name}</span>
-                    </div>
-                    <button className="me-btn me-btn--small" onClick={() => startPlacingPin(office, 'office')}>
-                      + Pin
-                    </button>
-                  </div>
-                ))}
-
-                {filteredOffices.length === 0 && (
-                  <div className="me-list-empty">No offices found</div>
-                )}
-              </>
-            )}
+            {activeTab === 'buildings' ? renderList(buildings, 'building') : renderList(offices, 'office')}
           </div>
         </aside>
 
-        {/* ── Map Area ── */}
         <div className="me-map-area">
           <Map
             ref={mapRef}
             {...viewState}
-            onMove={(evt) => setViewState(evt.viewState)}
+            onMove={(event) => setViewState(event.viewState)}
             onClick={handleMapClick}
             mapboxAccessToken={MAPBOX_TOKEN}
             style={{ width: '100%', height: '100%' }}
@@ -442,81 +498,136 @@ function MapEditor() {
             onLoad={onMapLoad}
             cursor={placingPin ? 'crosshair' : 'grab'}
           >
-            {/* Polygon features */}
             {mapStyleLoaded && validFeatures.features.length > 0 && (
               <SafeGeoJSON data={validFeatures} />
             )}
 
-            {/* Building markers */}
-            {mapStyleLoaded && buildingsWithPins.map((b) => {
-              const coords = getCoords(b);
+            {mapStyleLoaded && buildingsWithPins.map((building) => {
+              const coords = getCoords(building);
               if (!coords) return null;
-              const isSelected = selectedPin?._id === b._id;
-              const color = isSelected ? liveEdit.color : (b.markerColor || b.color || getPinColor(b, 'building'));
-              const rotation = isSelected ? liveEdit.rotation : (typeof b.rotation === 'number' ? b.rotation : 0);
+              const isSelected = selectedPin?._id === building._id && selectedPin?.pinType === 'building';
+              const latitude = isSelected && Number.isFinite(selectedCoords.lat) ? selectedCoords.lat : coords.lat;
+              const longitude = isSelected && Number.isFinite(selectedCoords.lng) ? selectedCoords.lng : coords.lng;
               return (
-                <Marker key={`building-${b._id}`} longitude={coords.lng} latitude={coords.lat} anchor="center"
-                  onClick={(e) => { e.originalEvent.stopPropagation(); flyToPin(b); openEditPanel(b, 'building'); }}
+                <Marker
+                  key={`building-${building._id}`}
+                  longitude={longitude}
+                  latitude={latitude}
+                  anchor="bottom"
+                  rotation={0}
+                  rotationAlignment="viewport"
+                  pitchAlignment="viewport"
+                  draggable={isSelected}
+                  onDragEnd={handleSelectedMarkerDragEnd}
+                  onClick={(event) => {
+                    event.originalEvent.stopPropagation();
+                    flyToPin(building);
+                    openEditPanel(building, 'building');
+                  }}
                 >
-                  <BoxMarker name={b.name} color={color} isSelected={isSelected} />
+                  <BuildingPinMarker
+                    label={isSelected ? liveEdit.name || building.name : building.name}
+                    color={isSelected ? liveEdit.color : getPinColor(building, 'building')}
+                    highlighted={isSelected}
+                  />
                 </Marker>
               );
             })}
 
-            {/* Office markers */}
-            {mapStyleLoaded && officesWithPins.map((o) => {
-              const coords = getCoords(o);
+            {mapStyleLoaded && officesWithPins.map((office) => {
+              const coords = getCoords(office);
               if (!coords) return null;
-              const isSelected = selectedPin?._id === o._id;
-              const color = isSelected ? liveEdit.color : (o.markerColor || o.color || getPinColor(o, 'office'));
-              const rotation = isSelected ? liveEdit.rotation : (typeof o.rotation === 'number' ? o.rotation : 0);
+              const isSelected = selectedPin?._id === office._id && selectedPin?.pinType === 'office';
+              const latitude = isSelected && Number.isFinite(selectedCoords.lat) ? selectedCoords.lat : coords.lat;
+              const longitude = isSelected && Number.isFinite(selectedCoords.lng) ? selectedCoords.lng : coords.lng;
               return (
-                <Marker key={`office-${o._id}`} longitude={coords.lng} latitude={coords.lat} anchor="center"
-                  onClick={(e) => { e.originalEvent.stopPropagation(); flyToPin(o); openEditPanel(o, 'office'); }}
+                <Marker
+                  key={`office-${office._id}`}
+                  longitude={longitude}
+                  latitude={latitude}
+                  anchor="bottom"
+                  rotation={0}
+                  rotationAlignment="viewport"
+                  pitchAlignment="viewport"
+                  draggable={isSelected}
+                  onDragEnd={handleSelectedMarkerDragEnd}
+                  onClick={(event) => {
+                    event.originalEvent.stopPropagation();
+                    flyToPin(office);
+                    openEditPanel(office, 'office');
+                  }}
                 >
-                  <BoxMarker name={o.name} color={color} isSelected={isSelected} />
+                  <BuildingPinMarker
+                    label={isSelected ? liveEdit.name || office.name : office.name}
+                    color={isSelected ? liveEdit.color : getPinColor(office, 'office')}
+                    highlighted={isSelected}
+                  />
                 </Marker>
               );
             })}
 
-            {/* Temp marker during placement */}
             {mapStyleLoaded && tempPin && (
-              <Marker longitude={tempPin.lng} latitude={tempPin.lat} anchor="center" draggable
-                onDragEnd={(e) => setTempPin({ lng: e.lngLat.lng, lat: e.lngLat.lat })}
+              <Marker
+                longitude={tempPin.lng}
+                latitude={tempPin.lat}
+                anchor="bottom"
+                rotation={0}
+                rotationAlignment="viewport"
+                pitchAlignment="viewport"
+                draggable
+                onDragEnd={(event) => setTempPin({ lng: event.lngLat.lng, lat: event.lngLat.lat })}
               >
-                <BoxMarker name={placingPin?.name || 'New Pin'} color="#f59e0b" />
+                <BuildingPinMarker
+                  label={placingPin?.name || 'New Location'}
+                  color={getPinColor(findItemByType(placingPin?.type, placingPin?.id), placingPin?.type)}
+                  highlighted
+                />
               </Marker>
             )}
           </Map>
 
-          {/* ── Floating Property Card (appears on selection) ── */}
           {selectedPin && (
             <div className="me-prop-card">
               <div className="me-prop-card-header">
-                <h4 className="me-prop-card-title">{selectedPin.name}</h4>
+                <div className="me-prop-card-heading">
+                  <span className="me-prop-card-kicker">{selectedPin.pinType === 'office' ? 'Office Pin' : 'Building Pin'}</span>
+                  <h4 className="me-prop-card-title">{selectedPin.name}</h4>
+                </div>
                 <button className="me-prop-card-close" onClick={() => setSelectedPin(null)}>✕</button>
               </div>
 
               <div className="me-prop-card-body">
-                {/* Color */}
+                <div className="me-prop-field">
+                  <label className="me-form-label" htmlFor="me-name">Name</label>
+                  <input
+                    id="me-name"
+                    className="me-text-input"
+                    type="text"
+                    value={liveEdit.name}
+                    onChange={(e) => setLiveEdit((prev) => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+
+                <div className="me-prop-field">
+                  <label className="me-form-label" htmlFor="me-description">Description</label>
+                  <textarea
+                    id="me-description"
+                    className="me-textarea"
+                    rows="3"
+                    value={liveEdit.description}
+                    onChange={(e) => setLiveEdit((prev) => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+
                 <div className="me-prop-field">
                   <span className="me-prop-field-label">Pin Color</span>
                   <div className="me-prop-color-controls">
                     <div className="me-color-grid">
-                      {[
-                        { color: '#569ec2', name: 'Ocean Blue' },
-                        { color: '#3b82f6', name: 'Sky Blue' },
-                        { color: '#8b5cf6', name: 'Purple' },
-                        { color: '#10b981', name: 'Green' },
-                        { color: '#f59e0b', name: 'Amber' },
-                        { color: '#ef4444', name: 'Red' },
-                        { color: '#ec4899', name: 'Pink' },
-                        { color: '#64748b', name: 'Gray' },
-                      ].map(({ color, name }) => (
+                      {PIN_PALETTE.map(({ color, name }) => (
                         <button
                           key={color}
                           className={`me-color-option ${liveEdit.color === color ? 'me-color-option--active' : ''}`}
-                          onClick={() => setLiveEdit(prev => ({ ...prev, color }))}
+                          onClick={() => setLiveEdit((prev) => ({ ...prev, color }))}
                           title={name}
                         >
                           <span className="me-color-preview" style={{ backgroundColor: color }} />
@@ -531,7 +642,7 @@ function MapEditor() {
                         <input
                           type="color"
                           value={liveEdit.color}
-                          onChange={(e) => setLiveEdit(prev => ({ ...prev, color: e.target.value }))}
+                          onChange={(e) => setLiveEdit((prev) => ({ ...prev, color: e.target.value.toUpperCase() }))}
                           className="me-color-input"
                         />
                       </label>
@@ -540,55 +651,61 @@ function MapEditor() {
                   </div>
                 </div>
 
-                {/* Rotation */}
                 <div className="me-prop-field">
                   <div className="me-prop-field-label">
-                    Rotation
-                    <span className="me-prop-field-value">{liveEdit.rotation}°</span>
+                    Coordinates
+                    <span className="me-prop-field-value">Drag the pin or type values</span>
                   </div>
-                  <div className="me-prop-slider-row">
-                    <input
-                      type="range"
-                      className="me-range"
-                      min="0" max="360" step="1"
-                      value={liveEdit.rotation}
-                      onChange={(e) => setLiveEdit(prev => ({ ...prev, rotation: parseInt(e.target.value) }))}
-                    />
-                    <button
-                      className="me-btn-reset"
-                      onClick={() => setLiveEdit(prev => ({ ...prev, rotation: 0 }))}
-                    >0°</button>
+                  <div className="me-coord-grid">
+                    <label className="me-coord-field">
+                      <span>Latitude</span>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={liveEdit.latitude}
+                        onChange={(e) => setLiveEdit((prev) => ({ ...prev, latitude: e.target.value }))}
+                      />
+                    </label>
+                    <label className="me-coord-field">
+                      <span>Longitude</span>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={liveEdit.longitude}
+                        onChange={(e) => setLiveEdit((prev) => ({ ...prev, longitude: e.target.value }))}
+                      />
+                    </label>
                   </div>
                 </div>
 
-                {/* Live Preview */}
                 <div className="me-prop-preview">
-                  <BoxMarker name={selectedPin.name} color={liveEdit.color} isSelected />
+                  <span className="me-prop-preview-label">Live Preview</span>
+                  <BuildingPinMarker label={liveEdit.name || selectedPin.name} color={liveEdit.color} highlighted />
                 </div>
               </div>
 
               <div className="me-prop-card-footer">
-                <button className="me-btn me-btn--ghost me-btn--danger-text"
+                <button
+                  className="me-btn me-btn--ghost me-btn--danger-text"
                   onClick={() => removePin(selectedPin, selectedPin.pinType)}
-                >Remove</button>
+                >
+                  Remove
+                </button>
                 <div className="me-prop-card-footer-right">
-                  <button className="me-btn me-btn--ghost"
-                    onClick={() => relocatePin(selectedPin, selectedPin.pinType)}
-                  >Move</button>
+                  <button className="me-btn me-btn--ghost" onClick={() => relocatePin(selectedPin, selectedPin.pinType)}>Move</button>
                   <button className="me-btn me-btn--ghost" onClick={() => setSelectedPin(null)}>Cancel</button>
                   <button className="me-btn me-btn--primary" onClick={saveEditedPin} disabled={saving}>
-                    {saving ? 'Saving…' : 'Done'}
+                    {saving ? 'Saving...' : 'Done'}
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Saving indicator */}
           {saving && (
             <div className="me-saving-indicator">
               <div className="me-saving-spinner" />
-              Saving…
+              Saving...
             </div>
           )}
         </div>

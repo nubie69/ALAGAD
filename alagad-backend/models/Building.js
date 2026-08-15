@@ -33,7 +33,11 @@ const buildingSchema = mongoose.Schema(
     },
     markerColor: {
       type: String,
-      default: '#3b82f6',
+      default: '#D93025',
+    },
+    pinColor: {
+      type: String,
+      default: '#D93025',
     },
     color: {
       type: String,

@@ -1,0 +1,64 @@
+.building-pin-marker {
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 37px;
+  transform-origin: bottom center;
+  transition: opacity 0.18s ease, filter 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+
+.building-pin-marker--compact {
+  width: 26px;
+  height: 35px;
+}
+
+.building-pin-marker--highlighted {
+  transform: scale(1.02);
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.22));
+}
+
+.building-pin-marker--dimmed {
+  opacity: 0.38;
+}
+
+.building-pin-marker__pin {
+  width: 28px;
+  height: 37px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.24));
+}
+
+.building-pin-marker__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.building-pin-marker__label {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  transform-origin: left center;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow:
+    -1px -1px 0 rgba(0, 0, 0, 0.75),
+    1px -1px 0 rgba(0, 0, 0, 0.75),
+    -1px 1px 0 rgba(0, 0, 0, 0.75),
+    1px 1px 0 rgba(0, 0, 0, 0.75),
+    0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.building-pin-marker--compact .building-pin-marker__pin {
+  width: 26px;
+  height: 35px;
+}
+
+.building-pin-marker--compact .building-pin-marker__label {
+  left: calc(100% + 5px);
+  font-size: 11px;
+}

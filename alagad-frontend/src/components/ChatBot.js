@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { chatAPI } from '../utils/api';
+import { chatAPI, publicFaqsAPI } from '../utils/api';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import { MicIcon, DeleteIcon, CloseIcon, SendIcon } from '../utils/icons';
 import './ChatBot.css';
@@ -23,6 +23,9 @@ const translations = {
     language: 'Language',
     navQuestion: 'Do you want me to navigate you there?',
     navButton: 'Navigate',
+    contactHelpDesk: 'Contact Help Desk',
+    findHelpDesk: 'Find Help Desk',
+    noHelpDeskContact: 'Help Desk contact is not configured yet.',
   },
   tl: {
     title: 'Campus Assistant',
@@ -34,6 +37,9 @@ const translations = {
     language: 'Wika',
     navQuestion: 'Do you want me to navigate you there?',
     navButton: 'Mag-navigate',
+    contactHelpDesk: 'Contact Help Desk',
+    findHelpDesk: 'Hanapin ang Help Desk',
+    noHelpDeskContact: 'Hindi pa naka-configure ang Help Desk contact.',
   },
   ceb: {
     title: 'Campus Assistant',
@@ -45,6 +51,9 @@ const translations = {
     language: 'Pinulongan',
     navQuestion: 'Do you want me to navigate you there?',
     navButton: 'Mag-navigate',
+    contactHelpDesk: 'Contact Help Desk',
+    findHelpDesk: 'Pangitaa ang Help Desk',
+    noHelpDeskContact: 'Wala pa na-configure ang Help Desk contact.',
   }
 };
 
@@ -93,7 +102,8 @@ const extractServiceParts = (replyText) => {
   };
 };
 
-const isNoInfoDatabaseReply = (replyText) => /^(no information found\.?|i don['’]t have that info in the campus database\.?|sorry,\s*i\s*can[’']t find that information in the system\.?|sorry\s+i\s+couldnt\s+find\s+that\s+information\.?|sorry\s+i\s+dont\s+have\s+the\s+information\.?)$/i.test(String(replyText || '').trim());
+const isNoInfoDatabaseReply = (replyText) => /^(no information found\.?|i don['’]t have that info in the campus database\.?|sorry,\s*i\s*can[’']t find that information in the system\.?|sorry\s+i\s+couldnt\s+find\s+that\s+information\.?|sorry\s+i\s+dont\s+have\s+the\s+information\.?|i['’]?m unable to verify\b.*help desk\.?)$/i.test(String(replyText || '').trim());
+const REFERRAL_RESPONSE_TYPES = new Set(['HELP_DESK_REFERRAL', 'PARTIAL_INFORMATION', 'NO_MATCH', 'CONFLICTING_INFORMATION']);
 
 // Typewriter effect component
 const TypewriterText = ({ text, speed = 18, onComplete }) => {
@@ -136,7 +146,7 @@ const TypewriterText = ({ text, speed = 18, onComplete }) => {
   );
 };
 
-function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNavigate }) {
+function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNavigate, onViewLocation }) {
   // Load language preference from localStorage, default to 'en'
   const [language, setLanguage] = useState(() => {
     const savedLanguage = localStorage.getItem('chatbot-language');
@@ -162,6 +172,12 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   const suggestionRequestSeqRef = useRef(0);
   const suggestionBlurTimeoutRef = useRef(null);
   const [loading, setLoading] = useState(false);
+  const [activeMode, setActiveMode] = useState('ask');
+  const [faqSearch, setFaqSearch] = useState('');
+  const [publicFaqs, setPublicFaqs] = useState([]);
+  const [faqLoading, setFaqLoading] = useState(false);
+  const [faqError, setFaqError] = useState('');
+  const [expandedFaqId, setExpandedFaqId] = useState(null);
   const [isOpen, setIsOpenRaw] = useState(false);
   const isOpenRef = useRef(false);
   const setIsOpen = useCallback((val) => {
@@ -172,6 +188,146 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       return next;
     });
   }, [onOpenChange]);
+
+  useEffect(() => {
+    const handleOpenChatbot = () => setIsOpen(true);
+    window.addEventListener('alagad:open-chatbot', handleOpenChatbot);
+    return () => window.removeEventListener('alagad:open-chatbot', handleOpenChatbot);
+  }, [setIsOpen]);
+
+  useEffect(() => {
+    if (!isOpen || activeMode !== 'faqs') return;
+
+    let cancelled = false;
+    const loadFaqs = async () => {
+      setFaqLoading(true);
+      setFaqError('');
+      try {
+        const data = await publicFaqsAPI.getAll();
+        if (!cancelled) {
+          setPublicFaqs(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setFaqError(error.message || 'Unable to load verified FAQs.');
+        }
+      } finally {
+        if (!cancelled) {
+          setFaqLoading(false);
+        }
+      }
+    };
+
+    loadFaqs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMode, isOpen]);
+
+  const normalizeFaqText = useCallback((value) => String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim(), []);
+
+  const filteredFaqs = useMemo(() => {
+    const query = normalizeFaqText(faqSearch);
+    return publicFaqs
+      .filter((faq) => {
+        if (!query) return true;
+        const searchable = normalizeFaqText([
+          faq?.name,
+          faq?.question,
+          faq?.verifiedAnswer,
+          faq?.answer,
+          faq?.category,
+          ...(Array.isArray(faq?.keywords) ? faq.keywords : []),
+          ...(Array.isArray(faq?.alternativeQuestions) ? faq.alternativeQuestions : []),
+          faq?.office?.name,
+          faq?.department?.name,
+        ].filter(Boolean).join(' '));
+        return searchable.includes(query);
+      })
+      .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+  }, [faqSearch, normalizeFaqText, publicFaqs]);
+
+  const resolveFaqOffice = useCallback((faq) => {
+    const office = faq?.office;
+    if (!office) return null;
+    const officeId = office._id || office.id;
+    const officeName = normalizeFaqText(office.name);
+    return offices.find((item) => (
+      (officeId && String(item._id || item.id) === String(officeId))
+      || (officeName && normalizeFaqText(item.name) === officeName)
+    )) || office;
+  }, [normalizeFaqText, offices]);
+
+  const handleModeChange = useCallback((mode) => {
+    setActiveMode(mode);
+    setShowSuggestions(false);
+    setActiveSuggestionIndex(-1);
+    if (mode === 'ask') {
+      setExpandedFaqId(null);
+    }
+  }, []);
+
+  const handleFaqViewOffice = useCallback((faq) => {
+    const office = resolveFaqOffice(faq);
+    if (!office) return;
+    if (onViewLocation) {
+      onViewLocation(office, 'office', office.building || faq?.office?.building || null);
+      setIsOpen(false);
+    }
+  }, [onViewLocation, resolveFaqOffice, setIsOpen]);
+
+  const handleFaqNavigateOffice = useCallback((faq) => {
+    const office = resolveFaqOffice(faq);
+    if (!office) return;
+    if (onNavigate) {
+      onNavigate(office, office.name || faq?.office?.name || 'Office', office.building || faq?.office?.building || null);
+      setIsOpen(false);
+    }
+  }, [onNavigate, resolveFaqOffice, setIsOpen]);
+
+  const openHelpDeskContact = useCallback((helpDesk) => {
+    const contact = helpDesk || {};
+    const link = String(contact.officialLink || '').trim();
+    const email = String(contact.email || '').trim();
+    const phone = String(contact.phone || '').trim();
+
+    if (link) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (email) {
+      window.location.href = `mailto:${email}`;
+      return;
+    }
+
+    if (phone) {
+      window.location.href = `tel:${phone}`;
+    }
+  }, []);
+
+  const findHelpDesk = useCallback((helpDesk) => {
+    const officeLocation = String(helpDesk?.officeLocation || '').trim();
+    if (!officeLocation || !onNavigate) return;
+
+    const normalize = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const targetKey = normalize(officeLocation);
+    const candidates = [...offices, ...buildings, ...rooms];
+    const target = candidates.find((item) => {
+      const itemKey = normalize(item?.name);
+      return itemKey && (itemKey === targetKey || itemKey.includes(targetKey) || targetKey.includes(itemKey));
+    });
+
+    if (target) {
+      onNavigate(target, target.name);
+      setIsOpen(false);
+    }
+  }, [buildings, offices, onNavigate, rooms, setIsOpen]);
   const [animatingMessageId, setAnimatingMessageId] = useState(1);
   const [completedBotMessageIds, setCompletedBotMessageIds] = useState(() => new Set());
   const [showGreeting, setShowGreeting] = useState(false);
@@ -244,8 +400,10 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       const locationName = rawLocationName || parsedParts.locationLabel || null;
       const entityName = String(response.entityName || parsedParts.serviceName || '').trim() || null;
       const responseLanguage = String(response.responseLanguage || '').trim() || detectLanguageClient(replyText);
+      const responseType = String(response.responseType || response.metadata?.responseType || '').trim();
+      const isReferralResponse = REFERRAL_RESPONSE_TYPES.has(responseType);
 
-      const shouldSuppressNavigation = isNoInfoDatabaseReply(replyText);
+      const shouldSuppressNavigation = isReferralResponse || isNoInfoDatabaseReply(replyText);
       const navigation = !shouldSuppressNavigation && (response.navigation === true || intent === 'navigation' || intent === 'service');
       const steps = Array.isArray(response.steps) ? response.steps.filter(s => typeof s === 'string' && s.trim()) : [];
 
@@ -290,6 +448,14 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
         navigation,
         steps,
         navigationTargetEntity,
+        responseType,
+        verificationStatus: response.verificationStatus || response.metadata?.verificationStatus || null,
+        verificationNotice: response.verificationNotice || null,
+        helpDesk: response.helpDesk || null,
+        faq: response.faq || null,
+        relatedFaqs: Array.isArray(response.relatedFaqs) ? response.relatedFaqs : [],
+        resources: Array.isArray(response.resources) ? response.resources : [],
+        metadata: response.metadata || null,
       };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -355,7 +521,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
 
   useEffect(() => {
     const query = String(inputValue || '').trim();
-    if (!isOpen || loading || query.length < MIN_SUGGESTION_QUERY_LENGTH) {
+    if (activeMode !== 'ask' || !isOpen || loading || query.length < MIN_SUGGESTION_QUERY_LENGTH) {
       setSuggestions([]);
       setShowSuggestions(false);
       setActiveSuggestionIndex(-1);
@@ -394,7 +560,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     }, SUGGESTION_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [inputValue, isInputFocused, isOpen, language, loading, selectedSuggestion]);
+  }, [activeMode, inputValue, isInputFocused, isOpen, language, loading, selectedSuggestion]);
 
   // Draggable trigger button position (ignore saved position on mobile to prevent off-screen placement)
   const [triggerPos, setTriggerPos] = useState(() => {
@@ -943,6 +1109,27 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       </div>
       )}
 
+      <div className="chatbot-mode-switch" role="tablist" aria-label="Chatbot mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeMode === 'ask'}
+          className={`chatbot-mode-btn ${activeMode === 'ask' ? 'active' : ''}`}
+          onClick={() => handleModeChange('ask')}
+        >
+          Ask ALAGAD
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeMode === 'faqs'}
+          className={`chatbot-mode-btn ${activeMode === 'faqs' ? 'active' : ''}`}
+          onClick={() => handleModeChange('faqs')}
+        >
+          FAQs
+        </button>
+      </div>
+
       <div
         className="chatbot-messages"
         ref={messagesContainerRef}
@@ -954,6 +1141,167 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
         }}
       >
         <div className="chatbot-messages-inner">
+          {activeMode === 'faqs' ? (
+            <div className="chatbot-faq-mode">
+              <div className="chatbot-faq-heading">
+                <h4>Frequently Asked Questions</h4>
+                <p>Browse verified answers created by ALAGAD administrators.</p>
+              </div>
+
+              <input
+                type="search"
+                className="chatbot-faq-search"
+                value={faqSearch}
+                onChange={(e) => setFaqSearch(e.target.value)}
+                placeholder="Search FAQs..."
+                aria-label="Search verified FAQs"
+              />
+
+              {faqLoading && (
+                <div className="chatbot-faq-empty">
+                  <strong>Loading verified FAQs...</strong>
+                  <span>Please wait while the FAQ list loads.</span>
+                </div>
+              )}
+
+              {faqError && !faqLoading && (
+                <div className="chatbot-faq-empty">
+                  <strong>Unable to load FAQs.</strong>
+                  <span>{faqError}</span>
+                </div>
+              )}
+
+              {!faqLoading && !faqError && publicFaqs.length === 0 && (
+                <div className="chatbot-faq-empty">
+                  <strong>No verified FAQs are currently available.</strong>
+                  <span>You can still use Ask ALAGAD for campus assistance.</span>
+                  <button type="button" onClick={() => handleModeChange('ask')}>Ask ALAGAD</button>
+                </div>
+              )}
+
+              {!faqLoading && !faqError && publicFaqs.length > 0 && filteredFaqs.length === 0 && (
+                <div className="chatbot-faq-empty">
+                  <strong>No matching FAQ found.</strong>
+                  <span>Try asking ALAGAD instead.</span>
+                  <button type="button" onClick={() => handleModeChange('ask')}>Ask ALAGAD</button>
+                </div>
+              )}
+
+              {!faqLoading && !faqError && filteredFaqs.length > 0 && (
+                <div className="chatbot-faq-list">
+                  {filteredFaqs.map((faq) => {
+                    const faqId = faq.id || faq._id || faq.name;
+                    const expanded = expandedFaqId === faqId;
+                    const officeName = String(faq?.office?.name || '').trim();
+                    const departmentName = String(faq?.department?.name || faq?.office?.department || '').trim();
+                    const office = resolveFaqOffice(faq);
+                    const relatedFaqs = Array.isArray(faq.relatedFaqs) ? faq.relatedFaqs : [];
+                    const downloadableResources = Array.isArray(faq.downloadableResources)
+                      ? faq.downloadableResources
+                      : (Array.isArray(faq.resources) ? faq.resources : []);
+                    const responsibleOffice = officeName || departmentName || 'N/A';
+
+                    return (
+                      <article className={`chatbot-faq-card ${expanded ? 'open' : ''}`} key={faqId}>
+                        <button
+                          type="button"
+                          className="chatbot-faq-question"
+                          aria-expanded={expanded}
+                          onClick={() => setExpandedFaqId(expanded ? null : faqId)}
+                        >
+                          <span>{faq.name}</span>
+                          <span aria-hidden="true">{expanded ? '-' : '+'}</span>
+                        </button>
+
+                        {expanded && (
+                          <div className="chatbot-faq-answer">
+                            <div className="chatbot-faq-answer-label">Verified Answer</div>
+                            <p>{faq.verifiedAnswer}</p>
+                            {relatedFaqs.length > 0 && (
+                              <div className="chatbot-knowledge-section">
+                                <div className="chatbot-knowledge-title">Related FAQs</div>
+                                <div className="chatbot-related-list">
+                                  {relatedFaqs.map((relatedFaq) => (
+                                    <button
+                                      type="button"
+                                      className="chatbot-related-question"
+                                      key={relatedFaq.id || relatedFaq.question}
+                                      onClick={() => setExpandedFaqId(relatedFaq.id || relatedFaq._id || relatedFaq.question)}
+                                    >
+                                      {relatedFaq.question || relatedFaq.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div className="chatbot-knowledge-section">
+                              <div className="chatbot-knowledge-title">Visit link.</div>
+                              {downloadableResources.length > 0 ? (
+                                downloadableResources.map((resource) => (
+                                  <div className="chatbot-resource-card" key={resource.id || resource.url}>
+                                    <div className="chatbot-resource-main">
+                                      <strong>{resource.title || resource.name}</strong>
+                                      {resource.description && <span>{resource.description}</span>}
+                                    </div>
+                                    <a
+                                      className="chatbot-resource-link"
+                                      href={resource.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      aria-label={`Download ${resource.title || resource.name}`}
+                                    >
+                                      Visit
+                                    </a>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="chatbot-faq-meta">
+                                  <span>N/A</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="chatbot-knowledge-section">
+                              <div className="chatbot-knowledge-title">Responsible Office</div>
+                              <div className="chatbot-faq-meta">
+                                <span>{responsibleOffice}</span>
+                              </div>
+                            </div>
+                            {(officeName || departmentName) && (
+                              <div className="chatbot-faq-meta">
+                                {officeName && <span>Office: {officeName}</span>}
+                                {departmentName && <span>Department: {departmentName}</span>}
+                              </div>
+                            )}
+                            {officeName && (
+                              <div className="chatbot-faq-actions">
+                                <button
+                                  type="button"
+                                  className="chatbot-faq-action secondary"
+                                  onClick={() => handleFaqViewOffice(faq)}
+                                  disabled={!office}
+                                >
+                                  View Office
+                                </button>
+                                <button
+                                  type="button"
+                                  className="chatbot-faq-action primary"
+                                  onClick={() => handleFaqNavigateOffice(faq)}
+                                  disabled={!office}
+                                >
+                                  Navigate
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
           {messages.map((message) => (
             <div
               key={message.id}
@@ -1008,11 +1356,110 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                     )
                     : text;
                 })()}
+                {(() => {
+                  const isAnimatingThisMessage = message.sender === 'bot' && message.id === animatingMessageId;
+                  const isResponseFullyShown = !isAnimatingThisMessage || completedBotMessageIds.has(message.id);
+                  if (message.sender !== 'bot' || !isResponseFullyShown) return null;
+
+                  const notice = message.verificationNotice;
+                  const isReferralResponse = REFERRAL_RESPONSE_TYPES.has(String(message.responseType || ''));
+                  const helpDesk = message.helpDesk || {};
+                  const hasContact = Boolean(helpDesk.officialLink || helpDesk.email || helpDesk.phone);
+                  const canFindHelpDesk = Boolean(helpDesk.officeLocation);
+
+                  return (
+                    <>
+                      {notice && (
+                        <div className="chatbot-verification-notice">
+                          <strong>{notice.title}</strong>
+                          <span>{notice.text}</span>
+                        </div>
+                      )}
+
+                      {message.faq && Array.isArray(message.resources) && message.resources.length === 0 && (
+                        <div className="chatbot-knowledge-section">
+                          <div className="chatbot-knowledge-title">Downloadable Forms</div>
+                          <div className="chatbot-faq-meta">
+                            <span>N/A</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(message.resources) && message.resources.length > 0 && (
+                        <div className="chatbot-knowledge-section">
+                          <div className="chatbot-knowledge-title">Downloadable Forms</div>
+                          {message.resources.map((resource) => (
+                            <div className="chatbot-resource-card" key={resource.id || resource.url}>
+                              <div className="chatbot-resource-main">
+                                <strong>{resource.title || resource.name}</strong>
+                                {resource.description && <span>{resource.description}</span>}
+                              </div>
+                              <a
+                                className="chatbot-resource-link"
+                                href={resource.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Download ${resource.title || resource.name}`}
+                              >
+                                {String(resource.type || '').toUpperCase().includes('FORM') ? 'Download Form' : 'Download'}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {Array.isArray(message.relatedFaqs) && message.relatedFaqs.length > 0 && (
+                        <div className="chatbot-knowledge-section">
+                          <div className="chatbot-knowledge-title">Related FAQs</div>
+                          <div className="chatbot-related-list">
+                            {message.relatedFaqs.map((faq) => (
+                              <button
+                                type="button"
+                                className="chatbot-related-question"
+                                key={faq.id || faq.question}
+                                onClick={() => handleSendMessage(faq.question)}
+                              >
+                                {faq.question}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {isReferralResponse && (
+                        <div className="chatbot-helpdesk-actions">
+                          <button
+                            type="button"
+                            className="chatbot-helpdesk-btn primary"
+                            onClick={() => openHelpDeskContact(helpDesk)}
+                            disabled={!hasContact}
+                            title={hasContact ? t.contactHelpDesk : t.noHelpDeskContact}
+                          >
+                            {t.contactHelpDesk}
+                          </button>
+                          {canFindHelpDesk && (
+                            <button
+                              type="button"
+                              className="chatbot-helpdesk-btn secondary"
+                              onClick={() => findHelpDesk(helpDesk)}
+                              title={t.findHelpDesk}
+                            >
+                              {t.findHelpDesk}
+                            </button>
+                          )}
+                          {!hasContact && (
+                            <span className="chatbot-helpdesk-empty">{t.noHelpDeskContact}</span>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 {/* Navigation confirmation when AI detects navigation intent */}
                 {(() => {
                   const isAnimatingThisMessage = message.sender === 'bot' && message.id === animatingMessageId;
                   const isResponseFullyShown = !isAnimatingThisMessage || completedBotMessageIds.has(message.id);
-                  const shouldSuppressNavigation = isNoInfoDatabaseReply(message.text);
+                  const shouldSuppressNavigation = REFERRAL_RESPONSE_TYPES.has(String(message.responseType || '')) || isNoInfoDatabaseReply(message.text);
                   return message.sender === 'bot' && !shouldSuppressNavigation && message.navigation === true && message.navigationTargetEntity && isResponseFullyShown;
                 })() && (
                   <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1096,19 +1543,22 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
               </div>
             </div>
           )}
+            </>
+          )}
 
           <div ref={messagesEndRef} />
         </div>
       </div>
 
       {/* Voice listening indicator */}
-      {isListening && (
+      {activeMode === 'ask' && isListening && (
         <div className="chatbot-voice-indicator">
           <div className="chatbot-voice-indicator-dot" />
           <span>Listening...</span>
         </div>
       )}
 
+      {activeMode === 'ask' && (
       <div className="chatbot-input-area">
         <div className="chatbot-input-stack">
           {showSuggestions && suggestions.length > 0 && (
@@ -1200,6 +1650,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
           </button>
         </div>
       </div>
+      )}
         </motion.div>
       )}
       </AnimatePresence>

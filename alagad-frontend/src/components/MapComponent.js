@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import Map, { Marker, Popup } from 'react-map-gl';
+import Map, { Marker, Popup, NavigationControl } from 'react-map-gl';
 import { BuildingPopup } from './BuildingPopup';
 import { QuickNavPanel } from './QuickNavPanel';
 import { useMapState } from '../context/MapContext';
@@ -159,6 +159,7 @@ export const MapComponent = ({
           minZoom={16}
           maxZoom={20}
         >
+          <NavigationControl showZoom={false} showCompass position="top-right" />
 
           {/* Building Markers */}
           {buildings.map((building) => {

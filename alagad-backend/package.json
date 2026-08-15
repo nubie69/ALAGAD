@@ -8,7 +8,9 @@
     "dev": "nodemon server.js",
     "test": "mocha",
     "test:retrieval": "mocha test/retrievalPipeline.test.js",
-    "harness:retrieval": "node scripts/runRetrievalHarness.js"
+    "harness:retrieval": "node scripts/runRetrievalHarness.js",
+    "migrate:faq-embeddings": "node scripts/migrateFaqEmbeddings.js",
+    "print:faq-vector-index": "node scripts/printFaqVectorSearchIndex.js"
   },
   "keywords": [],
   "author": "",

@@ -20,6 +20,18 @@ const {
 	resolveDetectedLanguage,
 	appendLocalizedDetail,
 	rankContextCandidatesByIntentAndLanguage,
+	evaluateInformationCompleteness,
+	detectRequestedInfoFields,
+	buildPartialVerifiedServiceAnswer,
+	prioritizeVerifiedFaqCandidates,
+	detectConflictingInformation,
+	buildVerificationNotice,
+	buildSourceAwareAnswer,
+	buildLocalizedReferralText,
+	buildReferralOfficeLabel,
+	computeTokenSimilarity,
+	computeFuzzyTokenOverlapRatio,
+	RESPONSE_TYPES,
 	NO_RELIABLE_INFO_RESPONSE,
 } = chatbotDeterministicRoutes.__testables;
 
@@ -253,6 +265,64 @@ describe('Chatbot Deterministic Response Formatting', () => {
 		expect(process).to.equal(NO_RELIABLE_INFO_RESPONSE);
 		expect(description).to.equal(NO_RELIABLE_INFO_RESPONSE);
 		expect(whereProcess).to.equal(NO_RELIABLE_INFO_RESPONSE);
+	});
+
+	it('detects deadline and processing-time fields without allowing estimates', () => {
+		const deadlineFields = detectRequestedInfoFields(
+			'How do I renew my scholarship and when is the deadline?',
+			'deadline'
+		);
+		const processingFields = detectRequestedInfoFields(
+			'How long does scholarship renewal take?',
+			'processing_time'
+		);
+
+		expect(deadlineFields).to.include('deadline');
+		expect(deadlineFields).to.include('process_steps');
+		expect(processingFields).to.include('processing_time');
+	});
+
+	it('marks a process answer partially verified when a requested deadline is missing', () => {
+		const completeness = evaluateInformationCompleteness({
+			contextItem: {
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				is_active: true,
+				verification_status: 'verified',
+				structured: {
+					name: 'Scholarship Renewal',
+					process_steps: ['Submit the renewal form'],
+				},
+			},
+			intent: 'deadline',
+			confidenceScore: 1,
+			requestedFields: ['name', 'process_steps', 'deadline'],
+		});
+
+		expect(completeness.sufficient).to.equal(false);
+		expect(completeness.verificationStatus).to.equal('partial');
+		expect(completeness.missingFields).to.deep.equal(['deadline']);
+	});
+
+	it('builds a partial verified answer with Help Desk referral instead of guessing', () => {
+		const answer = buildPartialVerifiedServiceAnswer({
+			contextItem: {
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				structured: {
+					name: 'Scholarship Renewal',
+					process_steps: ['Submit the renewal form'],
+				},
+			},
+			requestedFields: ['name', 'process_steps', 'deadline'],
+			missingFields: ['deadline'],
+		});
+
+		expect(answer).to.include('ALAGAD can verify');
+		expect(answer).to.include('Scholarship Renewal');
+		expect(answer).to.include('deadline');
+		expect(answer).to.include('Help Desk');
+		expect(answer).to.not.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/);
 	});
 
 	it('classifies service-specific intents from query text', () => {
@@ -534,5 +604,282 @@ describe('Chatbot Deterministic Response Formatting', () => {
 		});
 
 		expect(detailed.toLowerCase()).to.include('mahimo kini i-process sa registrar office');
+	});
+
+	it('requires verified service requirements before answering requirement questions', () => {
+		const complete = evaluateInformationCompleteness({
+			contextItem: {
+				type: 'Service',
+				canonical_name: 'Transcript of Records',
+				verification_status: 'verified',
+				structured: {
+					name: 'Transcript of Records',
+					requirements: ['Valid ID'],
+				},
+			},
+			intent: 'requirements',
+			confidenceScore: 0.91,
+		});
+
+		const missing = evaluateInformationCompleteness({
+			contextItem: {
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				verification_status: 'verified',
+				structured: {
+					name: 'Scholarship Renewal',
+					requirements: [],
+				},
+			},
+			intent: 'requirements',
+			confidenceScore: 0.91,
+		});
+
+		expect(complete.sufficient).to.equal(true);
+		expect(missing.sufficient).to.equal(false);
+		expect(missing.missingFields).to.include('requirements');
+	});
+
+	it('rejects records that are explicitly not verified', () => {
+		const result = evaluateInformationCompleteness({
+			contextItem: {
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				verification_status: 'outdated',
+				structured: {
+					name: 'Scholarship Renewal',
+					requirements: ['Application form'],
+				},
+			},
+			intent: 'requirements',
+			confidenceScore: 0.98,
+		});
+
+		expect(result.sufficient).to.equal(false);
+		expect(result.reason).to.equal('record_not_verified');
+	});
+
+	it('rejects expired verified records instead of answering stale knowledge', () => {
+		const result = evaluateInformationCompleteness({
+			contextItem: {
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				verification_status: 'verified',
+				status: 'verified',
+				expiration_date: new Date(Date.now() - 86400000).toISOString(),
+				structured: {
+					name: 'Scholarship Renewal',
+					requirements: ['Application form'],
+				},
+			},
+			intent: 'requirements',
+			confidenceScore: 0.98,
+		});
+
+		expect(result.sufficient).to.equal(false);
+		expect(result.reason).to.equal('record_not_verified');
+	});
+
+	it('rejects service answers from the wrong responsible office', () => {
+		const result = evaluateInformationCompleteness({
+			contextItem: {
+				type: 'Service',
+				canonical_name: 'Transcript of Records',
+				source_office: 'Registrar Office',
+				verification_status: 'verified',
+				structured: {
+					name: 'Transcript of Records',
+					requirements: ['Valid ID'],
+				},
+			},
+			intent: 'requirements',
+			confidenceScore: 0.98,
+			responsibleOffice: 'Scholarship Office',
+		});
+
+		expect(result.sufficient).to.equal(false);
+		expect(result.reason).to.equal('responsible_office_not_supported');
+	});
+
+	it('adds responsible office attribution to verified FAQ and service answers', () => {
+		const answer = buildSourceAwareAnswer('Submit the renewal form.', {
+			type: 'FAQ',
+			source_office: 'Scholarship Office',
+		});
+
+		expect(answer).to.equal('According to verified information from Scholarship Office, submit the renewal form.');
+	});
+
+	it('detects conflicting locations for otherwise matching records', () => {
+		const conflict = detectConflictingInformation([
+			{
+				id: 'office-a',
+				type: 'Office',
+				canonical_name: 'Registrar Office',
+				location: 'Administration Building, 1st Floor',
+				is_active: true,
+			},
+			{
+				id: 'office-b',
+				type: 'Office',
+				canonical_name: 'Registrar Office',
+				location: 'Administration Building, 2nd Floor',
+				is_active: true,
+			},
+		]);
+
+		expect(conflict.hasConflict).to.equal(true);
+		expect(conflict.field).to.equal('location');
+	});
+
+	it('detects conflicting deadlines for otherwise matching services', () => {
+		const conflict = detectConflictingInformation([
+			{
+				id: 'service-a',
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				deadline: 'September 15',
+				is_active: true,
+			},
+			{
+				id: 'service-b',
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				deadline: 'September 30',
+				is_active: true,
+			},
+		]);
+
+		expect(conflict.hasConflict).to.equal(true);
+		expect(conflict.field).to.equal('deadline');
+	});
+
+	it('shows verification notices for administrative service answers only', () => {
+		const notice = buildVerificationNotice({ type: 'Service' }, 'requirements');
+		const noNotice = buildVerificationNotice({ type: 'Building' }, 'where');
+
+		expect(RESPONSE_TYPES.VERIFIED_ANSWER).to.equal('VERIFIED_ANSWER');
+		expect(notice.title).to.equal('Information Notice');
+		expect(noNotice).to.equal(null);
+	});
+
+	it('answers service contact questions only from verified contact data', () => {
+		const answer = buildServiceIntentAnswer({
+			type: 'Service',
+			canonical_name: 'Transcript of Records',
+			structured: {
+				name: 'Transcript of Records',
+				contact: 'registrar@campus.edu',
+			},
+		}, 'contact');
+
+		const missing = buildServiceIntentAnswer({
+			type: 'Service',
+			canonical_name: 'Transcript of Records',
+			structured: {
+				name: 'Transcript of Records',
+			},
+		}, 'contact');
+
+		expect(answer).to.equal('For Transcript of Records, you may contact registrar@campus.edu.');
+		expect(missing).to.equal(NO_RELIABLE_INFO_RESPONSE);
+	});
+
+	it('prioritizes a verified FAQ when its score is close to the top candidate', () => {
+		const ranked = prioritizeVerifiedFaqCandidates([
+			{
+				id: 'service-scholarship',
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				verification_status: 'verified',
+				adjusted_score: 0.92,
+				is_active: true,
+			},
+			{
+				id: 'faq-scholarship',
+				type: 'FAQ',
+				canonical_name: 'What are the scholarship renewal requirements?',
+				verification_status: 'verified',
+				adjusted_score: 0.90,
+				is_active: true,
+			},
+		]);
+
+		expect(ranked[0].id).to.equal('faq-scholarship');
+	});
+
+	it('does not prioritize unverified FAQ candidates', () => {
+		const ranked = prioritizeVerifiedFaqCandidates([
+			{
+				id: 'service-scholarship',
+				type: 'Service',
+				canonical_name: 'Scholarship Renewal',
+				verification_status: 'verified',
+				adjusted_score: 0.92,
+				is_active: true,
+			},
+			{
+				id: 'faq-scholarship',
+				type: 'FAQ',
+				canonical_name: 'What are the scholarship renewal requirements?',
+				verification_status: 'unverified',
+				adjusted_score: 0.91,
+				is_active: true,
+			},
+		]);
+
+		expect(ranked[0].id).to.equal('service-scholarship');
+	});
+
+	it('matches misspelled keywords with fuzzy token similarity', () => {
+		expect(computeTokenSimilarity('registrar', 'regstrar')).to.be.greaterThan(0.72);
+		expect(computeFuzzyTokenOverlapRatio('where is regstrar office', 'Registrar Office Administration Building')).to.be.greaterThan(0.75);
+	});
+
+	it('boosts the closest candidate even when the query contains typos', () => {
+		const ranked = rankContextCandidatesByIntentAndLanguage({
+			candidates: [
+				{
+					id: 'office-registrar',
+					type: 'Office',
+					canonical_name: 'Registrar Office',
+					aliases: 'register office',
+					location: 'Administration Building',
+					description: 'Handles registrar concerns',
+					content: 'Registrar Office Administration Building',
+					similarity: 0.64,
+					is_active: true,
+				},
+				{
+					id: 'office-cashier',
+					type: 'Office',
+					canonical_name: 'Cashier Office',
+					aliases: 'finance office',
+					location: 'Finance Building',
+					description: 'Handles payments',
+					content: 'Cashier Office Finance Building',
+					similarity: 0.66,
+					is_active: true,
+				},
+			],
+			message: 'Where is regstrar office?',
+			retrievalQuery: 'where is regstrar office',
+			targetLanguage: 'english',
+		});
+
+		expect(ranked[0].id).to.equal('office-registrar');
+		expect(ranked[0].adjusted_score).to.be.greaterThan(ranked[1].adjusted_score);
+	});
+
+	it('builds department-specific help desk referral wording when an office is known', () => {
+		expect(buildReferralOfficeLabel('Registrar Office')).to.equal('Registrar Office help desk');
+		expect(buildLocalizedReferralText('english', 'Registrar Office')).to.include('Registrar Office help desk');
+		expect(buildLocalizedReferralText('english', 'Registrar Office')).to.include('contact or go to');
+	});
+
+	it('falls back to a generic department help desk referral when no office is known', () => {
+		const referral = buildLocalizedReferralText('english');
+		expect(referral).to.include('specific department help desk');
+		expect(referral).to.include('contact or go to');
 	});
 });

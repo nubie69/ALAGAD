@@ -20,6 +20,7 @@ router.get('/status', async (req, res) => {
     res.json({
       maintenanceMode: settings.maintenanceMode,
       kioskStatus: settings.kioskStatus,
+      helpDesk: settings.helpDesk || {},
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -43,7 +44,7 @@ router.get('/', protect, authorize('super_admin'), async (req, res) => {
 // @access  Private (Super Admin only)
 router.put('/', protect, authorize('super_admin'), async (req, res) => {
   try {
-    const { maintenanceMode, kioskStatus } = req.body;
+    const { maintenanceMode, kioskStatus, helpDesk } = req.body;
     const settings = await getOrCreateSettings();
 
     if (typeof maintenanceMode === 'boolean') {
@@ -55,6 +56,15 @@ router.put('/', protect, authorize('super_admin'), async (req, res) => {
 
     if (kioskStatus) {
       settings.kioskStatus = kioskStatus;
+    }
+
+    if (helpDesk && typeof helpDesk === 'object') {
+      settings.helpDesk = {
+        phone: String(helpDesk.phone || '').trim(),
+        email: String(helpDesk.email || '').trim(),
+        officeLocation: String(helpDesk.officeLocation || '').trim(),
+        officialLink: String(helpDesk.officialLink || '').trim(),
+      };
     }
 
     await settings.save();

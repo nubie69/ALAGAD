@@ -1,27 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Marker, Popup } from 'react-map-gl';
-import { BoxMarker } from './BoxMarker';
+import BuildingPinMarker from './BuildingPinMarker';
 
 /**
  * BuildingMarkers
- * Renders box-style markers (matching the admin MapEditor style) for the guest view.
- * Color and rotation come from saved building.markerColor / building.rotation data.
+ * Renders public-facing building pins from Building.geometry.
  */
-
-const DEFAULT_COLORS = {
-  building:    '#3b82f6',
-  admin:       '#8b5cf6',
-  facility:    '#10b981',
-  residential: '#f59e0b',
-};
-
-const getFallbackColor = (building) => {
-  const name = (building.name || '').toLowerCase();
-  if (name.includes('admin') || name.includes('registrar') || name.includes('office')) return DEFAULT_COLORS.admin;
-  if (name.includes('library') || name.includes('cafeteria') || name.includes('gym') || name.includes('gymnasium')) return DEFAULT_COLORS.facility;
-  if (name.includes('dorm') || name.includes('residential')) return DEFAULT_COLORS.residential;
-  return DEFAULT_COLORS.building;
-};
 
 const getCoordinates = (building) => {
   try {
@@ -74,19 +58,20 @@ export const BuildingMarkers = ({
   return (
     <>
       {validBuildings.map((building) => {
-        const color    = building.markerColor || building.color || getFallbackColor(building);
-        const rotation = typeof building.rotation === 'number' ? building.rotation : 0;
         const isSelected = selectedBuildingId === building._id || popupInfo?._id === building._id;
         const isNavTarget = isNavigating && navigationTarget === building.name;
         const showNavTargetPin = isNavTarget && !suppressNavTargetPin;
+        const pinColor = building.pinColor || building.markerColor || building.color || '#D93025';
 
         return (
           <React.Fragment key={building._id || building.name}>
             <Marker
               longitude={building.coords.lng}
               latitude={building.coords.lat}
-              anchor={showNavTargetPin ? 'bottom' : 'center'}
+              anchor="bottom"
               rotation={0}
+              rotationAlignment="viewport"
+              pitchAlignment="viewport"
               onClick={(e) => {
                 if (blurMarkers) return;
                 e.originalEvent.stopPropagation();
@@ -94,22 +79,14 @@ export const BuildingMarkers = ({
                 onMarkerClick?.(building);
               }}
             >
-              {showNavTargetPin ? (
-                /* Destination pin when navigating to this building */
-                <svg width="36" height="46" viewBox="0 0 32 42" fill="none" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
-                  <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26C32 7.163 24.837 0 16 0z" fill={color}/>
-                  <circle cx="16" cy="16" r="7" fill="#fff"/>
-                  <circle cx="16" cy="16" r="3.5" fill={color}/>
-                </svg>
-              ) : (
-                <div className={blurMarkers && !isSelected ? 'secondary-nav-marker secondary-nav-marker--blurred' : 'secondary-nav-marker'}>
-                  <BoxMarker
-                    name={building.name}
-                    color={color}
-                    isSelected={isSelected}
-                  />
-                </div>
-              )}
+              <div className={blurMarkers && !isSelected ? 'secondary-nav-marker secondary-nav-marker--blurred' : 'secondary-nav-marker'}>
+                <BuildingPinMarker
+                  label={building.name}
+                  color={pinColor}
+                  highlighted={isSelected || showNavTargetPin}
+                  dimmed={blurMarkers && !isSelected}
+                />
+              </div>
             </Marker>
 
             {popupInfo?._id === building._id && !blurMarkers && (
@@ -148,7 +125,7 @@ export const BuildingMarkers = ({
                   )}
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: color, border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0 }} />
+                    <div style={{ width: '12px', height: '12px', borderRadius: '999px', backgroundColor: pinColor, border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0 }} />
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1f2937' }}>
                       {building.name}
                     </h3>

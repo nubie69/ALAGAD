@@ -1,6 +1,7 @@
 const express = require('express');
 const OpenAI = require('openai');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const Settings = require('../models/Settings');
 
 const { RetrievalPipeline } = require('../services/retrieval/pipeline');
 const { sharedVectorIndexManager } = require('../services/retrieval/vectorIndexManager');
@@ -9,6 +10,7 @@ const {
   get_room,
   get_personnel,
   get_service_details,
+  get_faq_details,
   fetchStructuredByType,
 } = require('../services/retrieval/deterministicFetch');
 const {
@@ -27,6 +29,12 @@ const {
   getAutocompleteSuggestions,
   registerSuggestionSelection,
 } = require('../services/retrieval/autocompleteService');
+const { normalizeStakeholders, stakeholderMatches, detectStakeholderFromQuery } = require('../services/retrieval/stakeholderUtils');
+const {
+  isCurrentVerifiedKnowledge,
+  resolveResponsibleOffice,
+  sourceOfficeMatches,
+} = require('../services/retrieval/knowledgePolicy');
 
 const router = express.Router();
 const pipeline = new RetrievalPipeline();
@@ -36,13 +44,24 @@ const openai = process.env.OPENAI_API_KEY
   : null;
 const CHAT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 const MATCH_SCORE_THRESHOLD = Number(process.env.MATCH_SCORE_THRESHOLD || 80);
+const HELP_DESK_REFERRAL_RESPONSE = "I'm unable to verify the complete information from the available university records. Please contact or go to the specific department help desk for accurate assistance.";
+const RESPONSE_TYPES = Object.freeze({
+  VERIFIED_ANSWER: 'VERIFIED_ANSWER',
+  PARTIAL_INFORMATION: 'PARTIAL_INFORMATION',
+  HELP_DESK_REFERRAL: 'HELP_DESK_REFERRAL',
+  NO_MATCH: 'NO_MATCH',
+  CONFLICTING_INFORMATION: 'CONFLICTING_INFORMATION',
+});
 const SINGLE_CLOSEST_MATCH_MODE = true;
 const UNIT_HANDLES_INTENT_RE = /\b((?:what|which|unsa|ano)\s+unit\b.*\b(?:handle|handles|responsible|in\s+charge|manage|manages)\b|\bunit\b.*\b(?:handle|handles|responsible|in\s+charge|manage|manages)\b)\b/i;
 const SERVICE_WHERE_PROCESS_INTENT_RE = /\b(where\s+to\s+process|where\s+(?:can\s+i\s+)?(?:process|apply|get|request|avail)|asa\b.*\b(?:process|proseso|service|serbisyo)\b|saan\b.*\b(?:process|proseso|service|serbisyo)\b)\b/i;
 const SERVICE_REQUIREMENTS_INTENT_RE = /\b(requirements?|needed|need|kinahanglan|kailangan)\b/i;
 const SERVICE_PROCESS_INTENT_RE = /\b(process|step(?:\s+by\s+step)?|steps?|procedure|how(?:\s+to)?|paano|giunsa|proseso|hakbang|lakang)\b/i;
 const SERVICE_DESCRIPTION_INTENT_RE = /\b(description|about|what\s+is|what'?s|unsa\s+ang|ano\s+ang)\b/i;
-const SERVICE_INTENT_SIGNAL_SET = new Set(['unit_handler', 'requirements', 'process', 'description', 'where_process', 'service']);
+const DEADLINE_INTENT_RE = /\b(deadline|due\s+date|until\s+when|last\s+day|cutoff|cut-off|kanus-a|kailan|hanggang\s+kailan)\b/i;
+const PROCESSING_TIME_INTENT_RE = /\b(processing\s+time|how\s+long|duration|turnaround|release|when\s+can\s+i\s+(?:claim|get)|pila\s+ka\s+adlaw|gaano\s+katagal)\b/i;
+const CONTACT_INTENT_RE = /\b(contact|phone|email|number|hotline|call|message|kontak|tawag)\b/i;
+const SERVICE_INTENT_SIGNAL_SET = new Set(['unit_handler', 'requirements', 'process', 'description', 'where_process', 'deadline', 'processing_time', 'contact', 'service']);
 const SERVICE_VAGUE_TERMS = new Set([
   'how', 'to', 'apply', 'application', 'process', 'steps', 'step', 'requirements', 'requirement', 'where', 'what', 'which', 'service', 'unit', 'handles', 'handle', 'responsible', 'for', 'the', 'a', 'an',
   'paano', 'giunsa', 'unsa', 'ano', 'saan', 'asa', 'proseso', 'kailangan', 'kinahanglan',
@@ -50,6 +69,11 @@ const SERVICE_VAGUE_TERMS = new Set([
 const FOLLOW_UP_START_RE = /^(?:i\s+mean|how\s+about|what\s+about|and\b|also\b|then\b|about\b|regarding\b|siya\b|kani\b|kini\b|mao\s+ni\b)/i;
 const CONTEXT_PRONOUN_RE = /\b(him|her|it|that|this|there|siya|kani|kini|niya)\b/i;
 const GENERIC_SHORT_QUERY_RE = /^(?:where|who|what|how|requirements?|process|description|saan|asa|sino|kinsa|ano|unsa)\??$/i;
+const MATCH_STOPWORDS = new Set([
+  'where', 'what', 'who', 'how', 'when', 'find', 'locate', 'location',
+  'can', 'please', 'the', 'and', 'for', 'from', 'with', 'about',
+  'saan', 'asa', 'ano', 'unsa', 'kinsa', 'sino', 'paano', 'giunsa',
+]);
 
 const WHERE_INTENT_RE = /\b(where|location|locate|find|nasaan|saan|asa)\b/i;
 const WHO_INTENT_RE = /\b(who|sino|kinsa|person|personnel|faculty|staff|professor|dean|instructor|teacher)\b/i;
@@ -65,8 +89,14 @@ const inferIntentFromQuery = (query, contextItem) => {
   const hasProcess = SERVICE_PROCESS_INTENT_RE.test(text);
   const hasRequirements = SERVICE_REQUIREMENTS_INTENT_RE.test(text);
   const hasDescription = SERVICE_DESCRIPTION_INTENT_RE.test(text);
+  const hasDeadline = DEADLINE_INTENT_RE.test(text);
+  const hasProcessingTime = PROCESSING_TIME_INTENT_RE.test(text);
+  const hasContact = CONTACT_INTENT_RE.test(text);
 
   // Strict overlap priority: Process > Requirements > Description > Location > Personnel
+  if (isServiceContext && hasDeadline) return 'deadline';
+  if (isServiceContext && hasProcessingTime) return 'processing_time';
+  if (isServiceContext && hasContact) return 'contact';
   if (isServiceContext && hasUnitHandles) return 'unit_handler';
   if (isServiceContext && hasWhereProcess && !hasRequirements && !hasDescription) return 'where_process';
   if (isServiceContext && hasProcess) return 'process';
@@ -78,6 +108,9 @@ const inferIntentFromQuery = (query, contextItem) => {
   if (WHERE_INTENT_RE.test(text)) return 'where';
   if (WHO_INTENT_RE.test(text)) return 'who';
   if (SERVICE_PROCESS_INTENT_RE.test(text)) return 'process';
+  if (DEADLINE_INTENT_RE.test(text)) return 'deadline';
+  if (PROCESSING_TIME_INTENT_RE.test(text)) return 'processing_time';
+  if (CONTACT_INTENT_RE.test(text)) return 'contact';
   if (SERVICE_REQUIREMENTS_INTENT_RE.test(text)) return 'requirements';
   if (SERVICE_DESCRIPTION_INTENT_RE.test(text) && isServiceContext) return 'description';
   if (SERVICE_INTENT_RE.test(text)) return 'service';
@@ -85,6 +118,7 @@ const inferIntentFromQuery = (query, contextItem) => {
   if (byType === 'department') return 'where';
   if (byType === 'office') return 'where';
   if (byType === 'service') return 'description';
+  if (byType === 'faq') return 'faq';
   if (byType === 'personnel') return 'who';
   if (byType === 'room') return 'where';
   if (byType === 'building') return 'where';
@@ -152,6 +186,297 @@ const sanitizeGeneratedResponse = (text) => {
   if (/^sorry,?\s*i\s+couldn[’']?t\s+find\s+that\s+information\.?$/i.test(joined)) return NO_RELIABLE_INFO_RESPONSE;
   if (/^sorry,\s*i\s*can[’']t find that information in the system\.?$/i.test(joined)) return NO_RELIABLE_INFO_RESPONSE;
   return joined;
+};
+
+const buildReferralOfficeLabel = (responsibleOffice = '') => {
+  const office = String(responsibleOffice || '').trim();
+  if (!office) return 'the specific department help desk';
+  if (/help\s*desk/i.test(office)) return office;
+  if (/(office|department|unit|college)$/i.test(office)) return `${office} help desk`;
+  return `${office} department help desk`;
+};
+
+const buildLocalizedReferralText = (language, responsibleOffice = '') => {
+  const lang = normalizeLanguageHint(language) || 'english';
+  const officeLabel = buildReferralOfficeLabel(responsibleOffice);
+  if (lang === 'tagalog') {
+    return `Hindi ko ma-verify ang kumpletong impormasyon mula sa available na university records. Para sa accurate na tulong, makipag-ugnayan o pumunta sa ${officeLabel}.`;
+  }
+  if (lang === 'cebuano') {
+    return `Dili nako ma-verify ang kompleto nga impormasyon gikan sa available nga university records. Para sa sakto nga tabang, palihog kontaka o adtoa ang ${officeLabel}.`;
+  }
+  return `I'm unable to verify the complete information from the available university records. Please contact or go to ${officeLabel} for accurate assistance.`;
+};
+
+const getHelpDeskContact = async () => {
+  const settings = await Settings.findOne().select('helpDesk').lean().catch(() => null);
+  const helpDesk = settings?.helpDesk || {};
+  return {
+    phone: String(helpDesk.phone || '').trim(),
+    email: String(helpDesk.email || '').trim(),
+    officeLocation: String(helpDesk.officeLocation || '').trim(),
+    officialLink: String(helpDesk.officialLink || '').trim(),
+  };
+};
+
+const buildHelpDeskReferralPayload = async ({
+  intent = 'unknown',
+  responseType = RESPONSE_TYPES.HELP_DESK_REFERRAL,
+  reason = 'insufficient_verified_information',
+  language = 'english',
+  responsibleOffice = '',
+} = {}) => {
+  const helpDesk = await getHelpDeskContact();
+  const reply = buildLocalizedReferralText(language, responsibleOffice);
+  return {
+    intent,
+    location: null,
+    entityName: null,
+    responseLanguage: language,
+    reply,
+    navigation: false,
+    steps: [],
+    responseType,
+    verificationStatus: 'unverified',
+    verificationNotice: null,
+    helpDesk,
+    metadata: {
+      responseType,
+      verificationStatus: 'unverified',
+      reason,
+    },
+  };
+};
+
+const normalizeVerificationStatus = (value) => String(value || 'verified').trim().toLowerCase();
+
+const isAuthoritativeContext = (contextItem) => {
+  if (!contextItem || contextItem.is_active === false) return false;
+  return isCurrentVerifiedKnowledge({
+    ...contextItem,
+    verification_status: contextItem.verification_status || contextItem.structured?.verificationStatus,
+    status: contextItem.status || contextItem.structured?.status,
+    expiration_date: contextItem.expiration_date || contextItem.structured?.expirationDate,
+  });
+};
+
+const hasValue = (value) => {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean).length > 0;
+  return String(value || '').trim().length > 0;
+};
+
+const serviceRequiredFieldsForIntent = (intent) => {
+  const key = String(intent || '').toLowerCase();
+  if (key === 'requirements') return ['name', 'requirements'];
+  if (key === 'process') return ['name', 'process_steps'];
+  if (key === 'where_process') return ['name', 'office_or_department', 'building'];
+  if (key === 'unit_handler') return ['name', 'office_or_department'];
+  if (key === 'deadline') return ['name', 'deadline'];
+  if (key === 'processing_time') return ['name', 'processing_time'];
+  if (key === 'contact') return ['name', 'contact'];
+  if (key === 'description' || key === 'service') return ['name', 'details'];
+  return ['name'];
+};
+
+const getStructuredFieldValue = (contextItem, field) => {
+  const structured = contextItem?.structured || {};
+  if (field === 'office_or_department') {
+    return structured.office_name || structured.department || contextItem?.department_name || '';
+  }
+  if (field === 'building') {
+    return structured.building_name || contextItem?.assigned_building || '';
+  }
+  if (field === 'deadline') {
+    return structured.deadline || contextItem?.deadline || '';
+  }
+  if (field === 'processing_time') {
+    return structured.processingTime || structured.processing_time || contextItem?.processing_time || '';
+  }
+  return structured[field];
+};
+
+const detectRequestedInfoFields = (query, intent) => {
+  const text = String(query || '').toLowerCase();
+  const fields = new Set(serviceRequiredFieldsForIntent(intent));
+  if (SERVICE_REQUIREMENTS_INTENT_RE.test(text)) fields.add('requirements');
+  if (SERVICE_PROCESS_INTENT_RE.test(text)) fields.add('process_steps');
+  if (SERVICE_WHERE_PROCESS_INTENT_RE.test(text) || WHERE_INTENT_RE.test(text)) {
+    fields.add('office_or_department');
+    fields.add('building');
+  }
+  if (DEADLINE_INTENT_RE.test(text)) fields.add('deadline');
+  if (PROCESSING_TIME_INTENT_RE.test(text)) fields.add('processing_time');
+  if (CONTACT_INTENT_RE.test(text)) fields.add('contact');
+  return Array.from(fields);
+};
+
+const evaluateInformationCompleteness = ({
+  contextItem,
+  intent,
+  confidenceScore = 0,
+  requestedFields = null,
+  stakeholder = null,
+  responsibleOffice = null,
+} = {}) => {
+  if (!contextItem) {
+    return {
+      sufficient: false,
+      verificationStatus: 'unverified',
+      missingFields: ['record'],
+      reason: 'no_record',
+    };
+  }
+
+  if (!isAuthoritativeContext(contextItem)) {
+    return {
+      sufficient: false,
+      verificationStatus: normalizeVerificationStatus(contextItem.verification_status || contextItem.structured?.verificationStatus),
+      missingFields: [],
+      reason: 'record_not_verified',
+    };
+  }
+
+  if (stakeholder && !stakeholderMatches(normalizeStakeholders(contextItem.stakeholders || contextItem.stakeholder), stakeholder)) {
+    return {
+      sufficient: false,
+      verificationStatus: 'unverified',
+      missingFields: [],
+      reason: 'stakeholder_not_supported',
+    };
+  }
+
+  if (responsibleOffice && !sourceOfficeMatches(contextItem, responsibleOffice)) {
+    return {
+      sufficient: false,
+      verificationStatus: 'unverified',
+      missingFields: [],
+      reason: 'responsible_office_not_supported',
+    };
+  }
+
+  const type = String(contextItem.type || '').toLowerCase();
+  if (type === 'faq') {
+    const structured = contextItem.structured || {};
+    const missingFields = ['question', 'answer'].filter((field) => !hasValue(structured[field]));
+    if (missingFields.length > 0) {
+      return {
+        sufficient: false,
+        verificationStatus: 'partial',
+        missingFields,
+        reason: 'missing_required_fields',
+      };
+    }
+  }
+  const requiredFields = type === 'service'
+    ? (Array.isArray(requestedFields) && requestedFields.length > 0 ? requestedFields : serviceRequiredFieldsForIntent(intent))
+    : (String(intent || '').toLowerCase() === 'where' ? ['canonical_name', 'location'] : ['canonical_name']);
+  const missingFields = requiredFields.filter((field) => {
+    if (field === 'canonical_name') return !hasValue(contextItem.canonical_name);
+    if (field === 'location') return !hasValue(contextItem.location || contextItem.assigned_building);
+    return !hasValue(getStructuredFieldValue(contextItem, field));
+  });
+
+  if (missingFields.length > 0) {
+    return {
+      sufficient: false,
+      verificationStatus: 'partial',
+      missingFields,
+      reason: 'missing_required_fields',
+    };
+  }
+
+  if (confidenceScore < (MATCH_SCORE_THRESHOLD / 100)) {
+    return {
+      sufficient: false,
+      verificationStatus: 'low_confidence',
+      missingFields: [],
+      reason: 'insufficient_semantic_similarity',
+    };
+  }
+
+  return {
+    sufficient: true,
+    verificationStatus: 'verified',
+    missingFields: [],
+    reason: 'verified',
+  };
+};
+
+const normalizeConflictValue = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+const getConflictComparableFields = (item = {}) => {
+  const structured = item.structured || {};
+  return {
+    location: item.location || item.assigned_building || structured.building_name || structured.office_name || '',
+    deadline: item.deadline || structured.deadline || '',
+    processing_time: item.processing_time || structured.processingTime || structured.processing_time || '',
+    requirements: Array.isArray(structured.requirements)
+      ? structured.requirements.join('; ')
+      : String(item.requirements || ''),
+    process: Array.isArray(structured.process_steps)
+      ? structured.process_steps.join('; ')
+      : String(item.process || ''),
+  };
+};
+
+const detectConflictingInformation = (candidates = []) => {
+  const active = (Array.isArray(candidates) ? candidates : [])
+    .filter((item) => item && item.is_active !== false)
+    .slice(0, 3);
+
+  for (let i = 0; i < active.length; i += 1) {
+    for (let j = i + 1; j < active.length; j += 1) {
+      const left = active[i];
+      const right = active[j];
+      const sameType = String(left.type || '').toLowerCase() === String(right.type || '').toLowerCase();
+      const sameName = normalizeConflictValue(left.canonical_name) === normalizeConflictValue(right.canonical_name);
+      if (!sameType || !sameName) continue;
+
+      const leftFields = getConflictComparableFields(left);
+      const rightFields = getConflictComparableFields(right);
+      for (const field of ['location', 'deadline', 'processing_time', 'requirements', 'process']) {
+        const leftValue = normalizeConflictValue(leftFields[field]);
+        const rightValue = normalizeConflictValue(rightFields[field]);
+        if (!leftValue || !rightValue || leftValue === rightValue) continue;
+        return {
+          hasConflict: true,
+          field,
+          records: [
+            { id: left.id, value: leftFields[field] },
+            { id: right.id, value: rightFields[field] },
+          ],
+        };
+      }
+    }
+  }
+
+  return { hasConflict: false, field: null, records: [] };
+};
+
+const shouldShowInformationNotice = (contextItem, intent) => {
+  const type = String(contextItem?.type || '').toLowerCase();
+  const key = String(intent || '').toLowerCase();
+  return type === 'service' || ['requirements', 'process', 'where_process', 'unit_handler'].includes(key);
+};
+
+const buildVerificationNotice = (contextItem, intent) => {
+  if (!shouldShowInformationNotice(contextItem, intent)) return null;
+  return {
+    title: 'Information Notice',
+    text: 'This answer is based on available university records. For official or updated information, please verify with the concerned office.',
+  };
+};
+
+const buildSourceAwareAnswer = (answer, contextItem) => {
+  const base = sanitizeGeneratedResponse(answer);
+  if (!base || base === NO_RELIABLE_INFO_RESPONSE) return base;
+
+  const sourceOffice = resolveResponsibleOffice(contextItem);
+  const type = String(contextItem?.type || '').toLowerCase();
+  if (!sourceOffice || !['faq', 'service'].includes(type)) return base;
+  if (/^according to\b/i.test(base)) return base;
+
+  return `According to verified information from ${sourceOffice}, ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
 };
 
 const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -458,6 +783,7 @@ const buildServiceIntentAnswer = (contextItem, intent, fallbackText = NO_RELIABL
     floorLocation,
   });
   const details = String(structured.details || contextItem.content || '').trim();
+  const contact = String(structured.contact || contextItem.contact || '').trim();
   const requirements = asCleanList(structured.requirements)
     .map((item) => cleanRequirementItem(item))
     .filter(Boolean);
@@ -481,6 +807,23 @@ const buildServiceIntentAnswer = (contextItem, intent, fallbackText = NO_RELIABL
     return polishGrammar(`${serviceName} can be processed at ${locationText}`);
   }
 
+  if (normalizedIntent === 'deadline') {
+    const deadline = String(structured.deadline || contextItem.deadline || '').trim();
+    if (!deadline) return NO_RELIABLE_INFO_RESPONSE;
+    return polishGrammar(`The verified deadline for ${serviceName} is ${deadline}`);
+  }
+
+  if (normalizedIntent === 'processing_time') {
+    const processingTime = String(structured.processingTime || structured.processing_time || contextItem.processing_time || '').trim();
+    if (!processingTime) return NO_RELIABLE_INFO_RESPONSE;
+    return polishGrammar(`The verified processing time for ${serviceName} is ${processingTime}`);
+  }
+
+  if (normalizedIntent === 'contact') {
+    if (!contact) return NO_RELIABLE_INFO_RESPONSE;
+    return polishGrammar(`For ${serviceName}, you may contact ${contact}`);
+  }
+
   if (normalizedIntent === 'description' || normalizedIntent === 'service') {
     const description = extractPrimaryDescription(details);
     if (!description) return NO_RELIABLE_INFO_RESPONSE;
@@ -494,6 +837,78 @@ const buildServiceIntentAnswer = (contextItem, intent, fallbackText = NO_RELIABL
   const processParagraph = toProcessParagraph(processSteps);
   if (!processParagraph) return NO_RELIABLE_INFO_RESPONSE;
   return polishGrammar(`The process for ${serviceName} is ${processParagraph}`);
+};
+
+const FIELD_LABELS = Object.freeze({
+  requirements: 'requirements',
+  process_steps: 'procedure',
+  office_or_department: 'responsible office or department',
+  building: 'location',
+  deadline: 'deadline',
+  processing_time: 'processing time',
+  contact: 'contact information',
+  details: 'description',
+});
+
+const humanizeMissingFields = (fields = []) => {
+  const labels = Array.from(new Set((fields || []).map((field) => FIELD_LABELS[field] || String(field || '').replace(/_/g, ' ')).filter(Boolean)));
+  if (labels.length === 0) return 'the complete information';
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+};
+
+const buildPartialVerifiedServiceAnswer = ({ contextItem, requestedFields = [], missingFields = [] }) => {
+  if (!contextItem || String(contextItem.type || '').toLowerCase() !== 'service') return '';
+
+  const candidateIntents = [
+    ['requirements', 'requirements'],
+    ['process_steps', 'process'],
+    ['office_or_department', 'where_process'],
+    ['deadline', 'deadline'],
+    ['processing_time', 'processing_time'],
+    ['contact', 'contact'],
+    ['details', 'description'],
+  ];
+  const missingSet = new Set(missingFields);
+  const requestedSet = new Set(requestedFields);
+  const verifiedParts = [];
+
+  for (const [field, intent] of candidateIntents) {
+    if (!requestedSet.has(field) || missingSet.has(field)) continue;
+    const answer = buildServiceIntentAnswer(contextItem, intent);
+    if (answer && answer !== NO_RELIABLE_INFO_RESPONSE) {
+      verifiedParts.push(stripTrailingPunctuation(answer));
+    }
+  }
+
+  if (verifiedParts.length === 0) return '';
+
+  return polishGrammar(`ALAGAD can verify ${verifiedParts.join('. ')}. However, I could not verify ${humanizeMissingFields(missingFields)} from the available university data. Please contact the Help Desk for the most accurate information.`);
+};
+
+const FAQ_PRIORITY_MARGIN = 0.03;
+
+const prioritizeVerifiedFaqCandidates = (candidates = []) => {
+  const activeCandidates = (Array.isArray(candidates) ? candidates : [])
+    .filter((candidate) => candidate && candidate.is_active !== false);
+  if (activeCandidates.length <= 1) return activeCandidates;
+
+  const top = activeCandidates[0];
+  const topScore = Number(top?.adjusted_score || top?.similarity || 0);
+  const faqCandidate = activeCandidates.find((candidate) => {
+    if (String(candidate?.type || '').toLowerCase() !== 'faq') return false;
+    const status = normalizeVerificationStatus(candidate?.verification_status || candidate?.structured?.verificationStatus);
+    if (status !== 'verified') return false;
+    const candidateScore = Number(candidate?.adjusted_score || candidate?.similarity || 0);
+    return candidateScore + FAQ_PRIORITY_MARGIN >= topScore;
+  });
+
+  if (!faqCandidate || faqCandidate === top) return activeCandidates;
+  return [
+    faqCandidate,
+    ...activeCandidates.filter((candidate) => candidate !== faqCandidate),
+  ];
 };
 
 const buildPersonnelWhoWhereAnswer = (contextItem, intent, fallbackText = NO_RELIABLE_INFO_RESPONSE) => {
@@ -1062,6 +1477,9 @@ const deriveQueryIntentSignal = (query) => {
   const text = String(query || '').toLowerCase();
   if (!text) return 'unknown';
 
+  if (DEADLINE_INTENT_RE.test(text)) return 'deadline';
+  if (PROCESSING_TIME_INTENT_RE.test(text)) return 'processing_time';
+  if (CONTACT_INTENT_RE.test(text)) return 'contact';
   if (UNIT_HANDLES_INTENT_RE.test(text)) return 'unit_handler';
   if (SERVICE_PROCESS_INTENT_RE.test(text)) return 'process';
   if (SERVICE_REQUIREMENTS_INTENT_RE.test(text)) return 'requirements';
@@ -1078,8 +1496,48 @@ const tokenizeComparable = (value) => Array.from(new Set(
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((token) => token.length >= 2)
+    .filter((token) => token.length >= 3 && !MATCH_STOPWORDS.has(token))
 ));
+
+const computeLevenshteinDistance = (leftValue, rightValue) => {
+  const left = String(leftValue || '');
+  const right = String(rightValue || '');
+  if (!left) return right.length;
+  if (!right) return left.length;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= left.length; i += 1) {
+    let diagonal = previous[0];
+    previous[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const temp = previous[j];
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+      previous[j] = Math.min(
+        previous[j] + 1,
+        previous[j - 1] + 1,
+        diagonal + cost,
+      );
+      diagonal = temp;
+    }
+  }
+  return previous[right.length];
+};
+
+const computeTokenSimilarity = (queryToken, candidateToken) => {
+  const left = String(queryToken || '').trim();
+  const right = String(candidateToken || '').trim();
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  if (left.length < 3 || right.length < 3) return 0;
+  if (left.includes(right) || right.includes(left)) {
+    return Math.min(left.length, right.length) / Math.max(left.length, right.length);
+  }
+
+  const maxLength = Math.max(left.length, right.length);
+  if (maxLength === 0) return 0;
+  const distance = computeLevenshteinDistance(left, right);
+  return Math.max(0, 1 - (distance / maxLength));
+};
 
 const computeTokenOverlapRatio = (queryText, candidateText) => {
   const queryTokens = tokenizeComparable(queryText);
@@ -1093,12 +1551,33 @@ const computeTokenOverlapRatio = (queryText, candidateText) => {
   return hits / queryTokens.length;
 };
 
+const computeFuzzyTokenOverlapRatio = (queryText, candidateText) => {
+  const queryTokens = tokenizeComparable(queryText);
+  const candidateTokens = tokenizeComparable(candidateText);
+  if (queryTokens.length === 0 || candidateTokens.length === 0) return 0;
+
+  let totalScore = 0;
+  for (const queryToken of queryTokens) {
+    let bestScore = 0;
+    for (const candidateToken of candidateTokens) {
+      const similarity = computeTokenSimilarity(queryToken, candidateToken);
+      if (similarity > bestScore) bestScore = similarity;
+      if (bestScore === 1) break;
+    }
+    if (bestScore >= 0.72) {
+      totalScore += bestScore;
+    }
+  }
+
+  return totalScore / queryTokens.length;
+};
+
 const intentTypeBoost = (intentSignal, candidateType) => {
   const type = String(candidateType || '').toLowerCase();
   const intent = String(intentSignal || '').toLowerCase();
 
   if (intent === 'who' && type === 'personnel') return 0.12;
-  if (['unit_handler', 'requirements', 'process', 'description', 'where_process', 'service'].includes(intent) && type === 'service') return 0.12;
+  if (['unit_handler', 'requirements', 'process', 'description', 'where_process', 'deadline', 'processing_time', 'contact', 'service'].includes(intent) && type === 'service') return 0.12;
   if (intent === 'where' && ['office', 'department', 'building', 'room', 'personnel'].includes(type)) return 0.05;
   return 0;
 };
@@ -1135,15 +1614,22 @@ const rankContextCandidatesByIntentAndLanguage = ({
         candidate?.description,
         candidate?.requirements,
         candidate?.process,
+        candidate?.stakeholders,
+        candidate?.deadline,
+        candidate?.processing_time,
         candidate?.content,
       ].filter(Boolean).join(' ');
 
       const retrievalOverlap = computeTokenOverlapRatio(retrievalQuery, candidateText);
       const languageOverlap = computeTokenOverlapRatio(queryForLanguage, candidateText);
+      const fuzzyRetrievalOverlap = computeFuzzyTokenOverlapRatio(retrievalQuery, candidateText);
+      const fuzzyLanguageOverlap = computeFuzzyTokenOverlapRatio(queryForLanguage, candidateText);
       const adjustedScore = similarity
         + intentTypeBoost(intentSignal, candidate?.type)
         + (retrievalOverlap * 0.06)
-        + (languageOverlap * 0.04);
+        + (languageOverlap * 0.04)
+        + (fuzzyRetrievalOverlap * 0.08)
+        + (fuzzyLanguageOverlap * 0.05);
 
       return {
         ...candidate,
@@ -1401,14 +1887,17 @@ router.post('/', async (req, res) => {
     });
 
     const retrievalQuery = String(queryTranslation.text || message).trim() || message;
-    const retrieval = await pipeline.retrieve(retrievalQuery);
+    const detectedStakeholder = detectStakeholderFromQuery(`${message} ${retrievalQuery}`);
+    const retrieval = await pipeline.retrieve(retrievalQuery, {
+      stakeholder: detectedStakeholder,
+    });
     const queryIntentSignal = deriveQueryIntentSignal(retrievalQuery || message);
-    const rankedContextCandidates = rankContextCandidatesByIntentAndLanguage({
+    const rankedContextCandidates = prioritizeVerifiedFaqCandidates(rankContextCandidatesByIntentAndLanguage({
       candidates: retrieval.candidateContexts,
       message,
       retrievalQuery,
       targetLanguage: detectedLanguage,
-    });
+    }));
     const bestContext = rankedContextCandidates[0] || retrieval.finalContext[0] || null;
     const bestSimilarityScore = Number(bestContext?.similarity || 0);
     const bestAdjustedScoreRaw = Number(bestContext?.adjusted_score || bestContext?.rerank_score || 0);
@@ -1427,12 +1916,11 @@ router.post('/', async (req, res) => {
       && (bestConfidenceScore >= (MATCH_SCORE_THRESHOLD / 100) || bestLexicalMatch);
 
     if (!hasQualifiedMatch) {
-      const noInfoTranslation = await translateEnglishResponse({
-        englishText: NO_RELIABLE_INFO_RESPONSE,
-        targetLanguage: detectedLanguage,
-        openaiClient: openai,
-        model: CHAT_MODEL,
-        noInfoText: NO_RELIABLE_INFO_RESPONSE,
+      const referralPayload = await buildHelpDeskReferralPayload({
+        intent: 'unknown',
+        responseType: RESPONSE_TYPES.NO_MATCH,
+        reason: 'no_qualified_retrieval_match',
+        language: detectedLanguage,
       });
 
       logAlert({
@@ -1475,12 +1963,14 @@ router.post('/', async (req, res) => {
         chosen_lexical_match: bestLexicalMatch,
         model_prompt: null,
         model_response: NO_RELIABLE_INFO_RESPONSE,
-        response_text: noInfoTranslation.text,
+        response_text: referralPayload.reply,
+        response_type: referralPayload.responseType,
+        verification_status: referralPayload.verificationStatus,
         model_response_language: 'english',
-        final_response_language: noInfoTranslation.targetLanguage,
+        final_response_language: detectedLanguage,
         translation_steps: {
           query: queryTranslation,
-          response: noInfoTranslation,
+          response: null,
         },
         retrieval_category: retrieval.retrievalCategory,
         retrieval_mode: retrieval.retrievalMode,
@@ -1490,14 +1980,69 @@ router.post('/', async (req, res) => {
         metadata_filters: retrieval.metadataFilters,
       });
 
+      return res.json(referralPayload);
+    }
+
+    const conflict = detectConflictingInformation(rankedContextCandidates);
+    if (conflict.hasConflict) {
+      const conflictReply = `I found conflicting information about the ${conflict.field} in the available university records. Please verify the current information with the Help Desk.`;
+      const helpDesk = await getHelpDeskContact();
+
+      logAlert({
+        alert_type: 'conflicting_retrieval_records',
+        query: message,
+        detected_language: detectedLanguage,
+        query_for_retrieval: retrievalQuery,
+        field: conflict.field,
+        records: conflict.records,
+      });
+
+      logAudit({
+        original_query: message,
+        selected_suggestion: selectedSuggestion,
+        detected_language: detectedLanguage,
+        language_detection_scores: languageDetection.scores,
+        language_detection_reason: languageDetection.reason,
+        conversation_history_length: conversationHistory.length,
+        conversation_context: conversationContext,
+        contextualized_query: contextualizedInput,
+        query_for_retrieval: retrievalQuery,
+        normalized_query: retrieval.normalizedQuery,
+        final_context: [],
+        conflicting_records: conflict.records,
+        chosen_match: null,
+        chosen_similarity_score: bestSimilarityPercent,
+        chosen_confidence_score: bestConfidencePercent,
+        response_type: RESPONSE_TYPES.CONFLICTING_INFORMATION,
+        verification_status: 'conflicting',
+        response_text: conflictReply,
+        retrieval_category: retrieval.retrievalCategory,
+        retrieval_mode: retrieval.retrievalMode,
+        vector_db: retrieval.vectorDb,
+        embedding_model: retrieval.embeddingModel,
+      });
+
       return res.json({
         intent: 'unknown',
         location: null,
         entityName: null,
-        responseLanguage: noInfoTranslation.targetLanguage,
-        reply: noInfoTranslation.text,
+        responseLanguage: detectedLanguage,
+        reply: conflictReply,
         navigation: false,
         steps: [],
+        responseType: RESPONSE_TYPES.CONFLICTING_INFORMATION,
+        verificationStatus: 'conflicting',
+        verificationNotice: null,
+        helpDesk,
+        metadata: {
+          responseType: RESPONSE_TYPES.CONFLICTING_INFORMATION,
+          verificationStatus: 'conflicting',
+          question: message,
+          retrievedRecords: conflict.records,
+          retrievalScore: bestConfidencePercent,
+          knowledgeSource: 'ALAGAD retrieval index',
+          timestamp: new Date().toISOString(),
+        },
       });
     }
 
@@ -1570,6 +2115,194 @@ router.post('/', async (req, res) => {
 
     const primary = contextWithStructured[0] || null;
     const intent = inferIntentFromQuery(retrievalQuery, primary);
+    const requestedFields = String(primary?.type || '').toLowerCase() === 'service'
+      ? detectRequestedInfoFields(retrievalQuery || message, intent)
+      : [];
+    const completeness = evaluateInformationCompleteness({
+      contextItem: primary,
+      intent,
+      confidenceScore: bestLexicalMatch ? 1 : bestConfidenceScore,
+      requestedFields,
+      stakeholder: retrieval.detectedStakeholder,
+      responsibleOffice: retrieval.detectedResponsibleOffice,
+    });
+
+    if (!completeness.sufficient) {
+      const partialEnglishReply = completeness.reason === 'missing_required_fields'
+        ? buildPartialVerifiedServiceAnswer({
+            contextItem: primary,
+            requestedFields,
+            missingFields: completeness.missingFields,
+          })
+        : '';
+      const partialTranslation = partialEnglishReply
+        ? await translateEnglishResponse({
+            englishText: partialEnglishReply,
+            targetLanguage: detectedLanguage,
+            openaiClient: openai,
+            model: CHAT_MODEL,
+            noInfoText: NO_RELIABLE_INFO_RESPONSE,
+          })
+        : null;
+      const referralPayload = await buildHelpDeskReferralPayload({
+        intent,
+        responseType: completeness.reason === 'missing_required_fields'
+          ? RESPONSE_TYPES.PARTIAL_INFORMATION
+          : RESPONSE_TYPES.HELP_DESK_REFERRAL,
+        reason: completeness.reason,
+        language: detectedLanguage,
+        responsibleOffice: resolveResponsibleOffice(primary),
+      });
+      if (partialTranslation?.text) {
+        referralPayload.reply = sanitizeGeneratedResponse(stripSourcesFromResponse(partialTranslation.text));
+        referralPayload.responseLanguage = partialTranslation.targetLanguage;
+        referralPayload.verificationStatus = 'partial';
+        referralPayload.metadata.verificationStatus = 'partial';
+      }
+
+      logAudit({
+        original_query: message,
+        selected_suggestion: selectedSuggestion,
+        detected_language: detectedLanguage,
+        language_detection_scores: languageDetection.scores,
+        language_detection_reason: languageDetection.reason,
+        conversation_history_length: conversationHistory.length,
+        conversation_context: conversationContext,
+        contextualized_query: contextualizedInput,
+        query_for_retrieval: retrievalQuery,
+        normalized_query: retrieval.normalizedQuery,
+        query_embedding_id: retrieval.queryEmbeddingId,
+        top_k_ids: retrieval.topVectorResults.map((item) => item.id),
+        similarity_scores: retrieval.topVectorResults.map((item) => item.similarity),
+        reranker_scores: retrieval.rerankedResults.map((item) => item.rerankScore),
+        final_context: contextWithStructured,
+        chosen_match: primary ? {
+          id: primary.id,
+          type: primary.type,
+          canonical_name: primary.canonical_name,
+          is_active: primary.is_active,
+        } : null,
+        chosen_similarity_score: bestSimilarityPercent,
+        chosen_confidence_score: bestConfidencePercent,
+        chosen_lexical_match: bestLexicalMatch,
+        missing_fields: completeness.missingFields,
+        requested_fields: requestedFields,
+        detected_stakeholder: retrieval.detectedStakeholder,
+        verification_reason: completeness.reason,
+        response_type: referralPayload.responseType,
+        verification_status: referralPayload.verificationStatus,
+        response_text: referralPayload.reply,
+        retrieval_category: retrieval.retrievalCategory,
+        retrieval_mode: retrieval.retrievalMode,
+        vector_db: retrieval.vectorDb,
+        embedding_model: retrieval.embeddingModel,
+        type_filters: retrieval.typeFilters,
+        category_filters: retrieval.categoryFilters,
+        metadata_filters: retrieval.metadataFilters,
+        fallback: retrieval.fallback,
+      });
+
+      return res.json(referralPayload);
+    }
+
+    if (String(primary?.type || '').toLowerCase() === 'faq') {
+      if (!primary.structured) {
+        primary.structured = await get_faq_details(primary.id);
+      }
+
+      const faq = primary.structured || {};
+      const resources = Array.isArray(faq.resources) ? faq.resources : [];
+      const relatedFaqs = Array.isArray(faq.relatedFaqs) ? faq.relatedFaqs : [];
+      const asksForDownload = /\b(download|form|link|document|pdf|docx?|website|view)\b/i.test(`${message} ${retrievalQuery}`);
+      const noResourceNotice = asksForDownload && resources.length === 0
+        ? ' I can provide the available information, but I could not verify a downloadable resource in the available university information. Please contact the Help Desk or the assigned office for the official form.'
+        : '';
+      const faqAnswer = buildSourceAwareAnswer(
+        `${String(faq.answer || '').trim()}${noResourceNotice}`.trim(),
+        {
+          ...primary,
+          structured: faq,
+          source_office: faq.sourceOffice || primary?.source_office,
+        }
+      );
+      const faqTranslation = await translateEnglishResponse({
+        englishText: faqAnswer,
+        targetLanguage: detectedLanguage,
+        openaiClient: openai,
+        model: CHAT_MODEL,
+        noInfoText: NO_RELIABLE_INFO_RESPONSE,
+      });
+      const faqReply = sanitizeGeneratedResponse(stripSourcesFromResponse(faqTranslation.text));
+
+      logAudit({
+        original_query: message,
+        selected_suggestion: selectedSuggestion,
+        detected_language: detectedLanguage,
+        contextualized_query: contextualizedInput,
+        query_for_retrieval: retrievalQuery,
+        normalized_query: retrieval.normalizedQuery,
+        final_context: contextWithStructured,
+        chosen_match: {
+          id: primary.id,
+          type: primary.type,
+          canonical_name: primary.canonical_name,
+          is_active: primary.is_active,
+        },
+        chosen_similarity_score: bestSimilarityPercent,
+        chosen_confidence_score: bestConfidencePercent,
+        chosen_lexical_match: bestLexicalMatch,
+        model_response: faqAnswer,
+        response_text: faqReply,
+        response_type: RESPONSE_TYPES.VERIFIED_ANSWER,
+        verification_status: 'verified',
+        knowledge_source: faq.sourceOffice || primary?.source_office || 'ALAGAD FAQ',
+        final_response_language: faqTranslation.targetLanguage,
+        retrieval_category: retrieval.retrievalCategory,
+        retrieval_mode: retrieval.retrievalMode,
+        vector_db: retrieval.vectorDb,
+        embedding_model: retrieval.embeddingModel,
+      });
+
+      return res.json({
+        intent: 'faq',
+        location: faq.officeName || faq.departmentName || null,
+        entityName: String(faq.question || primary?.canonical_name || '').trim() || null,
+        responseLanguage: faqTranslation.targetLanguage,
+        reply: faqReply,
+        navigation: false,
+        steps: [],
+        faq: {
+          id: faq.id,
+          question: faq.question,
+          category: faq.category,
+          officeName: faq.officeName,
+          departmentName: faq.departmentName,
+          lastVerified: faq.lastVerified,
+        },
+        relatedFaqs,
+        resources,
+        responseType: RESPONSE_TYPES.VERIFIED_ANSWER,
+        verificationStatus: 'verified',
+        verificationNotice: buildVerificationNotice(primary, intent),
+        helpDesk: await getHelpDeskContact(),
+        metadata: {
+          question: message,
+          retrievedRecords: [{
+            id: primary.id,
+            type: primary.type,
+            name: primary.canonical_name,
+            source: faq.sourceOffice || primary?.source_office || 'ALAGAD FAQ',
+            stakeholder: primary?.stakeholder || faq.stakeholder || null,
+          }],
+          retrievalScore: bestConfidencePercent,
+          verificationStatus: 'verified',
+          responseType: RESPONSE_TYPES.VERIFIED_ANSWER,
+          knowledgeSource: faq.sourceOffice || primary?.source_office || 'ALAGAD FAQ',
+          stakeholder: primary?.stakeholder || faq.stakeholder || retrieval.detectedStakeholder || null,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
 
     const responseGeneration = await generateStrictAnswer({
       userQuery: retrievalQuery,
@@ -1582,7 +2315,7 @@ router.post('/', async (req, res) => {
       && (intent === 'who' || intent === 'where');
     const isEntityWhere = intent === 'where' && primaryType !== 'service';
     const isServiceIntent = primaryType === 'service'
-      && (intent === 'unit_handler' || intent === 'requirements' || intent === 'process' || intent === 'description' || intent === 'where_process' || intent === 'service');
+      && (intent === 'unit_handler' || intent === 'requirements' || intent === 'process' || intent === 'description' || intent === 'where_process' || intent === 'deadline' || intent === 'processing_time' || intent === 'contact' || intent === 'service');
     const responseCandidate = isServiceIntent
       ? buildServiceIntentAnswer(primary, intent, generatedEnglishResponse)
       : (isPersonnelWhoWhere
@@ -1591,9 +2324,88 @@ router.post('/', async (req, res) => {
           ? buildEntityWhereAnswer(primary, generatedEnglishResponse)
           : generatedEnglishResponse));
     const sanitizedEnglishResponse = polishGrammar(responseCandidate);
+    if (!sanitizedEnglishResponse || sanitizedEnglishResponse === NO_RELIABLE_INFO_RESPONSE) {
+      const referralPayload = await buildHelpDeskReferralPayload({
+        intent,
+        responseType: RESPONSE_TYPES.PARTIAL_INFORMATION,
+        reason: 'answer_validation_failed',
+        language: detectedLanguage,
+        responsibleOffice: resolveResponsibleOffice(primary),
+      });
 
+      logAudit({
+        original_query: message,
+        selected_suggestion: selectedSuggestion,
+        detected_language: detectedLanguage,
+        query_for_retrieval: retrievalQuery,
+        final_context: contextWithStructured,
+        chosen_match: {
+          id: bestContext.id,
+          type: bestContext.type,
+          canonical_name: bestContext.canonical_name,
+          is_active: bestContext.is_active,
+        },
+        chosen_similarity_score: bestSimilarityPercent,
+        chosen_confidence_score: bestConfidencePercent,
+        model_prompt: responseGeneration.modelPrompt,
+        model_response: responseGeneration.modelResponse,
+        response_text: referralPayload.reply,
+        response_type: referralPayload.responseType,
+        verification_status: referralPayload.verificationStatus,
+        verification_reason: 'answer_validation_failed',
+      });
+
+      return res.json(referralPayload);
+    }
+
+    const hallucination = detectHallucinationRisk(sanitizedEnglishResponse, contextWithStructured);
+    if (hallucination.risk) {
+      const referralPayload = await buildHelpDeskReferralPayload({
+        intent,
+        responseType: RESPONSE_TYPES.HELP_DESK_REFERRAL,
+        reason: 'answer_not_supported_by_context',
+        language: detectedLanguage,
+        responsibleOffice: resolveResponsibleOffice(primary),
+      });
+
+      logAlert({
+        alert_type: 'possible_hallucination',
+        query: message,
+        detected_language: detectedLanguage,
+        query_for_retrieval: retrievalQuery,
+        response_coverage: hallucination.coverage,
+        model_response: responseGeneration.modelResponse,
+        context_ids: contextWithStructured.map((item) => item.id),
+      });
+
+      logAudit({
+        original_query: message,
+        selected_suggestion: selectedSuggestion,
+        detected_language: detectedLanguage,
+        query_for_retrieval: retrievalQuery,
+        final_context: contextWithStructured,
+        chosen_match: {
+          id: bestContext.id,
+          type: bestContext.type,
+          canonical_name: bestContext.canonical_name,
+          is_active: bestContext.is_active,
+        },
+        chosen_similarity_score: bestSimilarityPercent,
+        chosen_confidence_score: bestConfidencePercent,
+        model_prompt: responseGeneration.modelPrompt,
+        model_response: sanitizedEnglishResponse,
+        response_text: referralPayload.reply,
+        response_type: referralPayload.responseType,
+        verification_status: referralPayload.verificationStatus,
+        response_coverage: hallucination.coverage,
+      });
+
+      return res.json(referralPayload);
+    }
+
+    const sourceAwareEnglishResponse = buildSourceAwareAnswer(sanitizedEnglishResponse, primary);
     const responseTranslation = await translateEnglishResponse({
-      englishText: sanitizedEnglishResponse,
+      englishText: sourceAwareEnglishResponse,
       targetLanguage: detectedLanguage,
       openaiClient: openai,
       model: CHAT_MODEL,
@@ -1607,19 +2419,6 @@ router.post('/', async (req, res) => {
       targetLanguage: responseTranslation.targetLanguage,
     });
     const emphasizedResponseText = applyResponseEmphasis(detailedResponseText, primary);
-
-    const hallucination = detectHallucinationRisk(sanitizedEnglishResponse, contextWithStructured);
-    if (hallucination.risk) {
-      logAlert({
-        alert_type: 'possible_hallucination',
-        query: message,
-        detected_language: detectedLanguage,
-        query_for_retrieval: retrievalQuery,
-        response_coverage: hallucination.coverage,
-        model_response: responseGeneration.modelResponse,
-        context_ids: contextWithStructured.map((item) => item.id),
-      });
-    }
 
     logAudit({
       original_query: message,
@@ -1655,8 +2454,11 @@ router.post('/', async (req, res) => {
       chosen_confidence_score: bestConfidencePercent,
       chosen_lexical_match: bestLexicalMatch,
       model_prompt: responseGeneration.modelPrompt,
-      model_response: sanitizedEnglishResponse,
+        model_response: sourceAwareEnglishResponse,
       response_text: emphasizedResponseText,
+      response_type: RESPONSE_TYPES.VERIFIED_ANSWER,
+      verification_status: 'verified',
+      knowledge_source: primary?.source_office || primary?.source || primary?.structured?.sourceOffice || 'ALAGAD records',
       model_response_language: 'english',
       final_response_language: responseTranslation.targetLanguage,
       translation_steps: {
@@ -1686,6 +2488,26 @@ router.post('/', async (req, res) => {
       reply: emphasizedResponseText,
       navigation: Boolean(location),
       steps,
+      responseType: RESPONSE_TYPES.VERIFIED_ANSWER,
+      verificationStatus: 'verified',
+      verificationNotice: buildVerificationNotice(primary, intent),
+      helpDesk: await getHelpDeskContact(),
+      metadata: {
+        question: message,
+        retrievedRecords: contextWithStructured.map((item) => ({
+          id: item.id,
+          type: item.type,
+          name: item.canonical_name,
+          source: item.source_office || item.source || item.structured?.sourceOffice,
+          stakeholder: item.stakeholder || item.structured?.stakeholder || null,
+        })),
+        retrievalScore: bestConfidencePercent,
+        verificationStatus: 'verified',
+        responseType: RESPONSE_TYPES.VERIFIED_ANSWER,
+        knowledgeSource: primary?.source_office || primary?.source || primary?.structured?.sourceOffice || 'ALAGAD records',
+        stakeholder: primary?.stakeholder || primary?.structured?.stakeholder || retrieval.detectedStakeholder || null,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
     logAlert({
@@ -1719,5 +2541,17 @@ module.exports.__testables = {
   resolveDetectedLanguage,
   appendLocalizedDetail,
   rankContextCandidatesByIntentAndLanguage,
+  evaluateInformationCompleteness,
+  detectRequestedInfoFields,
+  buildPartialVerifiedServiceAnswer,
+  prioritizeVerifiedFaqCandidates,
+  detectConflictingInformation,
+  buildVerificationNotice,
+  buildSourceAwareAnswer,
+  buildLocalizedReferralText,
+  buildReferralOfficeLabel,
+  computeTokenSimilarity,
+  computeFuzzyTokenOverlapRatio,
+  RESPONSE_TYPES,
   NO_RELIABLE_INFO_RESPONSE,
 };

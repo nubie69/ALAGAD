@@ -389,6 +389,99 @@ export const servicesAPI = {
   },
 };
 
+// FAQs API
+export const faqsAPI = {
+  getAll: async () => {
+    return await apiRequest('/faqs');
+  },
+
+  getById: async (id) => {
+    return await apiRequest(`/faqs/${id}`);
+  },
+
+  getRelated: async (id) => {
+    return await apiRequest(`/faqs/${id}/related`);
+  },
+
+  getResources: async (id) => {
+    return await apiRequest(`/faqs/${id}/resources`);
+  },
+
+  create: async (faq) => {
+    return await apiRequest('/faqs', {
+      method: 'POST',
+      body: JSON.stringify(faq),
+    });
+  },
+
+  update: async (id, faq) => {
+    return await apiRequest(`/faqs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(faq),
+    });
+  },
+
+  delete: async (id) => {
+    return await apiRequest(`/faqs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  reactivate: async (id) => {
+    return await apiRequest(`/faqs/${id}/reactivate`, {
+      method: 'PUT',
+    });
+  },
+};
+
+// Public FAQs API
+export const publicFaqsAPI = {
+  getAll: async () => {
+    return await apiRequest('/public/faqs');
+  },
+
+  getById: async (id) => {
+    return await apiRequest(`/public/faqs/${id}`);
+  },
+};
+
+// Resources API
+export const resourcesAPI = {
+  getAll: async () => {
+    return await apiRequest('/resources');
+  },
+
+  getById: async (id) => {
+    return await apiRequest(`/resources/${id}`);
+  },
+
+  create: async (resource) => {
+    return await apiRequest('/resources', {
+      method: 'POST',
+      body: JSON.stringify(resource),
+    });
+  },
+
+  update: async (id, resource) => {
+    return await apiRequest(`/resources/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(resource),
+    });
+  },
+
+  delete: async (id) => {
+    return await apiRequest(`/resources/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  reactivate: async (id) => {
+    return await apiRequest(`/resources/${id}/reactivate`, {
+      method: 'PUT',
+    });
+  },
+};
+
 // Departments API
 export const departmentsAPI = {
   getAll: async () => {
