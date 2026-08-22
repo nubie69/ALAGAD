@@ -11,15 +11,25 @@ export default function SuperAdminLoginForm() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
 
     const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setError('Invalid email or password');
+    const nextFieldErrors = {};
+    if (!trimmedEmail) {
+      nextFieldErrors.email = 'Please enter your email address.';
+    }
+    if (!password) {
+      nextFieldErrors.password = 'Please enter your password.';
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
       return;
     }
 
@@ -29,7 +39,7 @@ export default function SuperAdminLoginForm() {
       const result = await login(trimmedEmail, password);
 
       if (!result || !result.success) {
-        setError('Invalid email or password');
+        setError('Incorrect email or password. Please try again.');
         return;
       }
 
@@ -41,7 +51,7 @@ export default function SuperAdminLoginForm() {
       setError(`Your account (${result.user?.role || 'unknown'}) does not have super administrator privileges.`);
     } catch (err) {
       console.error('SuperAdminLoginForm error', err);
-      setError('Invalid email or password');
+      setError('Incorrect email or password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -87,7 +97,7 @@ export default function SuperAdminLoginForm() {
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            <span>Secured Login</span>
+            <span>Secure Login</span>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit} aria-label="Administrator login form">
@@ -99,12 +109,19 @@ export default function SuperAdminLoginForm() {
                   type="email"
                   className="form-input"
                   autoComplete="username"
-                  required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@institution.edu"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, email: '' }));
+                  }}
+                  placeholder="Enter your email address"
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? 'admin-email-error' : undefined}
                 />
               </div>
+              {fieldErrors.email && (
+                <p className="field-error" id="admin-email-error" role="alert">{fieldErrors.email}</p>
+              )}
             </div>
 
             <div className="form-group">
@@ -115,10 +132,14 @@ export default function SuperAdminLoginForm() {
                   type={showPassword ? 'text' : 'password'}
                   className="form-input"
                   autoComplete="current-password"
-                  required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, password: '' }));
+                  }}
+                  placeholder="Enter your password"
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  aria-describedby={fieldErrors.password ? 'admin-password-error' : undefined}
                 />
                 <button
                   type="button"
@@ -140,6 +161,9 @@ export default function SuperAdminLoginForm() {
                   <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p className="field-error" id="admin-password-error" role="alert">{fieldErrors.password}</p>
+              )}
             </div>
 
             {error && (
@@ -158,10 +182,10 @@ export default function SuperAdminLoginForm() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <span>Signing in...</span>
+                  <span>Signing in&hellip;</span>
                 </>
               ) : (
-                <span>Sign In</span>
+                <span>Sign In <span aria-hidden="true">&rarr;</span></span>
               )}
             </button>
           </form>

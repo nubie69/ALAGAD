@@ -52,7 +52,8 @@ const RESPONSE_TYPES = Object.freeze({
   NO_MATCH: 'NO_MATCH',
   CONFLICTING_INFORMATION: 'CONFLICTING_INFORMATION',
 });
-const SINGLE_CLOSEST_MATCH_MODE = true;
+// Ask a concise question when multiple service candidates remain plausible.
+const SINGLE_CLOSEST_MATCH_MODE = false;
 const UNIT_HANDLES_INTENT_RE = /\b((?:what|which|unsa|ano)\s+unit\b.*\b(?:handle|handles|responsible|in\s+charge|manage|manages)\b|\bunit\b.*\b(?:handle|handles|responsible|in\s+charge|manage|manages)\b)\b/i;
 const SERVICE_WHERE_PROCESS_INTENT_RE = /\b(where\s+to\s+process|where\s+(?:can\s+i\s+)?(?:process|apply|get|request|avail)|asa\b.*\b(?:process|proseso|service|serbisyo)\b|saan\b.*\b(?:process|proseso|service|serbisyo)\b)\b/i;
 const SERVICE_REQUIREMENTS_INTENT_RE = /\b(requirements?|needed|need|kinahanglan|kailangan)\b/i;
@@ -1880,7 +1881,8 @@ router.post('/', async (req, res) => {
     });
 
     const queryTranslation = await translateQueryToEnglish({
-      query: message,
+      // Use resolved conversation references for follow-up retrieval (for example, "Where is it?").
+      query: contextualizedInput,
       detectedLanguage,
       openaiClient: openai,
       model: CHAT_MODEL,
