@@ -5,6 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { buildingsAPI, roomsAPI, officesAPI, facultyAPI, servicesAPI, faqsAPI, resourcesAPI, departmentsAPI, settingsAPI, overviewAPI, authAPI } from '../utils/api';
 import './SuperAdminDashboard.css';
 import MapEditor from '../components/MapEditor';
+import SearchableSelect from '../components/SearchableSelect';
+import {
+  CUSTOM_POSITION_VALUE,
+  PERSONNEL_POSITION_GROUPS,
+  findPositionByLabel,
+  findPositionByValue,
+} from '../constants/personnelPositions';
 import {
   EditIcon,
   DeleteIcon,
@@ -328,7 +335,10 @@ function SuperAdminDashboard() {
         source: '',
       });
     } else if (activeTab === 'faculty') {
-      setFormData({ name: '', title: '', contactInfo: '', office: '', department: '', assignmentType: 'office' });
+      setFormData({
+        name: '', title: '', positionType: '', customPosition: '', contactInfo: '',
+        office: '', department: '', supervisorId: '', assignmentType: 'office',
+      });
     } else {
       setFormData({});
     }
@@ -594,12 +604,19 @@ function SuperAdminDashboard() {
       });
     } else if (activeTab === 'faculty') {
       const hasOffice = !!(item.office?._id || item.office);
+      const predefinedPosition = item.positionType && item.positionType !== CUSTOM_POSITION_VALUE
+        ? findPositionByValue(item.positionType)
+        : findPositionByLabel(item.title);
+      const positionType = predefinedPosition?.value || CUSTOM_POSITION_VALUE;
       setFormData({
         name: item.name || '',
         title: item.title || '',
+        positionType,
+        customPosition: positionType === CUSTOM_POSITION_VALUE ? (item.title || '') : '',
         contactInfo: item.contactInfo || '',
         office: item.office?._id || item.office || '',
-        department: getDepartmentSelectionValue(item.department),
+        department: item.departmentId?._id || item.departmentId || getDepartmentSelectionValue(item.department),
+        supervisorId: item.supervisorId?._id || item.supervisorId || '',
         assignmentType: hasOffice ? 'office' : 'department',
         isActive: item.isActive !== false,
         availabilityDays: normalizeAvailabilityDays(item.availability?.daysAvailable),
@@ -812,6 +829,10 @@ function SuperAdminDashboard() {
           // Validate required fields
           const errors = {};
           if (!formData.name || !formData.name.trim()) errors.name = 'Full name is required.';
+          if (!formData.positionType) errors.position = 'Please select a position.';
+          if (formData.positionType === CUSTOM_POSITION_VALUE && !String(formData.customPosition || '').trim()) {
+            errors.customPosition = 'Custom position is required.';
+          }
           const aType = formData.assignmentType || 'office';
           if (aType === 'office' && !formData.office) errors.assignment = 'Please select an office.';
           if (aType === 'department' && !formData.department) errors.assignment = 'Please select a department.';
@@ -826,9 +847,15 @@ function SuperAdminDashboard() {
             setFormErrors(errors);
             return;
           }
+          const selectedPosition = findPositionByValue(formData.positionType);
+          const positionTitle = formData.positionType === CUSTOM_POSITION_VALUE
+            ? String(formData.customPosition || '').trim()
+            : selectedPosition?.label;
           const facultyPayload = {
             name: formData.name.trim(),
-            title: (formData.title || '').trim(),
+            title: positionTitle,
+            positionType: formData.positionType,
+            supervisorId: formData.supervisorId || null,
             contactInfo: (formData.contactInfo || '').trim(),
           };
 
@@ -842,7 +869,7 @@ function SuperAdminDashboard() {
           if (aType === 'office') {
             facultyPayload.office = formData.office;
           } else {
-            facultyPayload.department = getDepartmentNameFromSelection(formData.department);
+            facultyPayload.departmentId = formData.department;
           }
           console.log('Personnel payload:', facultyPayload);
           if (editingItem) {
@@ -978,6 +1005,31 @@ function SuperAdminDashboard() {
     const entityName = activeTab === 'services' ? 'Service' :
                       activeTab === 'faculty' ? 'Personnel' :
                       activeTab.charAt(0).toUpperCase() + activeTab.slice(1).slice(0, -1);
+    const officeSelectGroups = [{
+      label: 'Offices',
+      options: offices.filter((office) => office.isActive !== false).map((office) => ({ value: office._id, label: office.name })),
+    }];
+    const departmentSelectGroups = [{
+      label: 'Departments',
+      options: departments.filter((department) => department.active !== false).map((department) => ({
+        value: department._id,
+        label: department.code ? `${department.name} (${department.code})` : department.name,
+      })),
+    }];
+    const supervisorOptions = faculty
+      .filter((person) => person.isActive !== false && String(person._id) !== String(editingItem?._id || ''))
+      .filter((person) => {
+        if ((formData.assignmentType || 'office') === 'office') {
+          return formData.office && String(person.office?._id || person.office || '') === String(formData.office);
+        }
+        const personDepartmentId = person.departmentId?._id || person.departmentId || getDepartmentSelectionValue(person.department);
+        return formData.department && String(personDepartmentId || '') === String(formData.department);
+      })
+      .map((person) => ({ value: person._id, label: `${person.name}${person.title ? ` — ${person.title}` : ''}` }));
+    const supervisorSelectGroups = [{
+      label: 'Reporting relationship',
+      options: [{ value: '', label: 'No Supervisor' }, ...supervisorOptions],
+    }];
 
     return (
       <div className="form-modal-overlay" onClick={() => setShowForm(false)}>
@@ -1369,18 +1421,49 @@ function SuperAdminDashboard() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">
-                      Job Title / Position
-                      <span className="form-label-hint">Official job title</span>
+                    <label className="form-label required" htmlFor="personnel-position">
+                      Position
+                      <span className="form-label-hint">Search categorized campus positions</span>
                     </label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.title || ''}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="e.g., Administrative Assistant, Dean"
+                    <SearchableSelect
+                      inputId="personnel-position"
+                      groups={PERSONNEL_POSITION_GROUPS}
+                      value={formData.positionType || ''}
+                      placeholder="Search or select position..."
+                      className={formErrors.position ? 'form-input-error' : ''}
+                      onChange={(positionType) => {
+                        const option = findPositionByValue(positionType);
+                        setFormData({
+                          ...formData,
+                          positionType,
+                          title: positionType === CUSTOM_POSITION_VALUE ? formData.customPosition || '' : option?.label || '',
+                        });
+                        setFormErrors({ ...formErrors, position: '', customPosition: '' });
+                      }}
                     />
+                    {formErrors.position && <span className="form-error-text">{formErrors.position}</span>}
                   </div>
+
+                  {formData.positionType === CUSTOM_POSITION_VALUE && (
+                    <div className="form-group custom-position-reveal">
+                      <label className="form-label required" htmlFor="custom-position">
+                        Custom Position
+                        <span className="form-label-hint">Enter the official title exactly as it should appear</span>
+                      </label>
+                      <input
+                        id="custom-position"
+                        type="text"
+                        className={`form-input ${formErrors.customPosition ? 'form-input-error' : ''}`}
+                        value={formData.customPosition || ''}
+                        onChange={(e) => {
+                          setFormData({ ...formData, customPosition: e.target.value, title: e.target.value });
+                          setFormErrors({ ...formErrors, customPosition: '' });
+                        }}
+                        placeholder="Enter custom position..."
+                      />
+                      {formErrors.customPosition && <span className="form-error-text">{formErrors.customPosition}</span>}
+                    </div>
+                  )}
 
                   <div className="form-group">
                     <label className="form-label">
@@ -1410,7 +1493,7 @@ function SuperAdminDashboard() {
                       name="assignmentType"
                       value="office"
                       checked={(formData.assignmentType || 'office') === 'office'}
-                      onChange={() => { setFormData({ ...formData, assignmentType: 'office', department: '' }); setFormErrors({ ...formErrors, assignment: '' }); }}
+                      onChange={() => { setFormData({ ...formData, assignmentType: 'office', department: '', supervisorId: '' }); setFormErrors({ ...formErrors, assignment: '', supervisorId: '' }); }}
                     />
                     <div className="assignment-type-content">
                       <span className="assignment-type-icon">🏢</span>
@@ -1426,7 +1509,7 @@ function SuperAdminDashboard() {
                       name="assignmentType"
                       value="department"
                       checked={formData.assignmentType === 'department'}
-                      onChange={() => { setFormData({ ...formData, assignmentType: 'department', office: '' }); setFormErrors({ ...formErrors, assignment: '' }); }}
+                      onChange={() => { setFormData({ ...formData, assignmentType: 'department', office: '', supervisorId: '' }); setFormErrors({ ...formErrors, assignment: '', supervisorId: '' }); }}
                     />
                     <div className="assignment-type-content">
                       <span className="assignment-type-icon">🏫</span>
@@ -1445,17 +1528,17 @@ function SuperAdminDashboard() {
                         Select Office
                         <span className="form-label-hint">Choose from available offices</span>
                       </label>
-                      <select
-                        className={`form-select ${formErrors.assignment ? 'form-input-error' : ''}`}
+                      <SearchableSelect
+                        inputId="personnel-office"
+                        groups={officeSelectGroups}
                         value={formData.office || ''}
-                        onChange={(e) => { setFormData({ ...formData, office: e.target.value }); setFormErrors({ ...formErrors, assignment: '' }); }}
-                        required
-                      >
-                        <option value="">-- Select an Office --</option>
-                        {offices.map(o => (
-                          <option key={o._id} value={o._id}>{o.name}</option>
-                        ))}
-                      </select>
+                        placeholder="Search or select office..."
+                        className={formErrors.assignment ? 'form-input-error' : ''}
+                        onChange={(office) => {
+                          setFormData({ ...formData, office, supervisorId: '' });
+                          setFormErrors({ ...formErrors, assignment: '', supervisorId: '' });
+                        }}
+                      />
                     </>
                   ) : (
                     <>
@@ -1463,22 +1546,35 @@ function SuperAdminDashboard() {
                         Select Department
                         <span className="form-label-hint">Choose from available departments</span>
                       </label>
-                      <select
-                        className={`form-select ${formErrors.assignment ? 'form-input-error' : ''}`}
+                      <SearchableSelect
+                        inputId="personnel-department"
+                        groups={departmentSelectGroups}
                         value={formData.department || ''}
-                        onChange={(e) => { setFormData({ ...formData, department: e.target.value }); setFormErrors({ ...formErrors, assignment: '' }); }}
-                        required
-                      >
-                        <option value="">-- Select a Department --</option>
-                        {departments.map((dept) => (
-                          <option key={dept._id} value={dept._id}>
-                            {dept.name}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="Search or select department..."
+                        className={formErrors.assignment ? 'form-input-error' : ''}
+                        onChange={(department) => {
+                          setFormData({ ...formData, department, supervisorId: '' });
+                          setFormErrors({ ...formErrors, assignment: '', supervisorId: '' });
+                        }}
+                      />
                     </>
                   )}
                   {formErrors.assignment && <span className="form-error-text">{formErrors.assignment}</span>}
+                </div>
+
+                <div className="form-group" style={{ marginTop: '16px' }}>
+                  <label className="form-label" htmlFor="personnel-supervisor">
+                    Reports To
+                    <span className="form-label-hint">Choose an active person from the same office or department</span>
+                  </label>
+                  <SearchableSelect
+                    inputId="personnel-supervisor"
+                    groups={supervisorSelectGroups}
+                    value={formData.supervisorId || ''}
+                    placeholder="Search or select supervisor..."
+                    disabled={(formData.assignmentType || 'office') === 'office' ? !formData.office : !formData.department}
+                    onChange={(supervisorId) => setFormData({ ...formData, supervisorId })}
+                  />
                 </div>
               </div>
 
@@ -2139,9 +2235,9 @@ function SuperAdminDashboard() {
       const normalizedQuery = facultySearch.trim().toLowerCase();
       data = normalizedQuery
         ? data.filter((member) =>
-            [member.name, member.title, member.office?.name]
+            [member.name, member.title, member.office?.name, member.departmentId?.name, member.department, member.supervisorId?.name]
               .filter(Boolean)
-              .some((value) => value.toLowerCase().includes(normalizedQuery))
+              .some((value) => String(value).toLowerCase().includes(normalizedQuery))
           )
         : data;
       if (facultyStatusFilter) {
@@ -2328,8 +2424,9 @@ function SuperAdminDashboard() {
             {activeTab === 'faculty' && (
               <>
                 <th>Name</th>
-                <th>Title</th>
+                <th>Position</th>
                 <th>Office / Department</th>
+                <th>Reports To</th>
                 <th>Contact</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -2459,10 +2556,11 @@ function SuperAdminDashboard() {
                   <td>
                     {item.office?.name
                       ? <span className="assignment-badge assignment-badge--office">🏢 {item.office.name}</span>
-                      : item.department
+                      : (item.departmentId?.name || item.department)
                         ? <span className="assignment-badge assignment-badge--dept">🏫 {item.department}</span>
                         : '-'}
                   </td>
+                  <td>{item.supervisorId?.name || 'No Supervisor'}</td>
                   <td>{item.contactInfo || '-'}</td>
                   <td className="td-center">
                     <span className={`status-pill ${item.isActive !== false ? 'status-pill--active' : 'status-pill--inactive'}`}>

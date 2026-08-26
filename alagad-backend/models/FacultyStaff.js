@@ -16,6 +16,13 @@ const facultyStaffSchema = mongoose.Schema(
     },
     title: {
       type: String,
+      required: true,
+      trim: true,
+    },
+    positionType: {
+      type: String,
+      trim: true,
+      default: 'custom',
     },
     contactInfo: {
       type: String,
@@ -24,6 +31,18 @@ const facultyStaffSchema = mongoose.Schema(
       type: String,
       required: false,
       trim: true,
+    },
+    departmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Department',
+      required: false,
+      default: null,
+    },
+    supervisorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'FacultyStaff',
+      required: false,
+      default: null,
     },
     availability: {
       daysAvailable: {
@@ -49,10 +68,18 @@ const facultyStaffSchema = mongoose.Schema(
   { timestamps: true }
 );
 
-// Validate that at least one of office or department is set
+// Legacy records may only have the department name. New writes also persist departmentId.
 facultyStaffSchema.pre('validate', function () {
-  if (!this.office && !this.department) {
+  if (!this.office && !this.departmentId && !this.department) {
     throw new Error('Personnel must be assigned to either an office or a department.');
+  }
+
+  if (!String(this.title || '').trim()) {
+    throw new Error('Position is required.');
+  }
+
+  if (this.supervisorId && String(this.supervisorId) === String(this._id)) {
+    throw new Error('Personnel cannot report to themselves.');
   }
 
   const rawDays = Array.isArray(this.availability?.daysAvailable)

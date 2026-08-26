@@ -2301,3 +2301,114 @@
   }
 }
 
+/* Searchable selects used by Personnel Management */
+.searchable-select {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-select.form-input-error .searchable-select-input {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.searchable-select-input {
+  padding-right: 42px;
+}
+
+.searchable-select-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 42px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.searchable-select-toggle:disabled {
+  cursor: not-allowed;
+  color: #cbd5e1;
+}
+
+.searchable-select-menu {
+  position: absolute;
+  z-index: 1200;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: min(320px, 45vh);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+}
+
+.searchable-select-group + .searchable-select-group {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #eef2f7;
+}
+
+.searchable-select-group-label {
+  padding: 7px 9px 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.searchable-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #1f2937;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.searchable-select-option:hover,
+.searchable-select-option.selected {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.searchable-select-option.selected {
+  font-weight: 700;
+}
+
+.searchable-select-empty {
+  padding: 18px 12px;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
+.custom-position-reveal {
+  animation: custom-position-reveal 180ms ease-out both;
+}
+
+@keyframes custom-position-reveal {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .searchable-select-menu {
+    max-height: 260px;
+  }
+}
+
