@@ -2922,10 +2922,6 @@
   gap: 10px;
 }
 
-.guest-kiosk-category-grid .guest-kiosk-category-card:last-child {
-  grid-column: 1 / -1;
-}
-
 .guest-kiosk-category-card {
   display: flex;
   align-items: center;
@@ -2940,6 +2936,477 @@
   text-align: left;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
   transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+/* ===== Public organizational chart ===== */
+.public-org-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 34, 54, 0.48);
+  backdrop-filter: blur(3px);
+}
+
+.public-org-modal {
+  width: min(1120px, 100%);
+  height: min(760px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #d8e3ee;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.24);
+  color: var(--color-text, #202124);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.public-org-header {
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e1e9f0;
+  background: linear-gradient(180deg, #fff 0%, #f8fbfe 100%);
+}
+
+.public-org-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #285d9f;
+  background: #eef5fb;
+}
+
+.public-org-header h2,
+.public-org-header p,
+.public-org-chart-heading h3,
+.public-org-empty h3,
+.public-org-empty p {
+  margin: 0;
+}
+
+.public-org-header h2 {
+  font-size: 19px;
+  line-height: 1.25;
+  color: #173654;
+}
+
+.public-org-header p {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #607488;
+}
+
+.public-org-close {
+  width: 38px;
+  height: 38px;
+  margin-left: auto;
+  border: 1px solid #d8e3ee;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: #fff;
+  color: #607488;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.public-org-close:hover {
+  border-color: #bfd4ea;
+  background: #f4f8fc;
+  color: #1f5fb9;
+}
+
+.public-org-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.public-org-picker {
+  min-height: 0;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #e1e9f0;
+  background: #f8fbfd;
+}
+
+.public-org-picker > label {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #31485f;
+}
+
+.public-org-search-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.public-org-search-wrap svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 17px;
+  height: 17px;
+  transform: translateY(-50%);
+  color: #78899b;
+  pointer-events: none;
+}
+
+.public-org-search-wrap input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px 0 38px;
+  border: 1px solid #d3deea;
+  border-radius: 13px;
+  outline: none;
+  background: #fff;
+  color: #19324a;
+  font: inherit;
+  font-size: 13px;
+}
+
+.public-org-search-wrap input:focus {
+  border-color: #4d88cf;
+  box-shadow: 0 0 0 3px rgba(23, 89, 183, 0.12);
+}
+
+.public-org-unit-list {
+  min-height: 0;
+  margin-top: 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.public-org-unit-list button {
+  width: 100%;
+  min-height: 54px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid #d8e3ee;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  background: #fff;
+  color: #19324a;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.public-org-unit-list button:hover {
+  transform: translateY(-1px);
+  border-color: #bfd4ea;
+  background: #f7fbff;
+}
+
+.public-org-unit-list button.active {
+  border-color: #4d88cf;
+  background: #eaf3ff;
+}
+
+.public-org-unit-list button span {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.public-org-unit-list button small {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #607488;
+}
+
+.public-org-no-units {
+  margin: 18px 4px;
+  color: #607488;
+  font-size: 12px;
+  text-align: center;
+}
+
+.public-org-chart-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.public-org-chart-heading {
+  min-height: 72px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e5ecf3;
+}
+
+.public-org-chart-heading span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #607488;
+}
+
+.public-org-chart-heading h3 {
+  font-size: 17px;
+  color: #173654;
+}
+
+.public-org-chart-heading strong {
+  padding: 7px 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: #1f5fb9;
+  color: #fff;
+  font-size: 11px;
+}
+
+.public-org-chart-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 28px 24px 36px;
+  background-color: #fbfdff;
+  background-image: radial-gradient(#dbe5ef 0.7px, transparent 0.7px);
+  background-size: 18px 18px;
+}
+
+.public-org-tree,
+.public-org-children {
+  min-width: max-content;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  list-style: none;
+}
+
+.public-org-tree {
+  gap: 26px;
+}
+
+.public-org-branch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.public-org-children {
+  position: relative;
+  gap: 18px;
+  padding-top: 34px;
+}
+
+.public-org-children::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 18px;
+  background: #9db5cc;
+}
+
+.public-org-children > .public-org-branch::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  width: calc(100% + 18px);
+  height: 16px;
+  border-top: 1px solid #9db5cc;
+  border-left: 1px solid #9db5cc;
+}
+
+.public-org-children > .public-org-branch:first-child::before {
+  width: 50%;
+  left: 50%;
+}
+
+.public-org-children > .public-org-branch:last-child::before {
+  width: 50%;
+  left: 0;
+  border-left: 0;
+  border-right: 1px solid #9db5cc;
+}
+
+.public-org-children > .public-org-branch:only-child::before {
+  left: 50%;
+  width: 1px;
+  border-right: 0;
+}
+
+.public-org-person-card {
+  width: 220px;
+  overflow: hidden;
+  border: 1px solid #d8e3ee;
+  border-top: 3px solid #4d88cf;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07);
+}
+
+.public-org-person-card dl {
+  margin: 0;
+  padding: 13px 15px 15px;
+}
+
+.public-org-person-card dl > div + div {
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid #edf2f6;
+}
+
+.public-org-person-card dt {
+  margin-bottom: 2px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #78899b;
+}
+
+.public-org-person-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #19324a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.public-org-person-card dl > div:first-child dd {
+  color: #173654;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.public-org-empty {
+  flex: 1;
+  min-height: 260px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #7890a7;
+  text-align: center;
+}
+
+.public-org-empty svg {
+  margin-bottom: 14px;
+  color: #4d88cf;
+}
+
+.public-org-empty h3 {
+  color: #31485f;
+  font-size: 16px;
+}
+
+.public-org-empty p {
+  margin-top: 5px;
+  font-size: 12px;
+}
+
+.public-org-empty--compact {
+  min-height: 180px;
+}
+
+@media (max-width: 768px) {
+  .public-org-overlay {
+    padding: 10px;
+  }
+
+  .public-org-modal {
+    height: calc(100vh - 20px);
+    border-radius: 18px;
+  }
+
+  .public-org-header {
+    min-height: 68px;
+    padding: 12px 14px;
+  }
+
+  .public-org-header-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .public-org-header h2 {
+    font-size: 16px;
+  }
+
+  .public-org-header p {
+    display: none;
+  }
+
+  .public-org-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .public-org-picker {
+    flex: 0 0 auto;
+    max-height: 230px;
+    padding: 12px 14px;
+    border-right: 0;
+    border-bottom: 1px solid #e1e9f0;
+  }
+
+  .public-org-unit-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .public-org-unit-list button {
+    width: 180px;
+    min-width: 180px;
+    margin-bottom: 0;
+  }
+
+  .public-org-chart-panel {
+    flex: 1;
+  }
+
+  .public-org-chart-heading {
+    min-height: 62px;
+    padding: 10px 14px;
+  }
+
+  .public-org-chart-scroll {
+    padding: 22px 16px 30px;
+  }
+
+  .public-org-person-card {
+    width: 200px;
+  }
 }
 
 .guest-kiosk-category-card:hover {

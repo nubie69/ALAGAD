@@ -16,6 +16,12 @@ const departmentSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
+    organizationalChart: {
+      data: { type: String },
+      fileName: { type: String, trim: true },
+      mimeType: { type: String, enum: ['image/png', 'image/jpeg', 'application/pdf'] },
+      updatedAt: { type: Date },
+    },
     building: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Building',

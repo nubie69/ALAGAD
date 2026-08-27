@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const Office = require('../models/Office');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { syncRecordIndexByType, syncRecordDeactivationByType } = require('../services/retrieval/indexSyncService');
+const { validateOrganizationalChart } = require('../utils/organizationalChart');
 
 const normalizeOfficeColors = (payload) => {
   const next = { ...payload };
@@ -168,6 +169,38 @@ router.put('/:id/reactivate', protect, authorize('super_admin'), async (req, res
     await syncRecordIndexByType('Office', req.params.id);
     await syncRecordDeactivationByType('Office', req.params.id, false);
     res.json({ message: 'Office reactivated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Upload or replace an office organizational chart
+// @route   POST /api/offices/:id/organizational-chart
+// @access  Private (Super Admin)
+router.post('/:id/organizational-chart', protect, authorize('super_admin'), async (req, res) => {
+  try {
+    const office = await Office.findById(req.params.id);
+    if (!office) return res.status(404).json({ message: 'Office not found' });
+
+    office.organizationalChart = validateOrganizationalChart(req.body);
+    await office.save();
+    res.json({ organizationalChart: office.organizationalChart });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
+});
+
+// @desc    Remove an office organizational chart
+// @route   DELETE /api/offices/:id/organizational-chart
+// @access  Private (Super Admin)
+router.delete('/:id/organizational-chart', protect, authorize('super_admin'), async (req, res) => {
+  try {
+    const office = await Office.findById(req.params.id);
+    if (!office) return res.status(404).json({ message: 'Office not found' });
+
+    office.organizationalChart = undefined;
+    await office.save();
+    res.json({ message: 'Organizational chart removed successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

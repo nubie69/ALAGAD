@@ -66,3 +66,17 @@ export const StaffIcon = (props) => <UsersIcon {...withSize('', props)} />;
 export const RoomIcon = (props) => <Squares2X2Icon {...withSize('', props)} />;
 export const OfficeIcon = (props) => <BriefcaseIcon {...withSize('', props)} />;
 export const ServiceIcon = (props) => <WrenchScrewdriverIcon {...withSize('', props)} />;
+
+// A small hierarchy glyph used by the public organizational chart entry point.
+// It follows the same outline treatment and sizing contract as the Heroicons above.
+export const OrgChartIcon = (props) => {
+	const sizedProps = withSize('', props);
+	return (
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...sizedProps}>
+			<rect x="9" y="3" width="6" height="5" rx="1" />
+			<rect x="3" y="16" width="6" height="5" rx="1" />
+			<rect x="15" y="16" width="6" height="5" rx="1" />
+			<path d="M12 8v4M6 12h12M6 12v4M18 12v4" />
+		</svg>
+	);
+};

@@ -301,6 +301,19 @@ export const officesAPI = {
       method: 'PUT',
     });
   },
+
+  uploadOrganizationalChart: async (id, chart) => {
+    return await apiRequest(`/offices/${id}/organizational-chart`, {
+      method: 'POST',
+      body: JSON.stringify(chart),
+    });
+  },
+
+  deleteOrganizationalChart: async (id) => {
+    return await apiRequest(`/offices/${id}/organizational-chart`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // Faculty API
@@ -511,6 +524,19 @@ export const departmentsAPI = {
   reactivate: async (id) => {
     return await apiRequest(`/departments/${id}/reactivate`, {
       method: 'PUT',
+    });
+  },
+
+  uploadOrganizationalChart: async (id, chart) => {
+    return await apiRequest(`/departments/${id}/organizational-chart`, {
+      method: 'POST',
+      body: JSON.stringify(chart),
+    });
+  },
+
+  deleteOrganizationalChart: async (id) => {
+    return await apiRequest(`/departments/${id}/organizational-chart`, {
+      method: 'DELETE',
     });
   },
 };

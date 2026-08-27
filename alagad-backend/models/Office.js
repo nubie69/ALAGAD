@@ -23,6 +23,12 @@ const officeSchema = mongoose.Schema(
     contactInfo: {
       type: String,
     },
+    organizationalChart: {
+      data: { type: String },
+      fileName: { type: String, trim: true },
+      mimeType: { type: String, enum: ['image/png', 'image/jpeg', 'application/pdf'] },
+      updatedAt: { type: Date },
+    },
     services: [
       {
         type: mongoose.Schema.Types.ObjectId,

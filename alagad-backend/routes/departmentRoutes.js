@@ -10,6 +10,7 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { syncRecordIndexByType, syncRecordDeactivationByType } = require('../services/retrieval/indexSyncService');
+const { validateOrganizationalChart } = require('../utils/organizationalChart');
 
 // Helper: check if request has a valid admin token
 const isAuthenticated = (req) => {
@@ -150,6 +151,38 @@ router.put('/:id/reactivate', protect, authorize('super_admin'), async (req, res
     await syncRecordIndexByType('Department', req.params.id);
     await syncRecordDeactivationByType('Department', req.params.id, false);
     res.json({ message: 'Department reactivated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Upload or replace a department organizational chart
+// @route   POST /api/departments/:id/organizational-chart
+// @access  Private (Super Admin)
+router.post('/:id/organizational-chart', protect, authorize('super_admin'), async (req, res) => {
+  try {
+    const department = await Department.findById(req.params.id);
+    if (!department) return res.status(404).json({ message: 'Department not found' });
+
+    department.organizationalChart = validateOrganizationalChart(req.body);
+    await department.save();
+    res.json({ organizationalChart: department.organizationalChart });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
+});
+
+// @desc    Remove a department organizational chart
+// @route   DELETE /api/departments/:id/organizational-chart
+// @access  Private (Super Admin)
+router.delete('/:id/organizational-chart', protect, authorize('super_admin'), async (req, res) => {
+  try {
+    const department = await Department.findById(req.params.id);
+    if (!department) return res.status(404).json({ message: 'Department not found' });
+
+    department.organizationalChart = undefined;
+    await department.save();
+    res.json({ message: 'Organizational chart removed successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

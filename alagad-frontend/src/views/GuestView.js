@@ -9,13 +9,14 @@ import SafeGeoJSON from '../components/SafeGeoJSON';
 import BuildingMarkers from '../components/BuildingMarkers';
 import BuildingPinMarker from '../components/BuildingPinMarker';
 import ChatBot from '../components/ChatBot';
+import PublicOrgChart from '../components/PublicOrgChart';
 import { useMapState } from '../context/MapContext';
 import { useAuth } from '../context/AuthContext';
 import { buildingsAPI, roomsAPI, officesAPI, facultyAPI, settingsAPI, popularAPI } from '../utils/api';
 
 import '../App.css';
 import './GuestView.modern.css';
-import { BackIcon, BuildingIcon, MapPinIconOutline, MicIcon, OfficeIcon, RoomIcon, StopMicIcon } from '../utils/icons';
+import { BackIcon, BuildingIcon, MapPinIconOutline, MicIcon, OfficeIcon, OrgChartIcon, RoomIcon, StopMicIcon } from '../utils/icons';
 import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePathsGeoJSON } from '../utils/campusPathfinding';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import streetNamesGeoJSON from '../data/streetNames.json';
@@ -126,6 +127,7 @@ const KIOSK_CATEGORY_ITEMS = [
   { id: 'buildings', label: 'Buildings', icon: BuildingIcon, mode: 'Buildings' },
   { id: 'offices', label: 'Offices', icon: OfficeIcon, mode: 'Offices' },
   { id: 'rooms', label: 'Rooms', icon: RoomIcon, mode: 'Rooms' },
+  { id: 'org-chart', label: 'Org Chart', icon: OrgChartIcon },
 ];
 
 const normalizeAngle = (value) => ((value % 360) + 360) % 360;
@@ -458,6 +460,7 @@ function GuestView() {
   const [rooms, setRooms] = useState([]);
   const [offices, setOffices] = useState([]);
   const [faculty, setFaculty] = useState([]);
+  const [isOrgChartOpen, setIsOrgChartOpen] = useState(false);
   const [popularLocations, setPopularLocations] = useState([]);
   const [popularLoading, setPopularLoading] = useState(true);
   const [kioskNow, setKioskNow] = useState(() => new Date());
@@ -2306,7 +2309,7 @@ function GuestView() {
                     <h3>Quick Categories</h3>
                   </div>
                   <div className="guest-kiosk-category-grid">
-                    {KIOSK_CATEGORY_ITEMS.filter((item) => Boolean(item.mode)).map((item) => {
+                    {KIOSK_CATEGORY_ITEMS.map((item) => {
                       const isActive = item.mode === quickNavMode;
                       const Icon = item.icon;
                       return (
@@ -2314,7 +2317,13 @@ function GuestView() {
                           key={item.id}
                           type="button"
                           className={`guest-kiosk-category-card ${isActive ? 'active' : ''}`}
-                          onClick={() => setQuickNavMode(item.mode)}
+                          onClick={() => {
+                            if (item.id === 'org-chart') {
+                              setIsOrgChartOpen(true);
+                              return;
+                            }
+                            setQuickNavMode(item.mode);
+                          }}
                         >
                           <span className="guest-kiosk-category-icon" aria-hidden="true">
                             <Icon size={20} />
@@ -3060,6 +3069,14 @@ function GuestView() {
           onViewLocation={handleSidebarNavigate}
         />,
         document.body
+      )}
+
+      {isOrgChartOpen && (
+        <PublicOrgChart
+          offices={offices}
+          personnel={faculty}
+          onClose={() => setIsOrgChartOpen(false)}
+        />
       )}
 
       {/* Location Permission Bubble */}

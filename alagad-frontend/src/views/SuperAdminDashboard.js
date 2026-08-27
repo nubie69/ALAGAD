@@ -604,8 +604,10 @@ function SuperAdminDashboard() {
       });
     } else if (activeTab === 'faculty') {
       const hasOffice = !!(item.office?._id || item.office);
-      const predefinedPosition = item.positionType && item.positionType !== CUSTOM_POSITION_VALUE
-        ? findPositionByValue(item.positionType)
+      const existingOfficeId = item.office?._id || item.office || '';
+      const existingDepartmentId = item.departmentId?._id || item.departmentId || getDepartmentSelectionValue(item.department) || item.department || '';
+      const predefinedPosition = item.positionType
+        ? (item.positionType !== CUSTOM_POSITION_VALUE ? findPositionByValue(item.positionType) : null)
         : findPositionByLabel(item.title);
       const positionType = predefinedPosition?.value || CUSTOM_POSITION_VALUE;
       setFormData({
@@ -614,10 +616,12 @@ function SuperAdminDashboard() {
         positionType,
         customPosition: positionType === CUSTOM_POSITION_VALUE ? (item.title || '') : '',
         contactInfo: item.contactInfo || '',
-        office: item.office?._id || item.office || '',
-        department: item.departmentId?._id || item.departmentId || getDepartmentSelectionValue(item.department),
+        office: existingOfficeId,
+        department: existingDepartmentId,
         supervisorId: item.supervisorId?._id || item.supervisorId || '',
         assignmentType: hasOffice ? 'office' : 'department',
+        originalAssignmentType: hasOffice ? 'office' : 'department',
+        originalAssignmentId: hasOffice ? existingOfficeId : existingDepartmentId,
         isActive: item.isActive !== false,
         availabilityDays: normalizeAvailabilityDays(item.availability?.daysAvailable),
         availabilityTimeSlot: String(item.availability?.timeSlot || '').trim() || DEFAULT_AVAILABILITY_TIME_SLOT,
@@ -866,10 +870,12 @@ function SuperAdminDashboard() {
             };
           }
 
-          if (aType === 'office') {
-            facultyPayload.office = formData.office;
-          } else {
-            facultyPayload.departmentId = formData.department;
+          const assignmentChanged = !editingItem
+            || aType !== formData.originalAssignmentType
+            || String(aType === 'office' ? formData.office : formData.department) !== String(formData.originalAssignmentId || '');
+          if (assignmentChanged) {
+            if (aType === 'office') facultyPayload.office = formData.office;
+            else facultyPayload.departmentId = formData.department;
           }
           console.log('Personnel payload:', facultyPayload);
           if (editingItem) {
@@ -1009,20 +1015,22 @@ function SuperAdminDashboard() {
       label: 'Offices',
       options: offices.filter((office) => office.isActive !== false).map((office) => ({ value: office._id, label: office.name })),
     }];
-    const departmentSelectGroups = [{
-      label: 'Departments',
-      options: departments.filter((department) => department.active !== false).map((department) => ({
+    const departmentOptions = departments.filter((department) => department.active !== false).map((department) => ({
         value: department._id,
         label: department.code ? `${department.name} (${department.code})` : department.name,
-      })),
-    }];
+      }));
+    if (formData.assignmentType === 'department' && formData.department
+      && !departmentOptions.some((option) => String(option.value) === String(formData.department))) {
+      departmentOptions.unshift({ value: formData.department, label: `${editingItem?.department || formData.department} (existing)` });
+    }
+    const departmentSelectGroups = [{ label: 'Departments', options: departmentOptions }];
     const supervisorOptions = faculty
       .filter((person) => person.isActive !== false && String(person._id) !== String(editingItem?._id || ''))
       .filter((person) => {
         if ((formData.assignmentType || 'office') === 'office') {
           return formData.office && String(person.office?._id || person.office || '') === String(formData.office);
         }
-        const personDepartmentId = person.departmentId?._id || person.departmentId || getDepartmentSelectionValue(person.department);
+        const personDepartmentId = person.departmentId?._id || person.departmentId || getDepartmentSelectionValue(person.department) || person.department;
         return formData.department && String(personDepartmentId || '') === String(formData.department);
       })
       .map((person) => ({ value: person._id, label: `${person.name}${person.title ? ` — ${person.title}` : ''}` }));
