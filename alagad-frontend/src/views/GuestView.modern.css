@@ -3176,134 +3176,118 @@
   color: #173654;
 }
 
-.public-org-chart-heading strong {
-  padding: 7px 10px;
-  border-radius: 999px;
-  flex: 0 0 auto;
-  background: #1f5fb9;
-  color: #fff;
+.public-org-chart-heading > div {
+  min-width: 0;
+}
+
+.public-org-chart-heading p {
+  margin: 3px 0 0;
+  color: #607488;
   font-size: 11px;
 }
 
-.public-org-chart-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 28px 24px 36px;
-  background-color: #fbfdff;
-  background-image: radial-gradient(#dbe5ef 0.7px, transparent 0.7px);
-  background-size: 18px 18px;
-}
-
-.public-org-tree,
-.public-org-children {
-  min-width: max-content;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-  list-style: none;
-}
-
-.public-org-tree {
-  gap: 26px;
-}
-
-.public-org-branch {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+.public-org-back {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d8e3ee;
+  border-radius: 10px;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: #fff;
+  color: #607488;
+  cursor: pointer;
 }
 
-.public-org-children {
-  position: relative;
-  gap: 18px;
-  padding-top: 34px;
+.public-org-back:hover {
+  border-color: #bfd4ea;
+  background: #f4f8fc;
+  color: #1f5fb9;
 }
 
-.public-org-children::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 1px;
-  height: 18px;
-  background: #9db5cc;
+.public-org-zoom {
+  margin-left: auto;
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid #d8e3ee;
+  border-radius: 11px;
+  flex: 0 0 auto;
+  background: #fff;
 }
 
-.public-org-children > .public-org-branch::before {
-  content: '';
-  position: absolute;
-  top: -16px;
-  left: 50%;
-  width: calc(100% + 18px);
-  height: 16px;
-  border-top: 1px solid #9db5cc;
-  border-left: 1px solid #9db5cc;
+.public-org-zoom button {
+  min-width: 36px;
+  height: 34px;
+  padding: 0 9px;
+  border: 0;
+  border-right: 1px solid #e1e9f0;
+  background: #fff;
+  color: #285d9f;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
 }
 
-.public-org-children > .public-org-branch:first-child::before {
-  width: 50%;
-  left: 50%;
-}
-
-.public-org-children > .public-org-branch:last-child::before {
-  width: 50%;
-  left: 0;
-  border-left: 0;
-  border-right: 1px solid #9db5cc;
-}
-
-.public-org-children > .public-org-branch:only-child::before {
-  left: 50%;
-  width: 1px;
+.public-org-zoom button:last-child {
   border-right: 0;
 }
 
-.public-org-person-card {
-  width: 220px;
-  overflow: hidden;
-  border: 1px solid #d8e3ee;
-  border-top: 3px solid #4d88cf;
-  border-radius: 16px;
+.public-org-zoom button:hover:not(:disabled) {
+  background: #eef5fb;
+}
+
+.public-org-zoom button:disabled {
+  color: #b7c2cd;
+  cursor: not-allowed;
+}
+
+.public-org-zoom .public-org-zoom-value {
+  min-width: 58px;
+  color: #31485f;
+  font-size: 11px;
+}
+
+.public-org-chart-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px;
+  background-color: #eef3f7;
+  background-image: radial-gradient(#cedae5 0.7px, transparent 0.7px);
+  background-size: 18px 18px;
+  overscroll-behavior: contain;
+}
+
+.public-org-chart-document {
+  min-width: 50%;
+  min-height: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  transition: width 0.16s ease, height 0.16s ease;
+}
+
+.public-org-chart-document img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
   background: #fff;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  user-select: none;
 }
 
-.public-org-person-card dl {
-  margin: 0;
-  padding: 13px 15px 15px;
-}
-
-.public-org-person-card dl > div + div {
-  margin-top: 9px;
-  padding-top: 9px;
-  border-top: 1px solid #edf2f6;
-}
-
-.public-org-person-card dt {
-  margin-bottom: 2px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: #78899b;
-}
-
-.public-org-person-card dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: #19324a;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.public-org-person-card dl > div:first-child dd {
-  color: #173654;
-  font-size: 14px;
-  font-weight: 800;
+.public-org-chart-document object {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
 }
 
 .public-org-empty {
@@ -3335,6 +3319,16 @@
 
 .public-org-empty--compact {
   min-height: 180px;
+}
+
+.public-org-loading-spinner {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 14px;
+  border: 3px solid #dbe5ef;
+  border-top-color: #1f5fb9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 @media (max-width: 768px) {
@@ -3400,12 +3394,24 @@
     padding: 10px 14px;
   }
 
-  .public-org-chart-scroll {
-    padding: 22px 16px 30px;
+  .public-org-picker.has-selection {
+    display: none;
   }
 
-  .public-org-person-card {
-    width: 200px;
+  .public-org-chart-heading {
+    flex-wrap: wrap;
+  }
+
+  .public-org-zoom {
+    margin-left: auto;
+  }
+
+  .public-org-chart-viewport {
+    padding: 12px;
+  }
+
+  .public-org-chart-document object {
+    min-height: 440px;
   }
 }
 

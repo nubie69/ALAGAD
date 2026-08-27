@@ -4,34 +4,40 @@ import '@testing-library/jest-dom';
 import PublicOrgChart from './PublicOrgChart';
 
 describe('PublicOrgChart', () => {
-  const office = { _id: 'office-1', name: 'IT Office', department: 'Information Technology', isActive: true };
-  const personnel = [{
-    _id: 'person-1',
-    name: 'Ada Lovelace',
-    title: 'Director',
-    office,
-    contactInfo: 'ada@example.edu',
-    supervisorId: null,
+  const office = {
+    _id: 'office-1',
+    name: 'IT Office',
     isActive: true,
-  }];
+    organizationalChart: {
+      data: 'data:image/png;base64,Y2hhcnQ=',
+      fileName: 'it-chart.png',
+      mimeType: 'image/png',
+      updatedAt: '2026-08-27T00:00:00.000Z',
+    },
+  };
+  const department = { _id: 'dept-1', name: 'Information Technology', active: true };
 
-  test('shows only the requested public personnel details after selecting a unit', () => {
-    render(<PublicOrgChart offices={[office]} personnel={personnel} onClose={jest.fn()} />);
+  test('shows the uploaded chart and basic unit information', () => {
+    render(<PublicOrgChart offices={[office]} departments={[department]} onClose={jest.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: /IT Office Office/i }));
 
-    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
-    expect(screen.getByText('Position')).toBeInTheDocument();
-    expect(screen.getByText('Office/Department')).toBeInTheDocument();
-    expect(screen.getByText('Contact Information')).toBeInTheDocument();
-    expect(screen.getByText('ada@example.edu')).toBeInTheDocument();
-    expect(screen.queryByText(/reports to/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/supervisor/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /edit|delete/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'IT Office organizational chart' })).toHaveAttribute('src', office.organizationalChart.data);
+    expect(screen.getByText('Last Updated: August 27, 2026')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeInTheDocument();
+    expect(screen.queryByText(/personnel|reports to|supervisor/i)).not.toBeInTheDocument();
   });
 
-  test('filters available offices and departments', () => {
-    render(<PublicOrgChart offices={[office]} personnel={personnel} onClose={jest.fn()} />);
+  test('shows an empty state when a unit has no uploaded chart', () => {
+    render(<PublicOrgChart offices={[office]} departments={[department]} onClose={jest.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Information Technology Department/i }));
+
+    expect(screen.getByText('No organizational chart available')).toBeInTheDocument();
+  });
+
+  test('filters offices and departments', () => {
+    render(<PublicOrgChart offices={[office]} departments={[department]} onClose={jest.fn()} />);
 
     fireEvent.change(screen.getByLabelText('Search office or department'), { target: { value: 'Information' } });
 

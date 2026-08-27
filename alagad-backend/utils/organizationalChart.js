@@ -30,6 +30,9 @@ const validateOrganizationalChart = ({ data, fileName, mimeType } = {}) => {
   }
 
   const base64Payload = normalizedData.slice(prefix.length);
+  if (!base64Payload || base64Payload.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64Payload)) {
+    throw new OrganizationalChartValidationError('The uploaded organizational chart contains invalid file data.');
+  }
   const byteLength = Buffer.from(base64Payload, 'base64').length;
   if (!byteLength || byteLength > MAX_ORGANIZATIONAL_CHART_BYTES) {
     throw new OrganizationalChartValidationError('Organizational chart files must be 5 MB or smaller.');

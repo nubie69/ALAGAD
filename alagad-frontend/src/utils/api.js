@@ -314,6 +314,10 @@ export const officesAPI = {
       method: 'DELETE',
     });
   },
+
+  getOrganizationalChart: async (id) => {
+    return await apiRequest(`/offices/${id}/organizational-chart`);
+  },
 };
 
 // Faculty API
@@ -538,6 +542,10 @@ export const departmentsAPI = {
     return await apiRequest(`/departments/${id}/organizational-chart`, {
       method: 'DELETE',
     });
+  },
+
+  getOrganizationalChart: async (id) => {
+    return await apiRequest(`/departments/${id}/organizational-chart`);
   },
 };
 

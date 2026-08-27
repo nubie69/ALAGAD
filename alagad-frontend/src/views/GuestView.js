@@ -12,7 +12,7 @@ import ChatBot from '../components/ChatBot';
 import PublicOrgChart from '../components/PublicOrgChart';
 import { useMapState } from '../context/MapContext';
 import { useAuth } from '../context/AuthContext';
-import { buildingsAPI, roomsAPI, officesAPI, facultyAPI, settingsAPI, popularAPI } from '../utils/api';
+import { buildingsAPI, roomsAPI, officesAPI, departmentsAPI, settingsAPI, popularAPI } from '../utils/api';
 
 import '../App.css';
 import './GuestView.modern.css';
@@ -459,11 +459,17 @@ function GuestView() {
 
   const [rooms, setRooms] = useState([]);
   const [offices, setOffices] = useState([]);
-  const [faculty, setFaculty] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [isOrgChartOpen, setIsOrgChartOpen] = useState(false);
   const [popularLocations, setPopularLocations] = useState([]);
   const [popularLoading, setPopularLoading] = useState(true);
   const [kioskNow, setKioskNow] = useState(() => new Date());
+
+  const loadOrganizationalChart = useCallback((unit) => (
+    unit.type === 'Office'
+      ? officesAPI.getOrganizationalChart(unit.id)
+      : departmentsAPI.getOrganizationalChart(unit.id)
+  ), []);
   
   // Chatbot opacity tracking for drag interactions
   const [chatbotOpacity, setChatbotOpacity] = useState(1);
@@ -1639,15 +1645,15 @@ function GuestView() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [buildingsData, officesData, facultyData, roomsData] = await Promise.all([
+        const [buildingsData, officesData, departmentsData, roomsData] = await Promise.all([
           buildingsAPI.getAll().catch(() => []),
           officesAPI.getAll().catch(() => []),
-          facultyAPI.getAll().catch(() => []),
+          departmentsAPI.getAll().catch(() => []),
           roomsAPI.getAll().catch(() => []),
         ]);
         setBuildings(buildingsData);
         setOffices(officesData);
-        setFaculty(facultyData);
+        setDepartments(departmentsData);
         setRooms(roomsData);
       } catch (error) {
         console.error('Error loading map data:', error);
@@ -3074,7 +3080,8 @@ function GuestView() {
       {isOrgChartOpen && (
         <PublicOrgChart
           offices={offices}
-          personnel={faculty}
+          departments={departments}
+          loadChart={loadOrganizationalChart}
           onClose={() => setIsOrgChartOpen(false)}
         />
       )}

@@ -44,7 +44,9 @@ router.get('/', async (req, res) => {
   try {
     await ensureDefaultDepartments();
     const filter = isAuthenticated(req) ? {} : { active: { $ne: false } };
-    const departments = await Department.find(filter).populate('building', 'name location numberOfFloors').sort({ name: 1 });
+    const query = Department.find(filter);
+    if (!isAuthenticated(req)) query.select('-organizationalChart.data');
+    const departments = await query.populate('building', 'name location numberOfFloors').sort({ name: 1 });
     console.log('Departments fetched:', departments.map(d => ({ name: d.name, building: d.building?.name, floor: d.floor })));
     res.json(departments);
   } catch (error) {
@@ -151,6 +153,21 @@ router.put('/:id/reactivate', protect, authorize('super_admin'), async (req, res
     await syncRecordIndexByType('Department', req.params.id);
     await syncRecordDeactivationByType('Department', req.params.id, false);
     res.json({ message: 'Department reactivated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get a department organizational chart
+// @route   GET /api/departments/:id/organizational-chart
+// @access  Public
+router.get('/:id/organizational-chart', async (req, res) => {
+  try {
+    const department = await Department.findOne({ _id: req.params.id, active: { $ne: false } })
+      .select('name organizationalChart');
+    if (!department) return res.status(404).json({ message: 'Department not found' });
+    if (!department.organizationalChart?.data) return res.status(404).json({ message: 'No organizational chart available' });
+    res.json({ organizationalChart: department.organizationalChart });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

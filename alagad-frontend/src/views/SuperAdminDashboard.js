@@ -41,6 +41,95 @@ const STAKEHOLDER_OPTIONS = [
 ];
 const DEFAULT_AVAILABILITY_TIME_SLOT = '8:00 AM – 5:00 PM';
 
+const ORGANIZATIONAL_CHART_TYPES = ['image/png', 'image/jpeg', 'application/pdf'];
+const MAX_ORGANIZATIONAL_CHART_BYTES = 5 * 1024 * 1024;
+
+function OrganizationalChartUpload({ formData, setFormData, onError, inputId }) {
+  const pendingData = formData._organizationalChartData;
+  const existingChart = formData._removeOrganizationalChart ? null : formData.organizationalChart;
+  const previewData = pendingData || existingChart?.data;
+  const previewMimeType = formData._organizationalChartMimeType || existingChart?.mimeType || '';
+  const previewFileName = formData._organizationalChartFileName || existingChart?.fileName || '';
+
+  const selectFile = (file) => {
+    if (!file) return;
+    if (!ORGANIZATIONAL_CHART_TYPES.includes(file.type)) {
+      onError('Only PNG, JPG/JPEG, and PDF organizational charts are supported.');
+      return;
+    }
+    if (file.size > MAX_ORGANIZATIONAL_CHART_BYTES) {
+      onError('Organizational chart files must be 5 MB or smaller.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setFormData((current) => ({
+        ...current,
+        _organizationalChartData: event.target.result,
+        _organizationalChartFileName: file.name,
+        _organizationalChartMimeType: file.type,
+        _removeOrganizationalChart: false,
+      }));
+    };
+    reader.onerror = () => onError('The organizational chart could not be read. Please try another file.');
+    reader.readAsDataURL(file);
+  };
+
+  const removeChart = () => {
+    setFormData((current) => ({
+      ...current,
+      _organizationalChartData: null,
+      _organizationalChartFileName: '',
+      _organizationalChartMimeType: '',
+      _removeOrganizationalChart: Boolean(current.organizationalChart?.data),
+    }));
+  };
+
+  return (
+    <div className="form-section-card">
+      <h3 className="form-section-title">Organizational Chart</h3>
+      <p className="form-section-description">Upload the official chart for this office or department.</p>
+      <div className="organizational-chart-upload">
+        {previewData ? (
+          <div className="organizational-chart-admin-preview">
+            {previewMimeType === 'application/pdf' ? (
+              <object data={previewData} type="application/pdf" aria-label="Organizational chart PDF preview">
+                <p>PDF preview is unavailable in this browser.</p>
+              </object>
+            ) : (
+              <img src={previewData} alt="Organizational chart preview" />
+            )}
+            <div className="organizational-chart-admin-file">
+              <span>{previewFileName || 'Organizational chart'}</span>
+              <button type="button" className="btn-danger-outline" onClick={removeChart}>Remove</button>
+            </div>
+          </div>
+        ) : (
+          <div className="organizational-chart-upload-empty">
+            <span>No organizational chart uploaded.</span>
+          </div>
+        )}
+
+        <input
+          id={inputId}
+          className="organizational-chart-file-input"
+          type="file"
+          accept="image/png,image/jpeg,application/pdf,.png,.jpg,.jpeg,.pdf"
+          onChange={(event) => {
+            selectFile(event.target.files?.[0]);
+            event.target.value = '';
+          }}
+        />
+        <label className="btn-secondary organizational-chart-upload-button" htmlFor={inputId}>
+          {previewData ? 'Replace Organizational Chart' : 'Upload Organizational Chart'}
+        </label>
+        <span className="form-label-hint">PNG, JPG/JPEG, or PDF (max 5 MB)</span>
+      </div>
+    </div>
+  );
+}
+
 function SuperAdminDashboard() {
   const { mapFeatures, refreshMapFeatures } = useMapState();
   const { user, logout } = useAuth();
@@ -288,9 +377,9 @@ function SuperAdminDashboard() {
     setEditingItem(null);
     setError('');
     if (activeTab === 'departments') {
-      setFormData({ name: '', code: '', description: '', building: '', floor: '', active: true });
+      setFormData({ name: '', code: '', description: '', building: '', floor: '', active: true, organizationalChart: null });
     } else if (activeTab === 'offices') {
-      setFormData({ name: '', building: '', floor: '', department: '' });
+      setFormData({ name: '', building: '', floor: '', department: '', organizationalChart: null });
     } else if (activeTab === 'services') {
       setFormData({
         name: '',
@@ -528,6 +617,7 @@ function SuperAdminDashboard() {
         building: item.building?._id || item.building || '',
         floor: item.floor || '',
         active: item.active !== false,
+        organizationalChart: item.organizationalChart || null,
       });
     } else if (activeTab === 'rooms') {
       setFormData({
@@ -542,6 +632,7 @@ function SuperAdminDashboard() {
         building: item.building?._id || item.building || '',
         floor: item.floor || '',
         department: item.department || '',
+        organizationalChart: item.organizationalChart || null,
       });
     } else if (activeTab === 'services') {
       const hasOffice = !!(item.office?._id || item.office);
@@ -753,10 +844,22 @@ function SuperAdminDashboard() {
             throw new Error('Department name is required.');
           }
 
+          let savedDepartment;
           if (editingItem) {
-            await departmentsAPI.update(editingItem._id, payload);
+            savedDepartment = await departmentsAPI.update(editingItem._id, payload);
           } else {
-            await departmentsAPI.create(payload);
+            savedDepartment = await departmentsAPI.create(payload);
+          }
+
+          const departmentId = savedDepartment?._id || editingItem?._id;
+          if (formData._organizationalChartData && departmentId) {
+            await departmentsAPI.uploadOrganizationalChart(departmentId, {
+              data: formData._organizationalChartData,
+              fileName: formData._organizationalChartFileName,
+              mimeType: formData._organizationalChartMimeType,
+            });
+          } else if (formData._removeOrganizationalChart && editingItem?._id) {
+            await departmentsAPI.deleteOrganizationalChart(editingItem._id);
           }
           break;
         }
@@ -822,10 +925,22 @@ function SuperAdminDashboard() {
             throw new Error('Department is required.');
           }
 
+          let savedOffice;
           if (editingItem) {
-            await officesAPI.update(editingItem._id, payload);
+            savedOffice = await officesAPI.update(editingItem._id, payload);
           } else {
-            await officesAPI.create(payload);
+            savedOffice = await officesAPI.create(payload);
+          }
+
+          const officeId = savedOffice?._id || editingItem?._id;
+          if (formData._organizationalChartData && officeId) {
+            await officesAPI.uploadOrganizationalChart(officeId, {
+              data: formData._organizationalChartData,
+              fileName: formData._organizationalChartFileName,
+              mimeType: formData._organizationalChartMimeType,
+            });
+          } else if (formData._removeOrganizationalChart && editingItem?._id) {
+            await officesAPI.deleteOrganizationalChart(editingItem._id);
           }
           break;
         }
@@ -1405,6 +1520,12 @@ function SuperAdminDashboard() {
                   </div>
                 </div>
               </div>
+              <OrganizationalChartUpload
+                formData={formData}
+                setFormData={setFormData}
+                onError={(message) => showNotification(message, 'error')}
+                inputId="office-organizational-chart-input"
+              />
             </>
           )}
           {activeTab === 'faculty' && (
@@ -2171,6 +2292,12 @@ function SuperAdminDashboard() {
                   </div>
                 </div>
               </div>
+              <OrganizationalChartUpload
+                formData={formData}
+                setFormData={setFormData}
+                onError={(message) => showNotification(message, 'error')}
+                inputId="department-organizational-chart-input"
+              />
             </>
           )}
             </form>
@@ -2575,7 +2702,7 @@ function SuperAdminDashboard() {
                       {item.isActive !== false ? 'ACTIVE' : 'DEACTIVATE'}
                     </span>
                   </td>
-                  <td>
+                  <td className="td-center">
                     <div className="action-buttons">
                       <button className="btn-icon-expanded" onClick={() => handleEdit(item)} title="Edit"><EditIcon /></button>
                       {item.isActive !== false

@@ -8,6 +8,7 @@ const { validateOrganizationalChart } = require('../utils/organizationalChart');
 
 const normalizeOfficeColors = (payload) => {
   const next = { ...payload };
+  delete next.organizationalChart;
   const effectiveColor = String(next.pinColor || next.markerColor || next.color || '').trim();
   if (effectiveColor) {
     next.pinColor = effectiveColor;
@@ -34,7 +35,9 @@ const isAuthenticated = (req) => {
 router.get('/', async (req, res) => {
   try {
     const filter = isAuthenticated(req) ? {} : { isActive: { $ne: false } };
-    const offices = await Office.find(filter)
+    const query = Office.find(filter);
+    if (!isAuthenticated(req)) query.select('-organizationalChart.data');
+    const offices = await query
       .populate('building', 'name location')
       .populate('room', 'name floor')
       .populate('services', 'name description')
@@ -169,6 +172,21 @@ router.put('/:id/reactivate', protect, authorize('super_admin'), async (req, res
     await syncRecordIndexByType('Office', req.params.id);
     await syncRecordDeactivationByType('Office', req.params.id, false);
     res.json({ message: 'Office reactivated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get an office organizational chart
+// @route   GET /api/offices/:id/organizational-chart
+// @access  Public
+router.get('/:id/organizational-chart', async (req, res) => {
+  try {
+    const office = await Office.findOne({ _id: req.params.id, isActive: { $ne: false } })
+      .select('name organizationalChart');
+    if (!office) return res.status(404).json({ message: 'Office not found' });
+    if (!office.organizationalChart?.data) return res.status(404).json({ message: 'No organizational chart available' });
+    res.json({ organizationalChart: office.organizationalChart });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
