@@ -58,7 +58,7 @@ const LandingPage = () => {
               <p className="portal-description">
                 Explore BukSU&apos;s interactive campus map and quickly locate buildings, offices, rooms, and facilities.
               </p>
-              <button className="portal-button" onClick={(e) => { e.stopPropagation(); goToGuest(); }}>
+              <button className="portal-button portal-button-primary" onClick={(e) => { e.stopPropagation(); goToGuest(); }}>
                 <LuMapPinned aria-hidden="true" />
                 <span>Explore Map</span>
                 <LuArrowRight aria-hidden="true" />
@@ -87,10 +87,11 @@ const LandingPage = () => {
                   <span className="title-accent" aria-hidden="true" />
                 </div>
               </div>
+              <p className="portal-helper">For authorized personnel only.</p>
               <p className="portal-description">
                 Securely manage campus locations, map information, records, and system settings.
               </p>
-              <button className="portal-button" onClick={(e) => { e.stopPropagation(); goToAdmin(); }}>
+              <button className="portal-button portal-button-secondary" onClick={(e) => { e.stopPropagation(); goToAdmin(); }}>
                 <LuShieldCheck aria-hidden="true" />
                 <span>Admin Login</span>
                 <LuArrowRight aria-hidden="true" />
@@ -111,7 +112,7 @@ const LandingPage = () => {
               <div className="feature-copy">
                 <h3 className="feature-box-label">Interactive Map</h3>
                 <span className="title-accent compact" aria-hidden="true" />
-                <p className="feature-box-description">Quickly explore campus buildings, offices, rooms, and facilities.</p>
+                <p className="feature-box-description">Find campus places with a clear interactive map.</p>
               </div>
               <LuMapPinned className="feature-watermark" aria-hidden="true" />
               <span className="card-bottom-wave" aria-hidden="true" />
@@ -123,7 +124,7 @@ const LandingPage = () => {
               <div className="feature-copy">
                 <h3 className="feature-box-label">Smart Directions</h3>
                 <span className="title-accent compact" aria-hidden="true" />
-                <p className="feature-box-description">Get clear and efficient directions to your selected campus destination.</p>
+                <p className="feature-box-description">Follow simple routes to your selected destination.</p>
               </div>
               <LuRoute className="feature-watermark" aria-hidden="true" />
               <span className="card-bottom-wave" aria-hidden="true" />
@@ -135,7 +136,7 @@ const LandingPage = () => {
               <div className="feature-copy">
                 <h3 className="feature-box-label">AI Assistant</h3>
                 <span className="title-accent compact" aria-hidden="true" />
-                <p className="feature-box-description">Ask naturally and instantly receive helpful campus information.</p>
+                <p className="feature-box-description">Ask questions and get verified campus information.</p>
               </div>
               <LuMessageCircle className="feature-watermark" aria-hidden="true" />
               <span className="card-bottom-wave" aria-hidden="true" />
@@ -145,7 +146,7 @@ const LandingPage = () => {
       </main>
 
       <footer className="landing-footer">
-        <p className="landing-footer-copy">&copy; 2026 ALAGAD &middot; BukSU Campus Navigation &amp; Assistant &middot; Powered by AI.</p>
+        <p className="landing-footer-copy">&copy; 2026 BukSU Campus Navigation and Assistant | ALAGAD</p>
       </footer>
     </div>
   );
