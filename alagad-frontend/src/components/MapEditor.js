@@ -7,6 +7,7 @@ import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
 import BuildingPinMarker from './BuildingPinMarker';
 import grassGeoJSON from '../data/grass.json';
+import { CAMPUS_BOUNDS, clampLngLatToCampus, clampViewStateToCampus } from '../utils/campusBoundary';
 import './MapEditor.css';
 
 const BUKSU_CAMPUS = {
@@ -16,7 +17,6 @@ const BUKSU_CAMPUS = {
   bearing: -137.68,
 };
 
-const CAMPUS_BOUNDS = [[125.1224864, 8.1545658], [125.1261435, 8.1580756]];
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const DEFAULT_BUILDING_PIN_COLOR = '#D93025';
 const DEFAULT_OFFICE_PIN_COLOR = '#8B5CF6';
@@ -182,7 +182,13 @@ function MapEditor() {
   }, [buildings, offices]);
 
   const flyToCoords = useCallback((lat, lng) => {
-    setViewState((prev) => ({ ...prev, longitude: lng, latitude: lat, zoom: 19 }));
+    const clamped = clampLngLatToCampus(lng, lat);
+    setViewState((prev) => clampViewStateToCampus({
+      ...prev,
+      longitude: clamped.lng,
+      latitude: clamped.lat,
+      zoom: 19,
+    }));
   }, []);
 
   const flyToPin = useCallback((item) => {
@@ -491,7 +497,7 @@ function MapEditor() {
           <Map
             ref={mapRef}
             {...viewState}
-            onMove={(event) => setViewState(event.viewState)}
+            onMove={(event) => setViewState(clampViewStateToCampus(event.viewState))}
             onClick={handleMapClick}
             mapboxAccessToken={MAPBOX_TOKEN}
             style={{ width: '100%', height: '100%' }}

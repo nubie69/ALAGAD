@@ -22,6 +22,7 @@ import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePaths
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import streetNamesGeoJSON from '../data/streetNames.json';
 import grassGeoJSON from '../data/grass.json';
+import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, FOCUS_POLYGON, clampLngLatToCampus, clampViewStateToCampus } from '../utils/campusBoundary';
 
 // Bukidnon State University campus bounds (Malaybalay, Bukidnon)
 const BUKSU_CAMPUS = {
@@ -29,25 +30,8 @@ const BUKSU_CAMPUS = {
   zoom: 19.10,
   pitch: 0.00,
   bearing: -137.68,
-  bounds: {
-    north: 8.1580756,
-    south: 8.1545658,
-    east: 125.1261435,
-    west: 125.1224864,
-  },
+  bounds: CAMPUS_BOUNDS_DETAILS,
 };
-
-// Campus boundaries - prevents scrolling outside this area
-const CAMPUS_BOUNDS = [[125.1224864, 8.1545658], [125.1261435, 8.1580756]];
-
-const FOCUS_POLYGON = [[
-  [125.124492, 8.1545658],
-  [125.1235159, 8.1552476],
-  [125.1224864, 8.155899],
-  [125.1243299, 8.1580756],
-  [125.1261435, 8.1564897],
-  [125.124492, 8.1545658],
-]];
 
 const WORLD_MASK_RING = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
 const CAMPUS_FADE_BUFFER_METERS = [18, 38, 68];
@@ -620,7 +604,7 @@ function GuestView() {
     });
     map.once('moveend', () => {
       const center = map.getCenter();
-      setViewState((prev) => ({
+      setViewState((prev) => clampViewStateToCampus({
         ...prev,
         longitude: center.lng,
         latitude: center.lat,
@@ -1050,18 +1034,19 @@ function GuestView() {
   ]);
 
   const flyToLocation = useCallback((lat, lng, zoom = 20) => {
+    const clamped = clampLngLatToCampus(lng, lat);
     if (mapRef.current) {
       mapRef.current.flyTo({
-        center: [lng, lat],
+        center: [clamped.lng, clamped.lat],
         zoom: zoom,
         duration: 1500,
         essential: true,
       });
     } else {
-      setViewState(prev => ({
+      setViewState(prev => clampViewStateToCampus({
         ...prev,
-        longitude: lng,
-        latitude: lat,
+        longitude: clamped.lng,
+        latitude: clamped.lat,
         zoom: zoom,
       }));
     }
@@ -2454,7 +2439,7 @@ function GuestView() {
             <MapView
               ref={mapRef}
               {...viewState}
-              onMove={(evt) => setViewState(evt.viewState)}
+              onMove={(evt) => setViewState(clampViewStateToCampus(evt.viewState))}
               mapboxAccessToken={MAPBOX_TOKEN}
               style={{ width: '100%', height: '100%' }}
               mapStyle="mapbox://styles/zach-2002/cmmfqzvkr000w01sp0vw694hy"

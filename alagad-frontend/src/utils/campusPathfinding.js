@@ -16,17 +16,9 @@
  */
 import * as turf from '@turf/turf';
 import walkableRoutesData from '../data/walkableRoutes.json';
+import { CAMPUS_BOUNDARY } from './campusBoundary';
 
 // ── Campus boundary (closed ring – matches GuestView FOCUS_POLYGON) ──────────
-const CAMPUS_BOUNDARY = [
-  [125.124492, 8.1545658],
-  [125.1235159, 8.1552476],
-  [125.1224864, 8.155899],
-  [125.1243299, 8.1580756],
-  [125.1261435, 8.1564897],
-  [125.124492, 8.1545658],
-];
-
 const campusPolygon = turf.polygon([CAMPUS_BOUNDARY]);
 
 // ── Constants ────────────────────────────────────────────────────────────────

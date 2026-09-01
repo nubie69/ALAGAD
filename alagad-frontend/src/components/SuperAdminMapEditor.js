@@ -9,6 +9,7 @@ import { buildingsAPI, roomsAPI, officesAPI } from '../utils/api';
 import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
 import grassGeoJSON from '../data/grass.json';
+import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, clampViewStateToCampus } from '../utils/campusBoundary';
 import '../styles/SuperAdminMapEditor.css';
 
 const BUKSU_CAMPUS = {
@@ -16,16 +17,8 @@ const BUKSU_CAMPUS = {
   zoom: 19.10,
   pitch: 0.00,
   bearing: -137.68,
-  bounds: {
-    north: 8.1580756,
-    south: 8.1545658,
-    east: 125.1261435,
-    west: 125.1224864,
-  },
+  bounds: CAMPUS_BOUNDS_DETAILS,
 };
-
-// Campus boundaries - prevents scrolling outside this area
-const CAMPUS_BOUNDS = [[125.1224864, 8.1545658], [125.1261435, 8.1580756]];
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 
@@ -480,7 +473,7 @@ function SuperAdminMapEditor() {
           <Map
             ref={mapRef}
             {...viewState}
-            onMove={(evt) => setViewState(evt.viewState)}
+            onMove={(evt) => setViewState(clampViewStateToCampus(evt.viewState))}
             mapboxAccessToken={MAPBOX_TOKEN}
             style={{ width: '100%', height: '100%' }}
             mapStyle="mapbox://styles/zach-2002/cmmfqzvkr000w01sp0vw694hy"
