@@ -7,7 +7,7 @@ import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
 import BuildingPinMarker from './BuildingPinMarker';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, clampLngLatToCampus, clampViewStateToCampus } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
 import './MapEditor.css';
 
 const BUKSU_CAMPUS = {
@@ -78,6 +78,23 @@ function MapEditor() {
     bearing: BUKSU_CAMPUS.bearing,
     pitch: BUKSU_CAMPUS.pitch,
   });
+  const lastValidViewStateRef = useRef(viewState);
+
+  const handleMapMoveEnd = useCallback((event) => {
+    const constrainedViewState = constrainViewportToCampus(
+      event.target,
+      event.viewState,
+      lastValidViewStateRef.current
+    );
+
+    if (constrainedViewState === event.viewState) {
+      lastValidViewStateRef.current = event.viewState;
+      setViewState(event.viewState);
+      return;
+    }
+
+    easeMapToViewState(event.target, constrainedViewState);
+  }, []);
 
   const showNotification = useCallback((message, type = 'success') => {
     setNotification({ message, type });
@@ -104,6 +121,11 @@ function MapEditor() {
   const onMapLoad = useCallback(() => {
     if (!mapRef.current) return;
     const map = mapRef.current.getMap();
+    const fittedViewState = fitViewportInsideCampus(map, 22);
+    if (fittedViewState) {
+      lastValidViewStateRef.current = fittedViewState;
+      setViewState(fittedViewState);
+    }
     if (map.isStyleLoaded()) {
       setMapStyleLoaded(true);
     } else {
@@ -497,14 +519,22 @@ function MapEditor() {
           <Map
             ref={mapRef}
             {...viewState}
-            onMove={(event) => setViewState(clampViewStateToCampus(event.viewState))}
+            onMove={(event) => setViewState(event.viewState)}
+            onMoveEnd={handleMapMoveEnd}
+            onResize={(event) => {
+              const fittedViewState = fitViewportInsideCampus(event.target, 22);
+              if (fittedViewState) {
+                lastValidViewStateRef.current = fittedViewState;
+                setViewState(fittedViewState);
+              }
+            }}
             onClick={handleMapClick}
             mapboxAccessToken={MAPBOX_TOKEN}
             style={{ width: '100%', height: '100%' }}
             mapStyle="mapbox://styles/zach-2002/cmmfqzvkr000w01sp0vw694hy"
             maxBounds={CAMPUS_BOUNDS}
             minZoom={16}
-            maxZoom={20}
+            maxZoom={22}
             onLoad={onMapLoad}
             cursor={placingPin ? 'crosshair' : 'grab'}
           >

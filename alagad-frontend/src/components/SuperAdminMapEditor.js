@@ -9,7 +9,7 @@ import { buildingsAPI, roomsAPI, officesAPI } from '../utils/api';
 import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, clampViewStateToCampus } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
 import '../styles/SuperAdminMapEditor.css';
 
 const BUKSU_CAMPUS = {
@@ -52,6 +52,23 @@ function SuperAdminMapEditor() {
     bearing: BUKSU_CAMPUS.bearing,
     pitch: BUKSU_CAMPUS.pitch,
   });
+  const lastValidViewStateRef = useRef(viewState);
+
+  const handleMapMoveEnd = useCallback((evt) => {
+    const constrainedViewState = constrainViewportToCampus(
+      evt.target,
+      evt.viewState,
+      lastValidViewStateRef.current
+    );
+
+    if (constrainedViewState === evt.viewState) {
+      lastValidViewStateRef.current = evt.viewState;
+      setViewState(evt.viewState);
+      return;
+    }
+
+    easeMapToViewState(evt.target, constrainedViewState);
+  }, []);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -117,6 +134,11 @@ function SuperAdminMapEditor() {
     if (!mapRef.current) return;
     
     const map = mapRef.current.getMap();
+    const fittedViewState = fitViewportInsideCampus(map, 22);
+    if (fittedViewState) {
+      lastValidViewStateRef.current = fittedViewState;
+      setViewState(fittedViewState);
+    }
     
     // Wait for style to load before initializing draw controls
     const initializeDraw = () => {
@@ -473,14 +495,22 @@ function SuperAdminMapEditor() {
           <Map
             ref={mapRef}
             {...viewState}
-            onMove={(evt) => setViewState(clampViewStateToCampus(evt.viewState))}
+            onMove={(evt) => setViewState(evt.viewState)}
+            onMoveEnd={handleMapMoveEnd}
+            onResize={(evt) => {
+              const fittedViewState = fitViewportInsideCampus(evt.target, 22);
+              if (fittedViewState) {
+                lastValidViewStateRef.current = fittedViewState;
+                setViewState(fittedViewState);
+              }
+            }}
             mapboxAccessToken={MAPBOX_TOKEN}
             style={{ width: '100%', height: '100%' }}
             mapStyle="mapbox://styles/zach-2002/cmmfqzvkr000w01sp0vw694hy"
             maxBounds={CAMPUS_BOUNDS}
             onLoad={onMapLoad}
             minZoom={16}
-            maxZoom={20}
+            maxZoom={22}
           >
             {/* GeoJSON layer for map features */}
             {mapStyleLoaded && grassGeoJSON?.features?.length > 0 && (

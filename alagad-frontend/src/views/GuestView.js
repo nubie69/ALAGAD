@@ -22,7 +22,7 @@ import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePaths
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import streetNamesGeoJSON from '../data/streetNames.json';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, FOCUS_POLYGON, clampLngLatToCampus, clampViewStateToCampus } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_POLYGON, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
 
 // Bukidnon State University campus bounds (Malaybalay, Bukidnon)
 const BUKSU_CAMPUS = {
@@ -34,7 +34,7 @@ const BUKSU_CAMPUS = {
 };
 
 const WORLD_MASK_RING = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
-const CAMPUS_FADE_BUFFER_METERS = [18, 38, 68];
+const CAMPUS_FADE_BUFFER_METERS = Array.from({ length: 96 }, (_, index) => (index + 1) / 3);
 
 const getPrimaryPolygonRing = (feature) => {
   const geometry = feature?.geometry;
@@ -44,17 +44,22 @@ const getPrimaryPolygonRing = (feature) => {
 };
 
 const createCampusFadeMasks = () => {
-  const campusFeature = polygon(FOCUS_POLYGON);
+  const campusFeature = polygon(CAMPUS_FADE_POLYGON);
   const buffers = CAMPUS_FADE_BUFFER_METERS
     .map((meters) => buffer(campusFeature, meters, { units: 'meters', steps: 18 }))
     .map(getPrimaryPolygonRing)
     .filter(Boolean);
 
   const transitionFeatures = buffers.map((outerRing, index) => {
-    const innerRing = index === 0 ? FOCUS_POLYGON[0] : buffers[index - 1];
+    const innerRing = index === 0 ? CAMPUS_FADE_POLYGON[0] : buffers[index - 1];
+    const progress = (index + 1) / buffers.length;
+    const smoothOpacity = progress * progress * (3 - (2 * progress));
     return {
       type: 'Feature',
-      properties: { band: index + 1 },
+      properties: {
+        band: index + 1,
+        fadeOpacity: Number((smoothOpacity * 0.985).toFixed(4)),
+      },
       geometry: {
         type: 'Polygon',
         coordinates: [outerRing, innerRing],
@@ -62,7 +67,7 @@ const createCampusFadeMasks = () => {
     };
   });
 
-  const farOutsideRing = buffers[buffers.length - 1] || FOCUS_POLYGON[0];
+  const farOutsideRing = buffers[buffers.length - 1] || CAMPUS_FADE_POLYGON[0];
 
   return {
     transition: {
@@ -488,6 +493,23 @@ function GuestView() {
     bearing: BUKSU_CAMPUS.bearing,
     pitch: BUKSU_CAMPUS.pitch,
   });
+  const lastValidViewStateRef = useRef(viewState);
+
+  const handleMapMoveEnd = useCallback((evt) => {
+    const constrainedViewState = constrainViewportToCampus(
+      evt.target,
+      evt.viewState,
+      lastValidViewStateRef.current
+    );
+
+    if (constrainedViewState === evt.viewState) {
+      lastValidViewStateRef.current = evt.viewState;
+      setViewState(evt.viewState);
+      return;
+    }
+
+    easeMapToViewState(evt.target, constrainedViewState);
+  }, []);
   
   // Recent locations tracking
   const [recentLocations, setRecentLocations] = useState(() => {
@@ -593,26 +615,11 @@ function GuestView() {
     // Mark style as loaded immediately on map load — the style is ready at this point
     setMapStyleLoaded(true);
 
-    // Fly to the default campus overview position
-    map.flyTo({
-      center: [BUKSU_CAMPUS.center.lng, BUKSU_CAMPUS.center.lat],
-      zoom: BUKSU_CAMPUS.zoom,
-      pitch: BUKSU_CAMPUS.pitch,
-      bearing: BUKSU_CAMPUS.bearing,
-      duration: 1200,
-      essential: true,
-    });
-    map.once('moveend', () => {
-      const center = map.getCenter();
-      setViewState((prev) => clampViewStateToCampus({
-        ...prev,
-        longitude: center.lng,
-        latitude: center.lat,
-        zoom: map.getZoom(),
-        pitch: map.getPitch(),
-        bearing: map.getBearing(),
-      }));
-    });
+    const fittedViewState = fitViewportInsideCampus(map, 22);
+    if (fittedViewState) {
+      lastValidViewStateRef.current = fittedViewState;
+      setViewState(fittedViewState);
+    }
     
     // Also listen for style.load in case the style is swapped later
     const handleStyleLoad = () => {
@@ -2439,7 +2446,15 @@ function GuestView() {
             <MapView
               ref={mapRef}
               {...viewState}
-              onMove={(evt) => setViewState(clampViewStateToCampus(evt.viewState))}
+              onMove={(evt) => setViewState(evt.viewState)}
+              onMoveEnd={handleMapMoveEnd}
+              onResize={(evt) => {
+                const fittedViewState = fitViewportInsideCampus(evt.target, 22);
+                if (fittedViewState) {
+                  lastValidViewStateRef.current = fittedViewState;
+                  setViewState(fittedViewState);
+                }
+              }}
               mapboxAccessToken={MAPBOX_TOKEN}
               style={{ width: '100%', height: '100%' }}
               mapStyle="mapbox://styles/zach-2002/cmmfqzvkr000w01sp0vw694hy"
@@ -2457,7 +2472,7 @@ function GuestView() {
                 }
               }}
               minZoom={16}
-              maxZoom={20}
+              maxZoom={22}
             >
               {/* Dim everything OUTSIDE the campus boundary — campus interior stays clear */}
               {mapStyleLoaded && (
@@ -2471,15 +2486,9 @@ function GuestView() {
                       id="campus-boundary-fade-bands"
                       type="fill"
                       paint={{
-                        'fill-color': '#0f172a',
-                        'fill-opacity': [
-                          'match',
-                          ['get', 'band'],
-                          1, 0.08,
-                          2, 0.16,
-                          3, 0.25,
-                          0.12,
-                        ],
+                        'fill-color': '#000000',
+                        'fill-opacity': ['get', 'fadeOpacity'],
+                        'fill-antialias': false,
                       }}
                     />
                   </Source>
@@ -2493,32 +2502,8 @@ function GuestView() {
                       id="campus-outside-muted-area"
                       type="fill"
                       paint={{
-                        'fill-color': '#0f172a',
-                        'fill-opacity': 0.36,
-                      }}
-                    />
-                  </Source>
-
-                  <Source
-                    id="campus-boundary-soft-glow"
-                    type="geojson"
-                    data={CAMPUS_FADE_MASKS.boundary}
-                  >
-                    <Layer
-                      id="campus-boundary-soft-glow-line"
-                      type="line"
-                      paint={{
-                        'line-color': '#e2e8f0',
-                        'line-width': [
-                          'interpolate',
-                          ['linear'],
-                          ['zoom'],
-                          16, 7,
-                          18, 11,
-                          20, 16,
-                        ],
-                        'line-blur': 10,
-                        'line-opacity': 0.18,
+                        'fill-color': '#000000',
+                        'fill-opacity': 1,
                       }}
                     />
                   </Source>
@@ -2528,9 +2513,16 @@ function GuestView() {
 
               {/* Walkable routes — gray lines showing all walkable paths */}
               {mapStyleLoaded && grassGeoJSON?.features?.length > 0 && (
-                <SafeGeoJSON data={grassGeoJSON} idPrefix="grass-geojson" showPoints={false} />
+                <SafeGeoJSON
+                  data={grassGeoJSON}
+                  idPrefix="grass-geojson"
+                  showPoints={false}
+                  beforeId="campus-boundary-fade-bands"
+                />
               )}
-              {mapStyleLoaded && <MapTrees idPrefix="grass-map-trees" />}
+              {mapStyleLoaded && (
+                <MapTrees idPrefix="grass-map-trees" beforeId="campus-boundary-fade-bands" />
+              )}
 
               {mapStyleLoaded && (() => {
                 const walkableData = getWalkablePathsGeoJSON();

@@ -11,6 +11,64 @@ if (!sourcePath || !grassOutputPath || !treeOutputPath) {
 
 const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
 
+const coordinatesEqual = (a, b) => a?.[0] === b?.[0] && a?.[1] === b?.[1];
+
+const removeConsecutiveDuplicates = ring => ring.filter((coordinate, index) => (
+  index === 0 || !coordinatesEqual(coordinate, ring[index - 1])
+));
+
+const normalizePolygonRings = rings => {
+  let outerRing = removeConsecutiveDuplicates(rings[0]);
+  const holeRings = rings.slice(1).map(removeConsecutiveDuplicates);
+  let loopFound = true;
+
+  // Convert retraced A-B-...-B-A loops into proper interior holes.
+  while (loopFound) {
+    loopFound = false;
+    for (let start = 0; start < outerRing.length - 4; start += 1) {
+      for (let end = start + 3; end < outerRing.length - 1; end += 1) {
+        if (
+          coordinatesEqual(outerRing[start], outerRing[end + 1]) &&
+          coordinatesEqual(outerRing[start + 1], outerRing[end])
+        ) {
+          const hole = outerRing.slice(start + 1, end + 1);
+          if (hole.length >= 4) holeRings.push(hole);
+          outerRing = outerRing.slice(0, start + 1).concat(outerRing.slice(end + 2));
+          loopFound = true;
+          break;
+        }
+      }
+      if (loopFound) break;
+    }
+  }
+
+  return [outerRing, ...holeRings];
+};
+
+const normalizeFeature = feature => {
+  if (feature?.geometry?.type === 'Polygon') {
+    return {
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        coordinates: normalizePolygonRings(feature.geometry.coordinates),
+      },
+    };
+  }
+
+  if (feature?.geometry?.type === 'MultiPolygon') {
+    return {
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        coordinates: feature.geometry.coordinates.map(normalizePolygonRings),
+      },
+    };
+  }
+
+  return feature;
+};
+
 const classifyGrass = areaSqM => {
   if (areaSqM >= 10000) return 'campus-green';
   if (areaSqM >= 750) return 'large-lawn';
@@ -19,7 +77,8 @@ const classifyGrass = areaSqM => {
 };
 
 const validSourceFeatures = source.features
-  .map((feature, sourceIndex) => ({ feature, sourceIndex, areaSqM: turf.area(feature) }))
+  .map((feature, sourceIndex) => ({ feature: normalizeFeature(feature), sourceIndex }))
+  .map(item => ({ ...item, areaSqM: turf.area(item.feature) }))
   .filter(({ feature, areaSqM }) => (
     ['Polygon', 'MultiPolygon'].includes(feature?.geometry?.type) && areaSqM >= 1
   ));

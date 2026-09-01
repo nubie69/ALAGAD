@@ -1,28 +1,48 @@
 import * as turf from '@turf/turf';
 
 export const CAMPUS_BOUNDARY = [
-  [125.124492, 8.1545658],
-  [125.1235159, 8.1552476],
-  [125.1224864, 8.155899],
-  [125.1243299, 8.1580756],
-  [125.1261435, 8.1564897],
-  [125.124492, 8.1545658],
+  [125.124584, 8.153767],
+  [125.127011, 8.156269],
+  [125.124186, 8.158857],
+  [125.123881, 8.158488],
+  [125.121777, 8.156263],
+  [125.124584, 8.153767],
 ];
 
 export const FOCUS_POLYGON = [CAMPUS_BOUNDARY];
 
-export const CAMPUS_BOUNDS = [[125.1224864, 8.1545658], [125.1261435, 8.1580756]];
+export const CAMPUS_FADE_BOUNDARY = [
+  [125.1245932, 8.1544674],
+  [125.1251549, 8.1554698],
+  [125.1249638, 8.1557383],
+  [125.1252978, 8.1560681],
+  [125.1248957, 8.1564871],
+  [125.1254114, 8.1570594],
+  [125.1242564, 8.1581186],
+  [125.1223907, 8.1560019],
+  [125.1233208, 8.1553987],
+  [125.1237926, 8.1550799],
+  [125.1242527, 8.1547617],
+  [125.1243629, 8.1546863],
+  [125.1244418, 8.1546151],
+  [125.1245932, 8.1544674],
+];
+
+export const CAMPUS_FADE_POLYGON = [CAMPUS_FADE_BOUNDARY];
+
+export const CAMPUS_BOUNDS = [[125.121777, 8.153767], [125.127011, 8.158857]];
 
 export const CAMPUS_BOUNDS_DETAILS = {
-  north: 8.1580756,
-  south: 8.1545658,
-  east: 125.1261435,
-  west: 125.1224864,
+  north: 8.158857,
+  south: 8.153767,
+  east: 125.127011,
+  west: 125.121777,
 };
 
 export const CAMPUS_POLYGON = turf.polygon(FOCUS_POLYGON);
 
 const CAMPUS_BOUNDARY_LINE = turf.polygonToLine(CAMPUS_POLYGON);
+const CAMPUS_CENTER = turf.centroid(CAMPUS_POLYGON).geometry.coordinates;
 
 export const clampLngLatToCampus = (lng, lat) => {
   const longitude = Number(lng);
@@ -55,4 +75,81 @@ export const clampViewStateToCampus = (viewState) => {
     longitude: clamped.lng,
     latitude: clamped.lat,
   };
+};
+
+export const isMapViewportInsideCampus = (map) => {
+  const canvas = map?.getCanvas?.();
+  const width = canvas?.clientWidth || canvas?.width || 0;
+  const height = canvas?.clientHeight || canvas?.height || 0;
+
+  if (!width || !height || typeof map?.unproject !== 'function') return true;
+
+  return [[0, 0], [width, 0], [width, height], [0, height]].every(([x, y]) => {
+    const corner = map.unproject([x, y]);
+    return turf.booleanPointInPolygon(
+      turf.point([corner.lng, corner.lat]),
+      CAMPUS_POLYGON,
+      { ignoreBoundary: false }
+    );
+  });
+};
+
+export const constrainViewportToCampus = (map, nextViewState, previousViewState) => {
+  const center = clampLngLatToCampus(nextViewState?.longitude, nextViewState?.latitude);
+  const centerWasOutside = center.lng !== nextViewState?.longitude || center.lat !== nextViewState?.latitude;
+
+  if (!centerWasOutside && isMapViewportInsideCampus(map)) {
+    return nextViewState;
+  }
+
+  return previousViewState || {
+    ...nextViewState,
+    longitude: center.lng,
+    latitude: center.lat,
+  };
+};
+
+export const easeMapToViewState = (map, viewState, duration = 360) => {
+  if (!map || !viewState) return false;
+
+  map.easeTo({
+    center: [viewState.longitude, viewState.latitude],
+    zoom: viewState.zoom,
+    bearing: viewState.bearing,
+    pitch: viewState.pitch,
+    duration,
+    easing: progress => 1 - Math.pow(1 - progress, 3),
+    essential: true,
+  });
+
+  return true;
+};
+
+const getMapViewState = (map) => {
+  const center = map.getCenter();
+  return {
+    longitude: center.lng,
+    latitude: center.lat,
+    zoom: map.getZoom(),
+    bearing: map.getBearing(),
+    pitch: map.getPitch(),
+  };
+};
+
+export const fitViewportInsideCampus = (map, maxZoom = 20) => {
+  if (!map) return null;
+
+  const currentCenter = map.getCenter();
+  const clampedCenter = clampLngLatToCampus(currentCenter.lng, currentCenter.lat);
+  map.jumpTo({ center: [clampedCenter.lng, clampedCenter.lat] });
+
+  while (!isMapViewportInsideCampus(map) && map.getZoom() < maxZoom) {
+    map.jumpTo({ zoom: Math.min(maxZoom, map.getZoom() + 0.25) });
+  }
+
+  if (!isMapViewportInsideCampus(map)) {
+    map.jumpTo({ center: CAMPUS_CENTER, zoom: maxZoom });
+  }
+
+  return getMapViewState(map);
 };

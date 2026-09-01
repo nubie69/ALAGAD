@@ -5,7 +5,7 @@ import treeGeoJSON from '../data/trees.json';
 const TREE_ICON_ID = 'alagad-map-tree';
 const TREE_ICON_URL = '/Tree-map-style-v2.png';
 
-const MapTrees = ({ idPrefix = 'map-trees' }) => {
+const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
   const { current: mapRef } = useMap();
   const [treeIconReady, setTreeIconReady] = useState(false);
 
@@ -62,6 +62,7 @@ const MapTrees = ({ idPrefix = 'map-trees' }) => {
     <Source id={`${idPrefix}-source`} type="geojson" data={treeGeoJSON}>
       <Layer
         id={`${idPrefix}-symbols`}
+        beforeId={beforeId}
         type="symbol"
         layout={{
           'icon-image': TREE_ICON_ID,

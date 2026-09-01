@@ -17,7 +17,7 @@ const GRASS_FEATURE_FILTER = [
 ];
 
 // Safe GeoJSON wrapper that catches rendering errors
-export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoints = true }) => {
+export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoints = true, beforeId }) => {
   const { current: mapRef } = useMap();
   const [grassPatternReady, setGrassPatternReady] = useState(false);
 
@@ -146,6 +146,7 @@ export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoi
     // Polygon/MultiPolygon layer styling
     const grassPolygonLayerStyle = {
       id: `${idPrefix}-grass-polygon`,
+      beforeId,
       type: 'fill',
       filter: ['all', POLYGON_GEOMETRY_FILTER, GRASS_FEATURE_FILTER],
       paint: grassPatternReady
@@ -161,6 +162,7 @@ export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoi
 
     const polygonLayerStyle = {
       id: `${idPrefix}-polygon`,
+      beforeId,
       type: 'fill',
       filter: ['all', POLYGON_GEOMETRY_FILTER, ['!', GRASS_FEATURE_FILTER]],
       paint: {
@@ -171,6 +173,7 @@ export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoi
 
     const polygonOutlineStyle = {
       id: `${idPrefix}-polygon-outline`,
+      beforeId,
       type: 'line',
       filter: ['all', POLYGON_GEOMETRY_FILTER, ['!', GRASS_FEATURE_FILTER]],
       paint: {
@@ -183,6 +186,7 @@ export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoi
     // Point layer styling
     const pointLayerStyle = {
       id: `${idPrefix}-point`,
+      beforeId,
       type: 'circle',
       paint: {
         'circle-radius': 6,
@@ -193,6 +197,7 @@ export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoi
     // LineString layer styling
     const lineLayerStyle = {
       id: `${idPrefix}-line`,
+      beforeId,
       type: 'line',
       paint: {
         'line-color': 'transparent',
