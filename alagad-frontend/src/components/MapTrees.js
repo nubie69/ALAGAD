@@ -82,7 +82,7 @@ const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
         type="symbol"
         layout={{
           'icon-image': ['coalesce', ['get', 'iconImage'], 'alagad-map-tree-green'],
-          'icon-size': ['*', ['coalesce', ['get', 'iconSize'], 1], 0.72],
+          'icon-size': ['*', ['coalesce', ['get', 'iconSize'], 1], 0.9],
           'icon-rotate': ['coalesce', ['get', 'rotate'], 0],
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
