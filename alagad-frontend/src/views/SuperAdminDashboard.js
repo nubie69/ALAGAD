@@ -2036,7 +2036,7 @@ function SuperAdminDashboard() {
                       placeholder="Paste one link per line, or use: Form Name | https://example.edu.ph/form.pdf"
                       rows="4"
                     />
-                    <span className="form-help-text">Optional. Leave blank to show N/A. Valid links become clickable in the chatbot.</span>
+                    <span className="form-help-text">Optional. Valid links become clickable in the chatbot.</span>
                   </div>
                 </div>
               </div>

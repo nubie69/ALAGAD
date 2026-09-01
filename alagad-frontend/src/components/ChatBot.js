@@ -1199,7 +1199,10 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                     const downloadableResources = Array.isArray(faq.downloadableResources)
                       ? faq.downloadableResources
                       : (Array.isArray(faq.resources) ? faq.resources : []);
-                    const responsibleOffice = officeName || departmentName || 'N/A';
+                    const linkedResources = downloadableResources.filter((resource) => (
+                      String(resource?.url || '').trim()
+                    ));
+                    const responsibleOffice = officeName || departmentName;
 
                     return (
                       <article className={`chatbot-faq-card ${expanded ? 'open' : ''}`} key={faqId}>
@@ -1234,13 +1237,13 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                                 </div>
                               </div>
                             )}
-                            <div className="chatbot-knowledge-section">
-                              <div className="chatbot-knowledge-title">Visit link.</div>
-                              {downloadableResources.length > 0 ? (
-                                downloadableResources.map((resource) => (
+                            {linkedResources.length > 0 && (
+                              <div className="chatbot-knowledge-section">
+                                <div className="chatbot-knowledge-title">Visit link</div>
+                                {linkedResources.map((resource) => (
                                   <div className="chatbot-resource-card" key={resource.id || resource.url}>
                                     <div className="chatbot-resource-main">
-                                      <strong>{resource.title || resource.name}</strong>
+                                      <strong>{resource.title || resource.name || 'Attached link'}</strong>
                                       {resource.description && <span>{resource.description}</span>}
                                     </div>
                                     <a
@@ -1248,37 +1251,34 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                                       href={resource.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      aria-label={`Download ${resource.title || resource.name}`}
+                                      aria-label={`Visit ${resource.title || resource.name || 'attached link'}`}
                                     >
                                       Visit
                                     </a>
                                   </div>
-                                ))
-                              ) : (
-                                <div className="chatbot-faq-meta">
-                                  <span>N/A</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="chatbot-knowledge-section">
-                              <div className="chatbot-knowledge-title">Responsible Office</div>
-                              <div className="chatbot-faq-meta">
-                                <span>{responsibleOffice}</span>
+                                ))}
                               </div>
-                            </div>
+                            )}
+                            {responsibleOffice && (
+                              <div className="chatbot-knowledge-section">
+                                <div className="chatbot-knowledge-title">Responsible Office</div>
+                                <div className="chatbot-faq-meta">
+                                  <span>{responsibleOffice}</span>
+                                </div>
+                              </div>
+                            )}
                             {(officeName || departmentName) && (
                               <div className="chatbot-faq-meta">
                                 {officeName && <span>Office: {officeName}</span>}
                                 {departmentName && <span>Department: {departmentName}</span>}
                               </div>
                             )}
-                            {officeName && (
+                            {officeName && office && (
                               <div className="chatbot-faq-actions">
                                 <button
                                   type="button"
                                   className="chatbot-faq-action secondary"
                                   onClick={() => handleFaqViewOffice(faq)}
-                                  disabled={!office}
                                 >
                                   View Office
                                 </button>
@@ -1286,7 +1286,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                                   type="button"
                                   className="chatbot-faq-action primary"
                                   onClick={() => handleFaqNavigateOffice(faq)}
-                                  disabled={!office}
                                 >
                                   Navigate
                                 </button>
