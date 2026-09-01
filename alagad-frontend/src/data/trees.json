@@ -1,9 +1,14 @@
 {
   "type": "FeatureCollection",
   "properties": {
-    "source": "finalgrasss.geojson",
-    "placementReference": "campus-map-removebg-preview (1).png",
-    "placementStyle": "perimeter rows, northern grove, and lawn clusters"
+    "source": "trees.geojson",
+    "pointCount": 115,
+    "styleReference": "campus-map-removebg-preview (1).png",
+    "canopyVariants": [
+      "dark",
+      "green",
+      "gold"
+    ]
   },
   "features": [
     {
@@ -12,19 +17,20 @@
       "properties": {
         "id": "tree-001",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 47
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 1,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 175
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.124057,
-          8.155956
+          125.122666,
+          8.155989
         ]
       }
     },
@@ -34,19 +40,20 @@
       "properties": {
         "id": "tree-002",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 1,
-        "canopyDiameterMeters": 6.5,
-        "rotate": 120
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 2,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 250
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12368124,
-          8.15555751
+          125.12275,
+          8.155913
         ]
       }
     },
@@ -56,19 +63,20 @@
       "properties": {
         "id": "tree-003",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.12,
-        "canopyDiameterMeters": 7.3,
-        "rotate": 193
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 3,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.96,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6,
+        "rotate": 341
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12393992,
-          8.15549645
+          125.122883,
+          8.155804
         ]
       }
     },
@@ -78,19 +86,20 @@
       "properties": {
         "id": "tree-004",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 266
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 4,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.18,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.3,
+        "rotate": 185
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12406817,
-          8.15528044
+          125.123058,
+          8.155766
         ]
       }
     },
@@ -100,19 +109,20 @@
       "properties": {
         "id": "tree-005",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 339
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 5,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 336
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12430732,
-          8.15520999
+          125.122614,
+          8.155934
         ]
       }
     },
@@ -122,19 +132,20 @@
       "properties": {
         "id": "tree-006",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "small",
-        "iconSize": 0.82,
-        "canopyDiameterMeters": 5.3,
-        "rotate": 52
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 6,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 171
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12456954,
-          8.15513907
+          125.122586,
+          8.15609
         ]
       }
     },
@@ -144,19 +155,20 @@
       "properties": {
         "id": "tree-007",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 1.06,
-        "canopyDiameterMeters": 6.9,
-        "rotate": 125
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 7,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 337
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12449525,
-          8.15470104
+          125.122467,
+          8.155948
         ]
       }
     },
@@ -166,19 +178,20 @@
       "properties": {
         "id": "tree-008",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "small",
-        "iconSize": 0.76,
-        "canopyDiameterMeters": 4.9,
-        "rotate": 198
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 8,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 292
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1242991,
-          8.15481037
+          125.122415,
+          8.155888
         ]
       }
     },
@@ -188,19 +201,20 @@
       "properties": {
         "id": "tree-009",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 9,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.9,
         "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 271
+        "canopyDiameterMeters": 5.6,
+        "rotate": 66
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12338612,
-          8.15560154
+          125.122516,
+          8.155854
         ]
       }
     },
@@ -210,19 +224,20 @@
       "properties": {
         "id": "tree-010",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 10,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.08,
         "sizeClass": "medium",
-        "iconSize": 1,
-        "canopyDiameterMeters": 6.5,
-        "rotate": 344
+        "canopyDiameterMeters": 6.7,
+        "rotate": 57
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12333012,
-          8.15575828
+          125.122559,
+          8.155735
         ]
       }
     },
@@ -232,19 +247,20 @@
       "properties": {
         "id": "tree-011",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.12,
-        "canopyDiameterMeters": 7.3,
-        "rotate": 57
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 11,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 228
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1230344,
-          8.15590948
+          125.12257,
+          8.155828
         ]
       }
     },
@@ -254,19 +270,20 @@
       "properties": {
         "id": "tree-012",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 12,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.84,
         "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 130
+        "canopyDiameterMeters": 5.2,
+        "rotate": 331
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12418177,
-          8.15815167
+          125.122608,
+          8.155826
         ]
       }
     },
@@ -276,19 +293,20 @@
       "properties": {
         "id": "tree-013",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 203
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 13,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 4
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12392717,
-          8.15838083
+          125.122617,
+          8.155783
         ]
       }
     },
@@ -298,19 +316,20 @@
       "properties": {
         "id": "tree-014",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "small",
-        "iconSize": 0.82,
-        "canopyDiameterMeters": 5.3,
-        "rotate": 276
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 14,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 157
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12370089,
-          8.15822013
+          125.122733,
+          8.155753
         ]
       }
     },
@@ -320,19 +339,20 @@
       "properties": {
         "id": "tree-015",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 15,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.02,
         "sizeClass": "medium",
-        "iconSize": 1.06,
-        "canopyDiameterMeters": 6.9,
-        "rotate": 349
+        "canopyDiameterMeters": 6.3,
+        "rotate": 194
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12348176,
-          8.15795774
+          125.122759,
+          8.155697
         ]
       }
     },
@@ -342,19 +362,20 @@
       "properties": {
         "id": "tree-016",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 16,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.72,
         "sizeClass": "small",
-        "iconSize": 0.76,
-        "canopyDiameterMeters": 4.9,
-        "rotate": 62
+        "canopyDiameterMeters": 4.5,
+        "rotate": 207
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12326289,
-          8.15769567
+          125.122756,
+          8.155646
         ]
       }
     },
@@ -364,19 +385,20 @@
       "properties": {
         "id": "tree-017",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 17,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.08,
         "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 135
+        "canopyDiameterMeters": 6.7,
+        "rotate": 357
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12304418,
-          8.15743405
+          125.122803,
+          8.155682
         ]
       }
     },
@@ -386,19 +408,20 @@
       "properties": {
         "id": "tree-018",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 18,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.9,
         "sizeClass": "medium",
-        "iconSize": 1,
-        "canopyDiameterMeters": 6.5,
-        "rotate": 208
+        "canopyDiameterMeters": 5.6,
+        "rotate": 93
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12282542,
-          8.15717294
+          125.12269,
+          8.155824
         ]
       }
     },
@@ -408,19 +431,20 @@
       "properties": {
         "id": "tree-019",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.12,
-        "canopyDiameterMeters": 7.3,
-        "rotate": 281
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 19,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 8
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12260636,
-          8.15691224
+          125.123214,
+          8.155508
         ]
       }
     },
@@ -430,19 +454,20 @@
       "properties": {
         "id": "tree-020",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 354
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 20,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 64
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12239519,
-          8.15664557
+          125.123231,
+          8.15548
         ]
       }
     },
@@ -452,19 +477,20 @@
       "properties": {
         "id": "tree-021",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 67
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 21,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.96,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6,
+        "rotate": 62
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12217876,
-          8.15638258
+          125.123068,
+          8.155574
         ]
       }
     },
@@ -474,19 +500,20 @@
       "properties": {
         "id": "tree-022",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "small",
-        "iconSize": 0.82,
-        "canopyDiameterMeters": 5.3,
-        "rotate": 140
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 22,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.9,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.6,
+        "rotate": 285
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12193989,
-          8.15613891
+          125.122852,
+          8.155586
         ]
       }
     },
@@ -496,19 +523,20 @@
       "properties": {
         "id": "tree-023",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 1.06,
-        "canopyDiameterMeters": 6.9,
-        "rotate": 213
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 23,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 316
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1220588,
-          8.15590635
+          125.122915,
+          8.155487
         ]
       }
     },
@@ -518,19 +546,20 @@
       "properties": {
         "id": "tree-024",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "small",
-        "iconSize": 0.76,
-        "canopyDiameterMeters": 4.9,
-        "rotate": 286
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 24,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 106
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12232233,
-          8.15568752
+          125.12296,
+          8.155525
         ]
       }
     },
@@ -540,19 +569,20 @@
       "properties": {
         "id": "tree-025",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 25,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.02,
         "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 359
+        "canopyDiameterMeters": 6.3,
+        "rotate": 179
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12258548,
-          8.15546913
+          125.123029,
+          8.155462
         ]
       }
     },
@@ -562,19 +592,20 @@
       "properties": {
         "id": "tree-026",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 26,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.02,
         "sizeClass": "medium",
-        "iconSize": 1,
-        "canopyDiameterMeters": 6.5,
-        "rotate": 72
+        "canopyDiameterMeters": 6.3,
+        "rotate": 155
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12284798,
-          8.15525112
+          125.122969,
+          8.155431
         ]
       }
     },
@@ -584,19 +615,20 @@
       "properties": {
         "id": "tree-027",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 27,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
         "sizeClass": "large",
-        "iconSize": 1.12,
-        "canopyDiameterMeters": 7.3,
-        "rotate": 145
+        "canopyDiameterMeters": 7.8,
+        "rotate": 337
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12310964,
-          8.15503315
+          125.123113,
+          8.155402
         ]
       }
     },
@@ -606,19 +638,20 @@
       "properties": {
         "id": "tree-028",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 218
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 28,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 94
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12337058,
-          8.1548147
+          125.123202,
+          8.155363
         ]
       }
     },
@@ -628,19 +661,20 @@
       "properties": {
         "id": "tree-029",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 291
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 29,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 148
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12363133,
-          8.15459541
+          125.123281,
+          8.155271
         ]
       }
     },
@@ -650,19 +684,20 @@
       "properties": {
         "id": "tree-030",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "small",
-        "iconSize": 0.82,
-        "canopyDiameterMeters": 5.3,
-        "rotate": 4
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 30,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.18,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.3,
+        "rotate": 263
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12389238,
-          8.15437536
+          125.123354,
+          8.155246
         ]
       }
     },
@@ -672,19 +707,20 @@
       "properties": {
         "id": "tree-031",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 31,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.08,
         "sizeClass": "medium",
-        "iconSize": 1.06,
-        "canopyDiameterMeters": 6.9,
-        "rotate": 77
+        "canopyDiameterMeters": 6.7,
+        "rotate": 282
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12415394,
-          8.15415483
+          125.12333,
+          8.155222
         ]
       }
     },
@@ -694,19 +730,20 @@
       "properties": {
         "id": "tree-032",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "small",
-        "iconSize": 0.76,
-        "canopyDiameterMeters": 4.9,
-        "rotate": 150
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 32,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.96,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6,
+        "rotate": 194
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12441599,
-          8.15393407
+          125.123708,
+          8.155049
         ]
       }
     },
@@ -716,19 +753,20 @@
       "properties": {
         "id": "tree-033",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 33,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.84,
         "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 223
+        "canopyDiameterMeters": 5.2,
+        "rotate": 340
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12464904,
-          8.15396796
+          125.123763,
+          8.155073
         ]
       }
     },
@@ -738,19 +776,20 @@
       "properties": {
         "id": "tree-034",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 1,
-        "canopyDiameterMeters": 6.5,
-        "rotate": 296
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 34,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 63
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12485439,
-          8.15424063
+          125.123934,
+          8.154918
         ]
       }
     },
@@ -760,19 +799,20 @@
       "properties": {
         "id": "tree-035",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.12,
-        "canopyDiameterMeters": 7.3,
-        "rotate": 9
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 35,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 211
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12505956,
-          8.15451284
+          125.124214,
+          8.154719
         ]
       }
     },
@@ -782,19 +822,20 @@
       "properties": {
         "id": "tree-036",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 36,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.96,
         "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 82
+        "canopyDiameterMeters": 6,
+        "rotate": 269
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12526475,
-          8.15478452
+          125.12413,
+          8.154794
         ]
       }
     },
@@ -804,19 +845,20 @@
       "properties": {
         "id": "tree-037",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 37,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
         "sizeClass": "large",
-        "iconSize": 1.2,
         "canopyDiameterMeters": 7.8,
-        "rotate": 155
+        "rotate": 97
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12547022,
-          8.15505573
+          125.124426,
+          8.154619
         ]
       }
     },
@@ -826,19 +868,20 @@
       "properties": {
         "id": "tree-038",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 38,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.72,
         "sizeClass": "small",
-        "iconSize": 0.82,
-        "canopyDiameterMeters": 5.3,
-        "rotate": 228
+        "canopyDiameterMeters": 4.5,
+        "rotate": 75
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12567619,
-          8.15532671
+          125.124551,
+          8.154765
         ]
       }
     },
@@ -848,19 +891,20 @@
       "properties": {
         "id": "tree-039",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 1.06,
-        "canopyDiameterMeters": 6.9,
-        "rotate": 301
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 39,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 213
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1258827,
-          8.15559775
+          125.124655,
+          8.154732
         ]
       }
     },
@@ -870,19 +914,20 @@
       "properties": {
         "id": "tree-040",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 40,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.72,
         "sizeClass": "small",
-        "iconSize": 0.76,
-        "canopyDiameterMeters": 4.9,
-        "rotate": 14
+        "canopyDiameterMeters": 4.5,
+        "rotate": 288
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12570407,
-          8.15578958
+          125.124581,
+          8.155174
         ]
       }
     },
@@ -892,19 +937,20 @@
       "properties": {
         "id": "tree-041",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 87
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 41,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 100
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12540314,
-          8.15595581
+          125.12469,
+          8.15517
         ]
       }
     },
@@ -914,19 +960,20 @@
       "properties": {
         "id": "tree-042",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 1,
-        "canopyDiameterMeters": 6.5,
-        "rotate": 160
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 42,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 22
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12459216,
-          8.15586623
+          125.124788,
+          8.154927
         ]
       }
     },
@@ -936,19 +983,20 @@
       "properties": {
         "id": "tree-043",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "large",
-        "iconSize": 1.12,
-        "canopyDiameterMeters": 7.3,
-        "rotate": 233
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 43,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 237
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1243076,
-          8.15594403
+          125.124831,
+          8.155032
         ]
       }
     },
@@ -958,19 +1006,20 @@
       "properties": {
         "id": "tree-044",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 44,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.08,
         "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 306
+        "canopyDiameterMeters": 6.7,
+        "rotate": 6
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12450828,
-          8.15604684
+          125.124821,
+          8.155104
         ]
       }
     },
@@ -980,19 +1029,20 @@
       "properties": {
         "id": "tree-045",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 45,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.18,
         "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 19
+        "canopyDiameterMeters": 7.3,
+        "rotate": 218
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12458579,
-          8.15629002
+          125.124862,
+          8.155208
         ]
       }
     },
@@ -1002,19 +1052,20 @@
       "properties": {
         "id": "tree-046",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "small",
-        "iconSize": 0.82,
-        "canopyDiameterMeters": 5.3,
-        "rotate": 92
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 46,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 39
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12419501,
-          8.15583492
+          125.124994,
+          8.15519
         ]
       }
     },
@@ -1024,19 +1075,20 @@
       "properties": {
         "id": "tree-047",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "campus-perimeter",
-        "sourceGrassFeature": 1,
-        "sizeClass": "medium",
-        "iconSize": 1.06,
-        "canopyDiameterMeters": 6.9,
-        "rotate": 165
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 47,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 102
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12404276,
-          8.15581098
+          125.124939,
+          8.155241
         ]
       }
     },
@@ -1046,19 +1098,20 @@
       "properties": {
         "id": "tree-048",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "medium",
-        "iconSize": 0.9,
-        "canopyDiameterMeters": 5.9,
-        "rotate": 298
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 48,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.18,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.3,
+        "rotate": 317
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12519424,
-          8.15609361
+          125.124966,
+          8.155362
         ]
       }
     },
@@ -1068,19 +1121,20 @@
       "properties": {
         "id": "tree-049",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "large",
-        "iconSize": 1.14,
-        "canopyDiameterMeters": 7.4,
-        "rotate": 11
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 49,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 134
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12553347,
-          8.15590531
+          125.124952,
+          8.155486
         ]
       }
     },
@@ -1090,19 +1144,20 @@
       "properties": {
         "id": "tree-050",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "small",
-        "iconSize": 0.84,
-        "canopyDiameterMeters": 5.5,
-        "rotate": 84
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 50,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.9,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.6,
+        "rotate": 270
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12587466,
-          8.15571045
+          125.124929,
+          8.155578
         ]
       }
     },
@@ -1112,19 +1167,20 @@
       "properties": {
         "id": "tree-051",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "medium",
-        "iconSize": 0.96,
-        "canopyDiameterMeters": 6.2,
-        "rotate": 157
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 51,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 130
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12602078,
-          8.15576368
+          125.124986,
+          8.155674
         ]
       }
     },
@@ -1134,19 +1190,20 @@
       "properties": {
         "id": "tree-052",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "medium",
-        "iconSize": 1.08,
-        "canopyDiameterMeters": 7,
-        "rotate": 230
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 52,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 148
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12615106,
-          8.15590897
+          125.124889,
+          8.155722
         ]
       }
     },
@@ -1156,19 +1213,20 @@
       "properties": {
         "id": "tree-053",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 303
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 53,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 218
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12628208,
-          8.15605366
+          125.124008,
+          8.155886
         ]
       }
     },
@@ -1178,19 +1236,20 @@
       "properties": {
         "id": "tree-054",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 54,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.96,
         "sizeClass": "medium",
-        "iconSize": 1.02,
-        "canopyDiameterMeters": 6.6,
-        "rotate": 16
+        "canopyDiameterMeters": 6,
+        "rotate": 233
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12641407,
-          8.15619841
+          125.124001,
+          8.155841
         ]
       }
     },
@@ -1200,19 +1259,20 @@
       "properties": {
         "id": "tree-055",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "large",
-        "iconSize": 1.28,
-        "canopyDiameterMeters": 8.3,
-        "rotate": 89
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 55,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 260
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12627579,
-          8.15632336
+          125.123951,
+          8.155851
         ]
       }
     },
@@ -1222,19 +1282,20 @@
       "properties": {
         "id": "tree-056",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 56,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.96,
         "sizeClass": "medium",
-        "iconSize": 0.9,
-        "canopyDiameterMeters": 5.9,
-        "rotate": 162
+        "canopyDiameterMeters": 6,
+        "rotate": 221
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12612144,
-          8.15644599
+          125.123896,
+          8.1558
         ]
       }
     },
@@ -1244,19 +1305,20 @@
       "properties": {
         "id": "tree-057",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "large",
-        "iconSize": 1.14,
-        "canopyDiameterMeters": 7.4,
-        "rotate": 235
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 57,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 72
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12596851,
-          8.15656704
+          125.123831,
+          8.155649
         ]
       }
     },
@@ -1266,19 +1328,20 @@
       "properties": {
         "id": "tree-058",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "small",
-        "iconSize": 0.84,
-        "canopyDiameterMeters": 5.5,
-        "rotate": 308
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 58,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 188
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12581851,
-          8.15668782
+          125.12379,
+          8.155739
         ]
       }
     },
@@ -1288,19 +1351,20 @@
       "properties": {
         "id": "tree-059",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 59,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.02,
         "sizeClass": "medium",
-        "iconSize": 0.96,
-        "canopyDiameterMeters": 6.2,
-        "rotate": 21
+        "canopyDiameterMeters": 6.3,
+        "rotate": 92
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12566967,
-          8.1568113
+          125.123694,
+          8.155672
         ]
       }
     },
@@ -1310,19 +1374,20 @@
       "properties": {
         "id": "tree-060",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 60,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.9,
         "sizeClass": "medium",
-        "iconSize": 1.08,
-        "canopyDiameterMeters": 7,
-        "rotate": 94
+        "canopyDiameterMeters": 5.6,
+        "rotate": 309
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12551918,
-          8.1569369
+          125.123589,
+          8.155567
         ]
       }
     },
@@ -1332,19 +1397,20 @@
       "properties": {
         "id": "tree-061",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 167
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 61,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 346
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12536707,
-          8.15706304
+          125.123473,
+          8.155653
         ]
       }
     },
@@ -1354,19 +1420,20 @@
       "properties": {
         "id": "tree-062",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 62,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.96,
         "sizeClass": "medium",
-        "iconSize": 1.02,
-        "canopyDiameterMeters": 6.6,
-        "rotate": 240
+        "canopyDiameterMeters": 6,
+        "rotate": 221
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12523671,
-          8.15692978
+          125.123578,
+          8.155716
         ]
       }
     },
@@ -1376,19 +1443,20 @@
       "properties": {
         "id": "tree-063",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "large",
-        "iconSize": 1.28,
-        "canopyDiameterMeters": 8.3,
-        "rotate": 313
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 63,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 24
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12510785,
-          8.15678371
+          125.123637,
+          8.155753
         ]
       }
     },
@@ -1398,19 +1466,20 @@
       "properties": {
         "id": "tree-064",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "medium",
-        "iconSize": 0.9,
-        "canopyDiameterMeters": 5.9,
-        "rotate": 26
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 64,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 207
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12497415,
-          8.15664184
+          125.123693,
+          8.155813
         ]
       }
     },
@@ -1420,19 +1489,20 @@
       "properties": {
         "id": "tree-065",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "large",
-        "iconSize": 1.14,
-        "canopyDiameterMeters": 7.4,
-        "rotate": 99
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 65,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 34
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12483662,
-          8.1565022
+          125.123774,
+          8.155852
         ]
       }
     },
@@ -1442,19 +1512,20 @@
       "properties": {
         "id": "tree-066",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 66,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.72,
         "sizeClass": "small",
-        "iconSize": 0.84,
-        "canopyDiameterMeters": 5.5,
-        "rotate": 172
+        "canopyDiameterMeters": 4.5,
+        "rotate": 276
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1248921,
-          8.15636311
+          125.123866,
+          8.155935
         ]
       }
     },
@@ -1464,19 +1535,20 @@
       "properties": {
         "id": "tree-067",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "northern-grove",
-        "sourceGrassFeature": 14,
-        "sizeClass": "medium",
-        "iconSize": 0.96,
-        "canopyDiameterMeters": 6.2,
-        "rotate": 245
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 67,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 180
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12503227,
-          8.15622567
+          125.123739,
+          8.156259
         ]
       }
     },
@@ -1486,19 +1558,20 @@
       "properties": {
         "id": "tree-068",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "track-field-edge",
-        "sourceGrassFeature": 2,
-        "sizeClass": "medium",
-        "iconSize": 1,
-        "canopyDiameterMeters": 6.5,
-        "rotate": 94
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 68,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 48
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12370408,
-          8.1557588
+          125.123815,
+          8.156344
         ]
       }
     },
@@ -1508,19 +1581,20 @@
       "properties": {
         "id": "tree-069",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "track-field-edge",
-        "sourceGrassFeature": 2,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 69,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
         "sizeClass": "large",
-        "iconSize": 1.12,
-        "canopyDiameterMeters": 7.3,
-        "rotate": 167
+        "canopyDiameterMeters": 7.8,
+        "rotate": 301
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1241203,
-          8.15603469
+          125.12391,
+          8.156435
         ]
       }
     },
@@ -1530,19 +1604,20 @@
       "properties": {
         "id": "tree-070",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "track-field-edge",
-        "sourceGrassFeature": 2,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 70,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.9,
         "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 240
+        "canopyDiameterMeters": 5.6,
+        "rotate": 177
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12390295,
-          8.15600233
+          125.123994,
+          8.15652
         ]
       }
     },
@@ -1552,19 +1627,20 @@
       "properties": {
         "id": "tree-071",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "track-field-edge",
-        "sourceGrassFeature": 2,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 313
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 71,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 24
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12368665,
-          8.15591162
+          125.123982,
+          8.156672
         ]
       }
     },
@@ -1574,19 +1650,20 @@
       "properties": {
         "id": "tree-072",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "lawn-cluster",
-        "sourceGrassFeature": 8,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 72,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.78,
         "sizeClass": "small",
-        "iconSize": 0.76,
-        "canopyDiameterMeters": 4.9,
-        "rotate": 16
+        "canopyDiameterMeters": 4.8,
+        "rotate": 82
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12451156,
-          8.1567755
+          125.123901,
+          8.156744
         ]
       }
     },
@@ -1596,19 +1673,20 @@
       "properties": {
         "id": "tree-073",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "lawn-cluster",
-        "sourceGrassFeature": 8,
-        "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 89
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 73,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 144
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12462305,
-          8.15688662
+          125.123865,
+          8.156775
         ]
       }
     },
@@ -1618,19 +1696,20 @@
       "properties": {
         "id": "tree-074",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "east-lawn-row",
-        "sourceGrassFeature": 19,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 74,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.18,
         "sizeClass": "large",
-        "iconSize": 1.12,
         "canopyDiameterMeters": 7.3,
-        "rotate": 173
+        "rotate": 188
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12516718,
-          8.1570858
+          125.123812,
+          8.156805
         ]
       }
     },
@@ -1640,19 +1719,20 @@
       "properties": {
         "id": "tree-075",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "east-lawn-row",
-        "sourceGrassFeature": 19,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 75,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.96,
         "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 246
+        "canopyDiameterMeters": 6,
+        "rotate": 260
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12512227,
-          8.15720939
+          125.123775,
+          8.156847
         ]
       }
     },
@@ -1662,19 +1742,20 @@
       "properties": {
         "id": "tree-076",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "east-lawn-row",
-        "sourceGrassFeature": 19,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 319
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 76,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 305
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12495623,
-          8.15736994
+          125.123723,
+          8.156877
         ]
       }
     },
@@ -1684,19 +1765,20 @@
       "properties": {
         "id": "tree-077",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "east-lawn-row",
-        "sourceGrassFeature": 19,
-        "sizeClass": "small",
-        "iconSize": 0.82,
-        "canopyDiameterMeters": 5.3,
-        "rotate": 32
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 77,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 258
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12482684,
-          8.15729068
+          125.123679,
+          8.156807
         ]
       }
     },
@@ -1706,19 +1788,20 @@
       "properties": {
         "id": "tree-078",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "east-lawn-row",
-        "sourceGrassFeature": 19,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 78,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.96,
         "sizeClass": "medium",
-        "iconSize": 1.06,
-        "canopyDiameterMeters": 6.9,
-        "rotate": 105
+        "canopyDiameterMeters": 6,
+        "rotate": 242
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12497636,
-          8.15712493
+          125.124032,
+          8.156731
         ]
       }
     },
@@ -1728,19 +1811,20 @@
       "properties": {
         "id": "tree-079",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "west-lawn-row",
-        "sourceGrassFeature": 20,
-        "sizeClass": "medium",
-        "iconSize": 0.94,
-        "canopyDiameterMeters": 6.1,
-        "rotate": 220
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 79,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.18,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.3,
+        "rotate": 293
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12325772,
-          8.15647903
+          125.123989,
+          8.156758
         ]
       }
     },
@@ -1750,19 +1834,20 @@
       "properties": {
         "id": "tree-080",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "west-lawn-row",
-        "sourceGrassFeature": 20,
-        "sizeClass": "large",
-        "iconSize": 1.2,
-        "canopyDiameterMeters": 7.8,
-        "rotate": 293
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 80,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 15
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12349529,
-          8.15675151
+          125.123987,
+          8.156775
         ]
       }
     },
@@ -1772,19 +1857,20 @@
       "properties": {
         "id": "tree-081",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "central-lawn-row",
-        "sourceGrassFeature": 23,
-        "sizeClass": "medium",
-        "iconSize": 1.06,
-        "canopyDiameterMeters": 6.9,
-        "rotate": 1
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 81,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 67
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12389449,
-          8.15656012
+          125.123934,
+          8.156813
         ]
       }
     },
@@ -1794,19 +1880,20 @@
       "properties": {
         "id": "tree-082",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "central-lawn-row",
-        "sourceGrassFeature": 23,
-        "sizeClass": "small",
-        "iconSize": 0.76,
-        "canopyDiameterMeters": 4.9,
-        "rotate": 74
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 82,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 118
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12394161,
-          8.15672515
+          125.123866,
+          8.156865
         ]
       }
     },
@@ -1816,19 +1903,20 @@
       "properties": {
         "id": "tree-083",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "central-lawn-row",
-        "sourceGrassFeature": 23,
-        "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 147
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 83,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 187
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12375996,
-          8.15688201
+          125.123806,
+          8.156927
         ]
       }
     },
@@ -1838,19 +1926,20 @@
       "properties": {
         "id": "tree-084",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "central-lawn-row",
-        "sourceGrassFeature": 23,
-        "sizeClass": "medium",
-        "iconSize": 1,
-        "canopyDiameterMeters": 6.5,
-        "rotate": 220
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 84,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 238
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12359467,
-          8.15677837
+          125.123791,
+          8.156926
         ]
       }
     },
@@ -1860,19 +1949,20 @@
       "properties": {
         "id": "tree-085",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "central-lawn-row",
-        "sourceGrassFeature": 23,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 85,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.18,
         "sizeClass": "large",
-        "iconSize": 1.12,
         "canopyDiameterMeters": 7.3,
-        "rotate": 293
+        "rotate": 68
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.12377799,
-          8.15662553
+          125.123426,
+          8.155974
         ]
       }
     },
@@ -1882,19 +1972,20 @@
       "properties": {
         "id": "tree-086",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "landscape-island",
-        "sourceGrassFeature": 4,
-        "sizeClass": "small",
-        "iconSize": 0.72,
-        "canopyDiameterMeters": 4.7,
-        "rotate": 188
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 86,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 121
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1237945,
-          8.156307
+          125.123357,
+          8.156029
         ]
       }
     },
@@ -1904,19 +1995,20 @@
       "properties": {
         "id": "tree-087",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "landscape-island",
-        "sourceGrassFeature": 6,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 87,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.72,
         "sizeClass": "small",
-        "iconSize": 0.8,
-        "canopyDiameterMeters": 5.2,
-        "rotate": 355
+        "canopyDiameterMeters": 4.5,
+        "rotate": 231
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1240245,
-          8.15655
+          125.123379,
+          8.15605
         ]
       }
     },
@@ -1926,19 +2018,20 @@
       "properties": {
         "id": "tree-088",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "landscape-island",
-        "sourceGrassFeature": 9,
-        "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 209
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 88,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 268
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.124935,
-          8.1567885
+          125.123336,
+          8.156063
         ]
       }
     },
@@ -1948,19 +2041,20 @@
       "properties": {
         "id": "tree-089",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "landscape-island",
-        "sourceGrassFeature": 10,
-        "sizeClass": "small",
-        "iconSize": 0.72,
-        "canopyDiameterMeters": 4.7,
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 89,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.96,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6,
         "rotate": 329
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1247905,
-          8.1569245
+          125.123298,
+          8.156095
         ]
       }
     },
@@ -1970,19 +2064,20 @@
       "properties": {
         "id": "tree-090",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "landscape-island",
-        "sourceGrassFeature": 17,
-        "sizeClass": "medium",
-        "iconSize": 0.88,
-        "canopyDiameterMeters": 5.7,
-        "rotate": 84
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 90,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.18,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.3,
+        "rotate": 38
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1242675,
-          8.1565435
+          125.12326,
+          8.156135
         ]
       }
     },
@@ -1992,19 +2087,20 @@
       "properties": {
         "id": "tree-091",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "landscape-island",
-        "sourceGrassFeature": 21,
-        "sizeClass": "small",
-        "iconSize": 0.72,
-        "canopyDiameterMeters": 4.7,
-        "rotate": 345
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 91,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 322
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1237435,
-          8.157068
+          125.123203,
+          8.155689
         ]
       }
     },
@@ -2014,19 +2110,549 @@
       "properties": {
         "id": "tree-092",
         "type": "tree",
-        "source": "reference-map",
-        "placement": "landscape-island",
-        "sourceGrassFeature": 24,
-        "sizeClass": "small",
-        "iconSize": 0.8,
-        "canopyDiameterMeters": 5.2,
-        "rotate": 199
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 92,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 321
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          125.1241265,
-          8.1574775
+          125.124536,
+          8.157168
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-093",
+      "properties": {
+        "id": "tree-093",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 93,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 31
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124604,
+          8.157103
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-094",
+      "properties": {
+        "id": "tree-094",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 94,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 198
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124972,
+          8.157195
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-095",
+      "properties": {
+        "id": "tree-095",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 95,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 103
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.125142,
+          8.157223
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-096",
+      "properties": {
+        "id": "tree-096",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 96,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 172
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.125043,
+          8.157324
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-097",
+      "properties": {
+        "id": "tree-097",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 97,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 238
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124982,
+          8.157384
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-098",
+      "properties": {
+        "id": "tree-098",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 98,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.84,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.2,
+        "rotate": 292
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124808,
+          8.157545
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-099",
+      "properties": {
+        "id": "tree-099",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 99,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.18,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.3,
+        "rotate": 353
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124761,
+          8.157586
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-100",
+      "properties": {
+        "id": "tree-100",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 100,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.9,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.6,
+        "rotate": 60
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124727,
+          8.15762
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-101",
+      "properties": {
+        "id": "tree-101",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 101,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 128
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124654,
+          8.157694
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-102",
+      "properties": {
+        "id": "tree-102",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 102,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 172
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124578,
+          8.157747
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-103",
+      "properties": {
+        "id": "tree-103",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 103,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.9,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.6,
+        "rotate": 249
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.124571,
+          8.157764
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-104",
+      "properties": {
+        "id": "tree-104",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 104,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 10
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.122833,
+          8.156316
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-105",
+      "properties": {
+        "id": "tree-105",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 105,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.78,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.8,
+        "rotate": 136
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123034,
+          8.156534
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-106",
+      "properties": {
+        "id": "tree-106",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 106,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 142
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123004,
+          8.156503
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-107",
+      "properties": {
+        "id": "tree-107",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 107,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123229,
+          8.156791
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-108",
+      "properties": {
+        "id": "tree-108",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 108,
+        "canopyVariant": "gold",
+        "iconImage": "alagad-map-tree-gold",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 212
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123301,
+          8.156862
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-109",
+      "properties": {
+        "id": "tree-109",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 109,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 1.18,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.3,
+        "rotate": 167
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123429,
+          8.156982
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-110",
+      "properties": {
+        "id": "tree-110",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 110,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.9,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 5.6,
+        "rotate": 171
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.12355,
+          8.157158
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-111",
+      "properties": {
+        "id": "tree-111",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 111,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 0.96,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6,
+        "rotate": 233
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123721,
+          8.157342
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-112",
+      "properties": {
+        "id": "tree-112",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 112,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.08,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.7,
+        "rotate": 237
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123672,
+          8.157328
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-113",
+      "properties": {
+        "id": "tree-113",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 113,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.26,
+        "sizeClass": "large",
+        "canopyDiameterMeters": 7.8,
+        "rotate": 28
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123897,
+          8.157547
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-114",
+      "properties": {
+        "id": "tree-114",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 114,
+        "canopyVariant": "green",
+        "iconImage": "alagad-map-tree-green",
+        "iconSize": 0.72,
+        "sizeClass": "small",
+        "canopyDiameterMeters": 4.5,
+        "rotate": 69
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123896,
+          8.157522
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "tree-115",
+      "properties": {
+        "id": "tree-115",
+        "type": "tree",
+        "source": "trees.geojson",
+        "sourceFeatureIndex": 115,
+        "canopyVariant": "dark",
+        "iconImage": "alagad-map-tree-dark",
+        "iconSize": 1.02,
+        "sizeClass": "medium",
+        "canopyDiameterMeters": 6.3,
+        "rotate": 332
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.123814,
+          8.15744
         ]
       }
     }

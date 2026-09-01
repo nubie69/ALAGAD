@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Layer, Source, useMap } from 'react-map-gl';
 import treeGeoJSON from '../data/trees.json';
 
-const TREE_ICON_ID = 'alagad-map-tree';
-const TREE_ICON_URL = '/Tree-map-style-v2.png';
+const TREE_ICONS = [
+  { id: 'alagad-map-tree-dark', url: '/Tree-canopy-dark-v3.png' },
+  { id: 'alagad-map-tree-green', url: '/Tree-canopy-green-v3.png' },
+  { id: 'alagad-map-tree-gold', url: '/Tree-canopy-gold-v3.png' },
+];
 
 const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
   const { current: mapRef } = useMap();
-  const [treeIconReady, setTreeIconReady] = useState(false);
+  const [treeIconsReady, setTreeIconsReady] = useState(false);
 
   useEffect(() => {
     const map = mapRef?.getMap ? mapRef.getMap() : mapRef;
@@ -15,46 +18,59 @@ const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
 
     let cancelled = false;
 
-    const registerTreeIcon = () => {
+    const registerTreeIcons = () => {
       try {
-        if (map.hasImage(TREE_ICON_ID)) {
-          setTreeIconReady(true);
+        if (TREE_ICONS.every(icon => map.hasImage(icon.id))) {
+          setTreeIconsReady(true);
           return;
         }
 
-        map.loadImage(TREE_ICON_URL, (error, image) => {
-          if (cancelled) return;
-
-          if (error || !image) {
-            console.error('MapTrees: Failed to load tree icon', error);
-            setTreeIconReady(false);
+        Promise.all(TREE_ICONS.map(icon => new Promise((resolve, reject) => {
+          if (map.hasImage(icon.id)) {
+            resolve();
             return;
           }
 
-          if (!map.hasImage(TREE_ICON_ID)) {
-            map.addImage(TREE_ICON_ID, image, { pixelRatio: 2 });
-          }
-          setTreeIconReady(true);
-        });
+          map.loadImage(icon.url, (error, image) => {
+            if (error || !image) {
+              reject(error || new Error(`Missing tree image: ${icon.url}`));
+              return;
+            }
+
+            if (!map.hasImage(icon.id)) {
+              map.addImage(icon.id, image, { pixelRatio: 2 });
+            }
+            resolve();
+          });
+        })))
+          .then(() => {
+            if (!cancelled) setTreeIconsReady(true);
+          })
+          .catch(error => {
+            if (!cancelled) {
+              console.error('MapTrees: Failed to load tree icons', error);
+              setTreeIconsReady(false);
+            }
+          });
       } catch (err) {
-        console.error('MapTrees: Error registering tree icon', err);
-        setTreeIconReady(false);
+        console.error('MapTrees: Error registering tree icons', err);
+        setTreeIconsReady(false);
       }
     };
 
     if (map.isStyleLoaded()) {
-      registerTreeIcon();
+      registerTreeIcons();
     } else {
-      map.once('style.load', registerTreeIcon);
+      map.once('style.load', registerTreeIcons);
     }
 
     return () => {
       cancelled = true;
-      map.off('style.load', registerTreeIcon);
+      map.off('style.load', registerTreeIcons);
     };
   }, [mapRef]);
 
-  if (!treeIconReady || !treeGeoJSON?.features?.length) {
+  if (!treeIconsReady || !treeGeoJSON?.features?.length) {
     return null;
   }
 
@@ -65,19 +81,13 @@ const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
         beforeId={beforeId}
         type="symbol"
         layout={{
-          'icon-image': TREE_ICON_ID,
-          'icon-size': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            16, ['*', ['coalesce', ['get', 'iconSize'], 1], 0.18],
-            18, ['*', ['coalesce', ['get', 'iconSize'], 1], 0.28],
-            20, ['*', ['coalesce', ['get', 'iconSize'], 1], 0.4],
-          ],
+          'icon-image': ['coalesce', ['get', 'iconImage'], 'alagad-map-tree-green'],
+          'icon-size': ['*', ['coalesce', ['get', 'iconSize'], 1], 0.72],
           'icon-rotate': ['coalesce', ['get', 'rotate'], 0],
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
-          'symbol-z-order': 'source',
+          'symbol-sort-key': ['coalesce', ['get', 'iconSize'], 1],
+          'symbol-z-order': 'auto',
         }}
       />
     </Source>
