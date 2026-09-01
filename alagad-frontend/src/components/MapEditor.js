@@ -4,15 +4,19 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapState } from '../context/MapContext';
 import { buildingsAPI, officesAPI, mapAPI } from '../utils/api';
 import SafeGeoJSON from './SafeGeoJSON';
+import MapTrees from './MapTrees';
 import BuildingPinMarker from './BuildingPinMarker';
+import grassGeoJSON from '../data/grass.json';
 import './MapEditor.css';
 
 const BUKSU_CAMPUS = {
-  center: { lat: 8.156363, lng: 125.124143 },
-  zoom: 17.75,
+  center: { lat: 8.156970, lng: 125.124425 },
+  zoom: 19.10,
+  pitch: 0.00,
+  bearing: -137.68,
 };
 
-const CAMPUS_BOUNDS = [[125.1210, 8.1535], [125.1270, 8.1595]];
+const CAMPUS_BOUNDS = [[125.1224864, 8.1545658], [125.1261435, 8.1580756]];
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const DEFAULT_BUILDING_PIN_COLOR = '#D93025';
 const DEFAULT_OFFICE_PIN_COLOR = '#8B5CF6';
@@ -71,8 +75,8 @@ function MapEditor() {
     longitude: BUKSU_CAMPUS.center.lng,
     latitude: BUKSU_CAMPUS.center.lat,
     zoom: BUKSU_CAMPUS.zoom,
-    bearing: -140.75,
-    pitch: 0,
+    bearing: BUKSU_CAMPUS.bearing,
+    pitch: BUKSU_CAMPUS.pitch,
   });
 
   const showNotification = useCallback((message, type = 'success') => {
@@ -498,8 +502,13 @@ function MapEditor() {
             onLoad={onMapLoad}
             cursor={placingPin ? 'crosshair' : 'grab'}
           >
+            {mapStyleLoaded && grassGeoJSON?.features?.length > 0 && (
+              <SafeGeoJSON data={grassGeoJSON} idPrefix="grass-geojson" showPoints={false} />
+            )}
+            {mapStyleLoaded && <MapTrees idPrefix="grass-map-trees" />}
+
             {mapStyleLoaded && validFeatures.features.length > 0 && (
-              <SafeGeoJSON data={validFeatures} />
+              <SafeGeoJSON data={validFeatures} idPrefix="map-features-geojson" />
             )}
 
             {mapStyleLoaded && buildingsWithPins.map((building) => {

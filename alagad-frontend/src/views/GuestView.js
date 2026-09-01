@@ -6,6 +6,7 @@ import buffer from '@turf/buffer';
 import { polygon } from '@turf/helpers';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import SafeGeoJSON from '../components/SafeGeoJSON';
+import MapTrees from '../components/MapTrees';
 import BuildingMarkers from '../components/BuildingMarkers';
 import BuildingPinMarker from '../components/BuildingPinMarker';
 import ChatBot from '../components/ChatBot';
@@ -20,38 +21,32 @@ import { BackIcon, BuildingIcon, MapPinIconOutline, MicIcon, OfficeIcon, OrgChar
 import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePathsGeoJSON } from '../utils/campusPathfinding';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import streetNamesGeoJSON from '../data/streetNames.json';
+import grassGeoJSON from '../data/grass.json';
 
 // Bukidnon State University campus bounds (Malaybalay, Bukidnon)
 const BUKSU_CAMPUS = {
-  center: { lat: 8.156363, lng: 125.124143 },
-  zoom: 17.72,
-  pitch: 0.50,
-  bearing: -137.98,
+  center: { lat: 8.156970, lng: 125.124425 },
+  zoom: 19.10,
+  pitch: 0.00,
+  bearing: -137.68,
   bounds: {
-    north: 8.162,
-    south: 8.150,
-    east: 125.132,
-    west: 125.116,
+    north: 8.1580756,
+    south: 8.1545658,
+    east: 125.1261435,
+    west: 125.1224864,
   },
 };
 
 // Campus boundaries - prevents scrolling outside this area
-const CAMPUS_BOUNDS = [[125.1210, 8.1535], [125.1270, 8.1595]];
+const CAMPUS_BOUNDS = [[125.1224864, 8.1545658], [125.1261435, 8.1580756]];
 
 const FOCUS_POLYGON = [[
-  [125.12456418217545, 8.154505505739735],
-  [125.12503575940372, 8.155094347366543],
-  [125.12487136289235, 8.155618125590507],
-  [125.12532179656523, 8.156040924725630],
-  [125.12486434691505, 8.156518083693186],
-  [125.12539204391481, 8.157124181943814],
-  [125.12431697589870, 8.158077208941322],
-  [125.12328810522973, 8.156866866747990],
-  [125.12275104559546, 8.156237148346690],
-  [125.12250399779055, 8.155847893814325],
-  [125.12318252810218, 8.155403919123685],
-  [125.12389419523038, 8.155031622086554],
-  [125.12456418217545, 8.154505505739735],
+  [125.124492, 8.1545658],
+  [125.1235159, 8.1552476],
+  [125.1224864, 8.155899],
+  [125.1243299, 8.1580756],
+  [125.1261435, 8.1564897],
+  [125.124492, 8.1545658],
 ]];
 
 const WORLD_MASK_RING = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
@@ -2547,6 +2542,11 @@ function GuestView() {
               )}
 
               {/* Walkable routes — gray lines showing all walkable paths */}
+              {mapStyleLoaded && grassGeoJSON?.features?.length > 0 && (
+                <SafeGeoJSON data={grassGeoJSON} idPrefix="grass-geojson" showPoints={false} />
+              )}
+              {mapStyleLoaded && <MapTrees idPrefix="grass-map-trees" />}
+
               {mapStyleLoaded && (() => {
                 const walkableData = getWalkablePathsGeoJSON();
                 if (!walkableData?.features?.length) return null;
@@ -2617,7 +2617,7 @@ function GuestView() {
 
               {/* Campus features GeoJSON */}
               {mapStyleLoaded && mapFeatures?.features?.length > 0 && (
-                <SafeGeoJSON data={mapFeatures} />
+                <SafeGeoJSON data={mapFeatures} idPrefix="map-features-geojson" />
               )}
 
               {/* Street name labels aligned to road lines */}
