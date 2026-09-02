@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import ReactDOM from 'react-dom';
 import MapView, { Source, Layer, Marker, Popup } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
-import buffer from '@turf/buffer';
-import { polygon } from '@turf/helpers';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import SafeGeoJSON from '../components/SafeGeoJSON';
 import MapTrees from '../components/MapTrees';
@@ -22,7 +20,7 @@ import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePaths
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import streetNamesGeoJSON from '../data/streetNames.json';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_POLYGON, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_MASKS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
 
 // Bukidnon State University campus bounds (Malaybalay, Bukidnon)
 const BUKSU_CAMPUS = {
@@ -32,61 +30,6 @@ const BUKSU_CAMPUS = {
   bearing: -137.68,
   bounds: CAMPUS_BOUNDS_DETAILS,
 };
-
-const WORLD_MASK_RING = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
-const CAMPUS_FADE_BUFFER_METERS = Array.from({ length: 96 }, (_, index) => (index + 1) / 3);
-
-const getPrimaryPolygonRing = (feature) => {
-  const geometry = feature?.geometry;
-  if (geometry?.type === 'Polygon') return geometry.coordinates?.[0] || null;
-  if (geometry?.type === 'MultiPolygon') return geometry.coordinates?.[0]?.[0] || null;
-  return null;
-};
-
-const createCampusFadeMasks = () => {
-  const campusFeature = polygon(CAMPUS_FADE_POLYGON);
-  const buffers = CAMPUS_FADE_BUFFER_METERS
-    .map((meters) => buffer(campusFeature, meters, { units: 'meters', steps: 18 }))
-    .map(getPrimaryPolygonRing)
-    .filter(Boolean);
-
-  const transitionFeatures = buffers.map((outerRing, index) => {
-    const innerRing = index === 0 ? CAMPUS_FADE_POLYGON[0] : buffers[index - 1];
-    const progress = (index + 1) / buffers.length;
-    const smoothOpacity = progress * progress * (3 - (2 * progress));
-    return {
-      type: 'Feature',
-      properties: {
-        band: index + 1,
-        fadeOpacity: Number((smoothOpacity * 0.985).toFixed(4)),
-      },
-      geometry: {
-        type: 'Polygon',
-        coordinates: [outerRing, innerRing],
-      },
-    };
-  });
-
-  const farOutsideRing = buffers[buffers.length - 1] || CAMPUS_FADE_POLYGON[0];
-
-  return {
-    transition: {
-      type: 'FeatureCollection',
-      features: transitionFeatures,
-    },
-    outside: {
-      type: 'Feature',
-      properties: {},
-      geometry: {
-        type: 'Polygon',
-        coordinates: [WORLD_MASK_RING, farOutsideRing],
-      },
-    },
-    boundary: campusFeature,
-  };
-};
-
-const CAMPUS_FADE_MASKS = createCampusFadeMasks();
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const LOCATION_PROMPT_DISMISSED_AT_KEY = 'alagad-location-prompt-dismissed-at';
@@ -2517,11 +2460,17 @@ function GuestView() {
                   data={grassGeoJSON}
                   idPrefix="grass-geojson"
                   showPoints={false}
+                />
+              )}
+              {mapStyleLoaded && mapFeatures?.features?.length > 0 && (
+                <SafeGeoJSON
+                  data={mapFeatures}
+                  idPrefix="map-features-geojson"
                   beforeId="campus-boundary-fade-bands"
                 />
               )}
               {mapStyleLoaded && (
-                <MapTrees idPrefix="grass-map-trees" beforeId="campus-boundary-fade-bands" />
+                <MapTrees idPrefix="grass-map-trees" />
               )}
 
               {mapStyleLoaded && (() => {
@@ -2590,11 +2539,6 @@ function GuestView() {
                     <div className="user-location-dot" />
                   </div>
                 </Marker>
-              )}
-
-              {/* Campus features GeoJSON */}
-              {mapStyleLoaded && mapFeatures?.features?.length > 0 && (
-                <SafeGeoJSON data={mapFeatures} idPrefix="map-features-geojson" />
               )}
 
               {/* Street name labels aligned to road lines */}

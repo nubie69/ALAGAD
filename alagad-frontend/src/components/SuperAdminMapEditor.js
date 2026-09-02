@@ -9,7 +9,7 @@ import { buildingsAPI, roomsAPI, officesAPI } from '../utils/api';
 import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_MASKS, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
 import '../styles/SuperAdminMapEditor.css';
 
 const BUKSU_CAMPUS = {
@@ -512,12 +512,61 @@ function SuperAdminMapEditor() {
             minZoom={16}
             maxZoom={22}
           >
+            {/* Dim everything outside the campus boundary while keeping the editable campus clear */}
+            {mapStyleLoaded && (
+              <>
+                <Source
+                  id="admin-campus-boundary-fade-transition"
+                  type="geojson"
+                  data={CAMPUS_FADE_MASKS.transition}
+                >
+                  <Layer
+                    id="admin-campus-boundary-fade-bands"
+                    type="fill"
+                    paint={{
+                      'fill-color': '#000000',
+                      'fill-opacity': ['get', 'fadeOpacity'],
+                      'fill-antialias': false,
+                    }}
+                  />
+                </Source>
+
+                <Source
+                  id="admin-campus-boundary-fade-outside"
+                  type="geojson"
+                  data={CAMPUS_FADE_MASKS.outside}
+                >
+                  <Layer
+                    id="admin-campus-outside-muted-area"
+                    type="fill"
+                    paint={{
+                      'fill-color': '#000000',
+                      'fill-opacity': 1,
+                    }}
+                  />
+                </Source>
+              </>
+            )}
+
             {/* GeoJSON layer for map features */}
             {mapStyleLoaded && grassGeoJSON?.features?.length > 0 && (
-              <SafeGeoJSON data={grassGeoJSON} idPrefix="grass-geojson" showPoints={false} />
+              <SafeGeoJSON
+                data={grassGeoJSON}
+                idPrefix="grass-geojson"
+                showPoints={false}
+                beforeId="admin-campus-boundary-fade-bands"
+              />
             )}
-            {mapStyleLoaded && <MapTrees idPrefix="grass-map-trees" />}
-            {mapStyleLoaded && <SafeGeoJSON data={validFeatures} idPrefix="map-features-geojson" />}
+            {mapStyleLoaded && (
+              <MapTrees idPrefix="grass-map-trees" beforeId="admin-campus-boundary-fade-bands" />
+            )}
+            {mapStyleLoaded && (
+              <SafeGeoJSON
+                data={validFeatures}
+                idPrefix="map-features-geojson"
+                beforeId="admin-campus-boundary-fade-bands"
+              />
+            )}
           </Map>
 
           {/* Saving Indicator */}

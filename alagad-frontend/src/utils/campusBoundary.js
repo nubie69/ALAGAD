@@ -1,4 +1,6 @@
 import * as turf from '@turf/turf';
+import buffer from '@turf/buffer';
+import { polygon } from '@turf/helpers';
 
 export const CAMPUS_BOUNDARY = [
   [125.124584, 8.153767],
@@ -12,27 +14,75 @@ export const CAMPUS_BOUNDARY = [
 export const FOCUS_POLYGON = [CAMPUS_BOUNDARY];
 
 export const CAMPUS_FADE_BOUNDARY = [
-  [125.1245463, 8.1544991],
-  [125.1248292, 8.1549787],
-  [125.1249427, 8.1553603],
-  [125.1249285, 8.1557378],
-  [125.125263, 8.1560331],
-  [125.1248275, 8.1564853],
-  [125.1253572, 8.1570909],
-  [125.124301, 8.15807],
-  [125.1238873, 8.1575713],
-  [125.1235098, 8.1571042],
-  [125.1230615, 8.1565851],
-  [125.1227254, 8.1561933],
-  [125.1223415, 8.1559536],
-  [125.1232266, 8.1554234],
-  [125.1234799, 8.1552571],
-  [125.1239059, 8.1549678],
-  [125.1242508, 8.154736],
-  [125.1245463, 8.1544991],
+  [125.1244987, 8.1545629],
+  [125.1248841, 8.1551231],
+  [125.1249252, 8.1557304],
+  [125.1252583, 8.1560442],
+  [125.1248151, 8.1565015],
+  [125.1253372, 8.1570925],
+  [125.1243346, 8.1580276],
+  [125.1225816, 8.1559596],
+  [125.1234875, 8.1553044],
+  [125.1244987, 8.1545629],
 ];
 
 export const CAMPUS_FADE_POLYGON = [CAMPUS_FADE_BOUNDARY];
+
+const WORLD_MASK_RING = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
+const CAMPUS_FADE_BUFFER_METERS = Array.from({ length: 96 }, (_, index) => (index + 1) / 3);
+
+const getPrimaryPolygonRing = (feature) => {
+  const geometry = feature?.geometry;
+  if (geometry?.type === 'Polygon') return geometry.coordinates?.[0] || null;
+  if (geometry?.type === 'MultiPolygon') return geometry.coordinates?.[0]?.[0] || null;
+  return null;
+};
+
+export const createCampusFadeMasks = () => {
+  const campusFeature = polygon(CAMPUS_FADE_POLYGON);
+  const buffers = CAMPUS_FADE_BUFFER_METERS
+    .map((meters) => buffer(campusFeature, meters, { units: 'meters', steps: 18 }))
+    .map(getPrimaryPolygonRing)
+    .filter(Boolean);
+
+  const transitionFeatures = buffers.map((outerRing, index) => {
+    const innerRing = index === 0 ? CAMPUS_FADE_POLYGON[0] : buffers[index - 1];
+    const progress = (index + 1) / buffers.length;
+    const smoothOpacity = progress * progress * (3 - (2 * progress));
+
+    return {
+      type: 'Feature',
+      properties: {
+        band: index + 1,
+        fadeOpacity: Number((smoothOpacity * 0.985).toFixed(4)),
+      },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [outerRing, innerRing],
+      },
+    };
+  });
+
+  const farOutsideRing = buffers[buffers.length - 1] || CAMPUS_FADE_POLYGON[0];
+
+  return {
+    transition: {
+      type: 'FeatureCollection',
+      features: transitionFeatures,
+    },
+    outside: {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'Polygon',
+        coordinates: [WORLD_MASK_RING, farOutsideRing],
+      },
+    },
+    boundary: campusFeature,
+  };
+};
+
+export const CAMPUS_FADE_MASKS = createCampusFadeMasks();
 
 export const CAMPUS_BOUNDS = [[125.121777, 8.153767], [125.127011, 8.158857]];
 

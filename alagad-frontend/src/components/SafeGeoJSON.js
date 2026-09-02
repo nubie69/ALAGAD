@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
 
 const GRASS_PATTERN_ID = 'alagad-grass-pattern';
-const GRASS_PATTERN_URL = '/Grass-map-style-v2.png';
+const PUBLIC_ASSET_ROOT = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+const GRASS_PATTERN_URL = `${PUBLIC_ASSET_ROOT}/Grass-map-style-v2.png`;
 const POLYGON_GEOMETRY_FILTER = [
   'any',
   ['==', ['geometry-type'], 'Polygon'],
@@ -26,16 +27,20 @@ export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoi
     if (!map) return undefined;
 
     let cancelled = false;
+    let registrationId = 0;
 
     const registerGrassPattern = () => {
+      const currentRegistrationId = ++registrationId;
+
       try {
         if (map.hasImage(GRASS_PATTERN_ID)) {
           setGrassPatternReady(true);
           return;
         }
 
+        setGrassPatternReady(false);
         map.loadImage(GRASS_PATTERN_URL, (error, image) => {
-          if (cancelled) return;
+          if (cancelled || currentRegistrationId !== registrationId) return;
 
           if (error || !image) {
             console.error('SafeGeoJSON: Failed to load grass texture', error);
@@ -54,15 +59,22 @@ export const SafeGeoJSON = ({ data, onEachFeature, idPrefix = 'geojson', showPoi
       }
     };
 
+    const handleStyleImageMissing = (event) => {
+      if (event?.id === GRASS_PATTERN_ID) registerGrassPattern();
+    };
+
+    map.on('style.load', registerGrassPattern);
+    map.on('styleimagemissing', handleStyleImageMissing);
+
     if (map.isStyleLoaded()) {
       registerGrassPattern();
-    } else {
-      map.once('style.load', registerGrassPattern);
     }
 
     return () => {
       cancelled = true;
+      registrationId += 1;
       map.off('style.load', registerGrassPattern);
+      map.off('styleimagemissing', handleStyleImageMissing);
     };
   }, [mapRef]);
 

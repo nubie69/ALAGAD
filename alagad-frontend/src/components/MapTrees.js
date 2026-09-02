@@ -3,10 +3,11 @@ import { Layer, Source, useMap } from 'react-map-gl';
 import treeGeoJSON from '../data/trees.json';
 
 const TREE_ICONS = [
-  { id: 'alagad-map-tree-dark', url: '/Tree-canopy-dark-v3.png' },
-  { id: 'alagad-map-tree-green', url: '/Tree-canopy-green-v3.png' },
-  { id: 'alagad-map-tree-gold', url: '/Tree-canopy-gold-v3.png' },
+  { id: 'alagad-map-tree-dark', file: 'Tree-canopy-dark-v3.png' },
+  { id: 'alagad-map-tree-green', file: 'Tree-canopy-green-v3.png' },
+  { id: 'alagad-map-tree-gold', file: 'Tree-canopy-gold-v3.png' },
 ];
+const PUBLIC_ASSET_ROOT = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
 
 const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
   const { current: mapRef } = useMap();
@@ -17,23 +18,33 @@ const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
     if (!map) return undefined;
 
     let cancelled = false;
+    let registrationId = 0;
 
     const registerTreeIcons = () => {
+      const currentRegistrationId = ++registrationId;
+
       try {
         if (TREE_ICONS.every(icon => map.hasImage(icon.id))) {
           setTreeIconsReady(true);
           return;
         }
 
+        setTreeIconsReady(false);
         Promise.all(TREE_ICONS.map(icon => new Promise((resolve, reject) => {
           if (map.hasImage(icon.id)) {
             resolve();
             return;
           }
 
-          map.loadImage(icon.url, (error, image) => {
+          const iconUrl = `${PUBLIC_ASSET_ROOT}/${icon.file}`;
+          map.loadImage(iconUrl, (error, image) => {
+            if (cancelled || currentRegistrationId !== registrationId) {
+              resolve();
+              return;
+            }
+
             if (error || !image) {
-              reject(error || new Error(`Missing tree image: ${icon.url}`));
+              reject(error || new Error(`Missing tree image: ${iconUrl}`));
               return;
             }
 
@@ -44,7 +55,9 @@ const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
           });
         })))
           .then(() => {
-            if (!cancelled) setTreeIconsReady(true);
+            if (!cancelled && currentRegistrationId === registrationId) {
+              setTreeIconsReady(TREE_ICONS.every(icon => map.hasImage(icon.id)));
+            }
           })
           .catch(error => {
             if (!cancelled) {
@@ -58,15 +71,22 @@ const MapTrees = ({ idPrefix = 'map-trees', beforeId }) => {
       }
     };
 
+    const handleStyleImageMissing = (event) => {
+      if (TREE_ICONS.some(icon => icon.id === event?.id)) registerTreeIcons();
+    };
+
+    map.on('style.load', registerTreeIcons);
+    map.on('styleimagemissing', handleStyleImageMissing);
+
     if (map.isStyleLoaded()) {
       registerTreeIcons();
-    } else {
-      map.once('style.load', registerTreeIcons);
     }
 
     return () => {
       cancelled = true;
+      registrationId += 1;
       map.off('style.load', registerTreeIcons);
+      map.off('styleimagemissing', handleStyleImageMissing);
     };
   }, [mapRef]);
 
