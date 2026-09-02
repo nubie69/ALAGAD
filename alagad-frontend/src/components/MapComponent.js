@@ -3,6 +3,7 @@ import Map, { Marker, Popup, NavigationControl } from 'react-map-gl';
 import { BuildingPopup } from './BuildingPopup';
 import { QuickNavPanel } from './QuickNavPanel';
 import { useMapState } from '../context/MapContext';
+import { CAMPUS_BOUNDS } from '../utils/campusBoundary';
 import '../styles/MapComponent.css';
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
@@ -19,9 +20,6 @@ const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
  * - Smooth transitions & animations
  * - Accessibility support
  */
-// Campus boundaries - prevents scrolling outside this area
-const CAMPUS_BOUNDS = [[125.1210, 8.1535], [125.1270, 8.1595]];
-
 export const MapComponent = ({ 
   buildings = [],
   onBuildingSelected = null,

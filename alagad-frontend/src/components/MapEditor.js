@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Map, { Marker } from 'react-map-gl';
+import Map, { Layer, Marker, Source } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapState } from '../context/MapContext';
 import { buildingsAPI, officesAPI, mapAPI } from '../utils/api';
 import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
+import TrackAndField from './TrackAndField';
+import ConcreteAreas from './ConcreteAreas';
 import BuildingPinMarker from './BuildingPinMarker';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, CAMPUS_FADE_MASKS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState } from '../utils/campusBoundary';
 import './MapEditor.css';
 
 const BUKSU_CAMPUS = {
@@ -526,13 +528,91 @@ function MapEditor() {
             onLoad={onMapLoad}
             cursor={placingPin ? 'crosshair' : 'grab'}
           >
-            {mapStyleLoaded && grassGeoJSON?.features?.length > 0 && (
-              <SafeGeoJSON data={grassGeoJSON} idPrefix="grass-geojson" showPoints={false} />
-            )}
-            {mapStyleLoaded && <MapTrees idPrefix="grass-map-trees" />}
+            {mapStyleLoaded && (
+              <>
+                <Source
+                  id="editor-campus-boundary-fade-transition"
+                  type="geojson"
+                  data={CAMPUS_FADE_MASKS.transition}
+                >
+                  <Layer
+                    id="editor-campus-boundary-fade-bands"
+                    type="fill"
+                    paint={{
+                      'fill-color': '#000000',
+                      'fill-opacity': ['get', 'fadeOpacity'],
+                      'fill-antialias': false,
+                    }}
+                  />
+                </Source>
 
+                <Source
+                  id="editor-campus-boundary-fade-outside"
+                  type="geojson"
+                  data={CAMPUS_FADE_MASKS.outside}
+                >
+                  <Layer
+                    id="editor-campus-outside-muted-area"
+                    type="fill"
+                    paint={{
+                      'fill-color': '#000000',
+                      'fill-opacity': ['get', 'fadeOpacity'],
+                    }}
+                  />
+                </Source>
+
+                <Source
+                  id="editor-campus-shaded-polygon-outline-source"
+                  type="geojson"
+                  data={CAMPUS_FADE_MASKS.boundary}
+                >
+                  <Layer
+                    id="editor-campus-shaded-polygon-outline"
+                    type="line"
+                    paint={{
+                      'line-color': '#ffffff',
+                      'line-width': ['interpolate', ['linear'], ['zoom'], 16, 2.5, 20, 4, 22, 5],
+                      'line-opacity': 0.95,
+                      'line-blur': 0.25,
+                    }}
+                    layout={{
+                      'line-cap': 'round',
+                      'line-join': 'round',
+                    }}
+                  />
+                </Source>
+              </>
+            )}
+
+            {mapStyleLoaded && grassGeoJSON?.features?.length > 0 && (
+              <SafeGeoJSON
+                data={grassGeoJSON}
+                idPrefix="grass-geojson"
+                showPoints={false}
+                beforeId="editor-campus-boundary-fade-bands"
+              />
+            )}
+            {mapStyleLoaded && (
+              <TrackAndField
+                idPrefix="editor-track-and-field"
+                beforeId="editor-campus-boundary-fade-bands"
+              />
+            )}
+            {mapStyleLoaded && (
+              <ConcreteAreas
+                idPrefix="editor-concrete-areas"
+                beforeId="editor-campus-boundary-fade-bands"
+              />
+            )}
             {mapStyleLoaded && validFeatures.features.length > 0 && (
-              <SafeGeoJSON data={validFeatures} idPrefix="map-features-geojson" />
+              <SafeGeoJSON
+                data={validFeatures}
+                idPrefix="map-features-geojson"
+                beforeId="editor-campus-boundary-fade-bands"
+              />
+            )}
+            {mapStyleLoaded && (
+              <MapTrees idPrefix="grass-map-trees" beforeId="editor-campus-boundary-fade-bands" />
             )}
 
             {mapStyleLoaded && buildingsWithPins.map((building) => {

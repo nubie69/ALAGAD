@@ -3,20 +3,45 @@
   "features": [
     {
       "type": "Feature",
-      "id": "grass-01",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              125.1247,
+              8.156976
+            ],
+            [
+              125.124701,
+              8.156976
+            ],
+            [
+              125.124701,
+              8.156977
+            ],
+            [
+              125.1247,
+              8.156977
+            ],
+            [
+              125.1247,
+              8.156976
+            ]
+          ]
+        ]
+      },
       "properties": {
         "id": "grass-01",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "campus-green",
-        "areaSqM": 67343.8,
-        "placementOrder": 1,
-        "sourceFeatureIndex": 1,
-        "textureScale": 0.9,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-01"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -390,6 +415,30 @@
               8.156003
             ],
             [
+              125.124432,
+              8.156029
+            ],
+            [
+              125.124353,
+              8.156136
+            ],
+            [
+              125.124411,
+              8.156175
+            ],
+            [
+              125.124491,
+              8.156074
+            ],
+            [
+              125.124432,
+              8.156029
+            ],
+            [
+              125.124449,
+              8.156003
+            ],
+            [
               125.124554,
               8.156007
             ],
@@ -557,48 +606,21 @@
               125.124057,
               8.155956
             ]
-          ],
-          [
-            [
-              125.124432,
-              8.156029
-            ],
-            [
-              125.124353,
-              8.156136
-            ],
-            [
-              125.124411,
-              8.156175
-            ],
-            [
-              125.124491,
-              8.156074
-            ],
-            [
-              125.124432,
-              8.156029
-            ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-02",
+      },
       "properties": {
         "id": "grass-02",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "large-lawn",
-        "areaSqM": 1345.4,
-        "placementOrder": 2,
-        "sourceFeatureIndex": 2,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-02"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -717,24 +739,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-03",
+      },
       "properties": {
         "id": "grass-03",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 37.32,
-        "placementOrder": 3,
-        "sourceFeatureIndex": 3,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-03"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -756,29 +773,28 @@
               8.156225
             ],
             [
+              125.123708,
+              8.156225
+            ],
+            [
               125.123646,
               8.156157
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-04",
+      },
       "properties": {
         "id": "grass-04",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 119.5,
-        "placementOrder": 4,
-        "sourceFeatureIndex": 4,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-04"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -805,24 +821,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-05",
+      },
       "properties": {
         "id": "grass-05",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 48.55,
-        "placementOrder": 5,
-        "sourceFeatureIndex": 5,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-05"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -844,29 +855,28 @@
               8.156475
             ],
             [
+              125.123921,
+              8.156475
+            ],
+            [
               125.123863,
               8.156416
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-06",
+      },
       "properties": {
         "id": "grass-06",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 103.47,
-        "placementOrder": 6,
-        "sourceFeatureIndex": 6,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-06"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -901,24 +911,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-07",
+      },
       "properties": {
         "id": "grass-07",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 31.36,
-        "placementOrder": 7,
-        "sourceFeatureIndex": 7,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-07"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -953,24 +958,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-08",
+      },
       "properties": {
         "id": "grass-08",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-pocket",
-        "areaSqM": 273.94,
-        "placementOrder": 8,
-        "sourceFeatureIndex": 8,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-08"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1013,24 +1013,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-09",
+      },
       "properties": {
         "id": "grass-09",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 76.04,
-        "placementOrder": 9,
-        "sourceFeatureIndex": 9,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-09"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1060,29 +1055,28 @@
               8.156844
             ],
             [
+              125.12492,
+              8.156844
+            ],
+            [
               125.124869,
               8.156828
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-10",
+      },
       "properties": {
         "id": "grass-10",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 75.87,
-        "placementOrder": 10,
-        "sourceFeatureIndex": 10,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-10"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1109,24 +1103,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-11",
+      },
       "properties": {
         "id": "grass-11",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 124.19,
-        "placementOrder": 11,
-        "sourceFeatureIndex": 11,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-11"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1189,24 +1178,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-12",
+      },
       "properties": {
         "id": "grass-12",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 32.89,
-        "placementOrder": 12,
-        "sourceFeatureIndex": 12,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-12"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1233,24 +1217,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-13",
+      },
       "properties": {
         "id": "grass-13",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 41.05,
-        "placementOrder": 13,
-        "sourceFeatureIndex": 13,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-13"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1281,24 +1260,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-14",
+      },
       "properties": {
         "id": "grass-14",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "campus-green",
-        "areaSqM": 14171.59,
-        "placementOrder": 14,
-        "sourceFeatureIndex": 14,
-        "textureScale": 0.9,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-14"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1345,24 +1319,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-15",
+      },
       "properties": {
         "id": "grass-15",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 39.13,
-        "placementOrder": 15,
-        "sourceFeatureIndex": 15,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-15"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1397,24 +1366,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-16",
+      },
       "properties": {
         "id": "grass-16",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 23.73,
-        "placementOrder": 16,
-        "sourceFeatureIndex": 16,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-16"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1468,29 +1432,28 @@
               8.156493
             ],
             [
+              125.124388,
+              8.156493
+            ],
+            [
               125.124394,
               8.15649
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-17",
+      },
       "properties": {
         "id": "grass-17",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-pocket",
-        "areaSqM": 148.62,
-        "placementOrder": 17,
-        "sourceFeatureIndex": 17,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-17"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1585,24 +1548,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-18",
+      },
       "properties": {
         "id": "grass-18",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 30.22,
-        "placementOrder": 18,
-        "sourceFeatureIndex": 18,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-18"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1629,24 +1587,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-19",
+      },
       "properties": {
         "id": "grass-19",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "large-lawn",
-        "areaSqM": 909.65,
-        "placementOrder": 19,
-        "sourceFeatureIndex": 19,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-19"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1713,24 +1666,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-20",
+      },
       "properties": {
         "id": "grass-20",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-pocket",
-        "areaSqM": 405.84,
-        "placementOrder": 20,
-        "sourceFeatureIndex": 20,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-20"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1777,24 +1725,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-21",
+      },
       "properties": {
         "id": "grass-21",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-pocket",
-        "areaSqM": 149.12,
-        "placementOrder": 21,
-        "sourceFeatureIndex": 21,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-21"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1825,24 +1768,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-22",
+      },
       "properties": {
         "id": "grass-22",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 31.8,
-        "placementOrder": 22,
-        "sourceFeatureIndex": 22,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-22"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1869,24 +1807,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-23",
+      },
       "properties": {
         "id": "grass-23",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "large-lawn",
-        "areaSqM": 979.7,
-        "placementOrder": 23,
-        "sourceFeatureIndex": 23,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-23"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1929,24 +1862,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-24",
+      },
       "properties": {
         "id": "grass-24",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 51.06,
-        "placementOrder": 24,
-        "sourceFeatureIndex": 24,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-24"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -1973,24 +1901,19 @@
             ]
           ]
         ]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "grass-25",
+      },
       "properties": {
         "id": "grass-25",
         "type": "grass",
         "surface": "grass",
         "texture": "grass",
         "fillPattern": "grass",
-        "grassClass": "lawn-strip",
-        "areaSqM": 38.65,
-        "placementOrder": 25,
-        "sourceFeatureIndex": 25,
-        "textureScale": 0.8,
-        "textureDetail": "fine-blade-mottled"
+        "source": "finalgrass.geojson"
       },
+      "id": "grass-25"
+    },
+    {
+      "type": "Feature",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -2017,7 +1940,141 @@
             ]
           ]
         ]
-      }
+      },
+      "properties": {
+        "id": "grass-26",
+        "type": "grass",
+        "surface": "grass",
+        "texture": "grass",
+        "fillPattern": "grass",
+        "source": "finalgrass.geojson"
+      },
+      "id": "grass-26"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "grass-27",
+        "type": "grass",
+        "surface": "grass",
+        "texture": "grass",
+        "fillPattern": "grass",
+        "source": "finalgrass.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              125.124865,
+              8.157619
+            ],
+            [
+              125.125365,
+              8.157159
+            ],
+            [
+              125.126283,
+              8.156415
+            ],
+            [
+              125.126618,
+              8.156748
+            ],
+            [
+              125.125195,
+              8.158008
+            ],
+            [
+              125.124865,
+              8.157619
+            ]
+          ]
+        ]
+      },
+      "id": "grass-27"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "grass-28",
+        "type": "grass",
+        "surface": "grass",
+        "texture": "grass",
+        "fillPattern": "grass",
+        "source": "finalgrass.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              125.124835,
+              8.157644
+            ],
+            [
+              125.125178,
+              8.158063
+            ],
+            [
+              125.124835,
+              8.158364
+            ],
+            [
+              125.124487,
+              8.157971
+            ],
+            [
+              125.124487,
+              8.157971
+            ],
+            [
+              125.124835,
+              8.157644
+            ]
+          ]
+        ]
+      },
+      "id": "grass-28"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "grass-29",
+        "type": "grass",
+        "surface": "grass",
+        "texture": "grass",
+        "fillPattern": "grass",
+        "source": "finalgrass.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              125.124469,
+              8.157989
+            ],
+            [
+              125.124814,
+              8.158387
+            ],
+            [
+              125.124166,
+              8.159012
+            ],
+            [
+              125.123807,
+              8.158605
+            ],
+            [
+              125.124469,
+              8.157989
+            ]
+          ]
+        ]
+      },
+      "id": "grass-29"
     }
   ]
 }

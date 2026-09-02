@@ -19,6 +19,14 @@ export const FOCUS_POLYGON = [CAMPUS_BOUNDARY];
 export const CAMPUS_FADE_BOUNDARY = CAMPUS_BOUNDARY;
 export const CAMPUS_FADE_POLYGON = [CAMPUS_FADE_BOUNDARY];
 
+export const MAP_VIEW_BOUNDARY = [
+  [125.1243542, 8.1529408],
+  [125.127525, 8.156498],
+  [125.1234382, 8.1600245],
+  [125.1203284, 8.1563826],
+  [125.1243542, 8.1529408],
+];
+
 const WORLD_MASK_RING = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
 const CAMPUS_FADE_DISTANCE_METERS = 48;
 const CAMPUS_FADE_BAND_COUNT = 160;
@@ -86,19 +94,20 @@ export const createCampusFadeMasks = () => {
 
 export const CAMPUS_FADE_MASKS = createCampusFadeMasks();
 
-export const CAMPUS_BOUNDS = [[125.121777, 8.153767], [125.127011, 8.158857]];
+export const CAMPUS_BOUNDS = [[125.1203284, 8.1529408], [125.127525, 8.1600245]];
 
 export const CAMPUS_BOUNDS_DETAILS = {
-  north: 8.158857,
-  south: 8.153767,
-  east: 125.127011,
-  west: 125.121777,
+  north: 8.1600245,
+  south: 8.1529408,
+  east: 125.127525,
+  west: 125.1203284,
 };
 
 export const CAMPUS_POLYGON = turf.polygon(FOCUS_POLYGON);
+export const MAP_VIEW_POLYGON = turf.polygon([MAP_VIEW_BOUNDARY]);
 
-const CAMPUS_BOUNDARY_LINE = turf.polygonToLine(CAMPUS_POLYGON);
-const CAMPUS_CENTER = turf.centroid(CAMPUS_POLYGON).geometry.coordinates;
+const MAP_VIEW_BOUNDARY_LINE = turf.polygonToLine(MAP_VIEW_POLYGON);
+const MAP_VIEW_CENTER = turf.centroid(MAP_VIEW_POLYGON).geometry.coordinates;
 
 export const clampLngLatToCampus = (lng, lat) => {
   const longitude = Number(lng);
@@ -110,11 +119,11 @@ export const clampLngLatToCampus = (lng, lat) => {
 
   const point = turf.point([longitude, latitude]);
 
-  if (turf.booleanPointInPolygon(point, CAMPUS_POLYGON, { ignoreBoundary: false })) {
+  if (turf.booleanPointInPolygon(point, MAP_VIEW_POLYGON, { ignoreBoundary: false })) {
     return { lng: longitude, lat: latitude };
   }
 
-  const snapped = turf.nearestPointOnLine(CAMPUS_BOUNDARY_LINE, point);
+  const snapped = turf.nearestPointOnLine(MAP_VIEW_BOUNDARY_LINE, point);
   const [clampedLng, clampedLat] = snapped.geometry.coordinates;
   return { lng: clampedLng, lat: clampedLat };
 };
@@ -144,28 +153,26 @@ export const isMapViewportInsideCampus = (map) => {
     const corner = map.unproject([x, y]);
     return turf.booleanPointInPolygon(
       turf.point([corner.lng, corner.lat]),
-      CAMPUS_POLYGON,
+      MAP_VIEW_POLYGON,
       { ignoreBoundary: false }
     );
   });
 };
 
-export const constrainViewportToCampus = (map, nextViewState, previousViewState) => {
+export const constrainViewportToCampus = (map, nextViewState) => {
   const center = clampLngLatToCampus(nextViewState?.longitude, nextViewState?.latitude);
   const centerWasOutside = center.lng !== nextViewState?.longitude || center.lat !== nextViewState?.latitude;
 
-  if (!centerWasOutside && isMapViewportInsideCampus(map)) {
-    return nextViewState;
-  }
+  if (!centerWasOutside) return nextViewState;
 
-  return previousViewState || {
+  return {
     ...nextViewState,
     longitude: center.lng,
     latitude: center.lat,
   };
 };
 
-export const easeMapToViewState = (map, viewState, duration = 360) => {
+export const easeMapToViewState = (map, viewState, duration = 480) => {
   if (!map || !viewState) return false;
 
   map.easeTo({
@@ -204,7 +211,7 @@ export const fitViewportInsideCampus = (map, maxZoom = 20) => {
   }
 
   if (!isMapViewportInsideCampus(map)) {
-    map.jumpTo({ center: CAMPUS_CENTER, zoom: maxZoom });
+    map.jumpTo({ center: MAP_VIEW_CENTER, zoom: maxZoom });
   }
 
   return getMapViewState(map);

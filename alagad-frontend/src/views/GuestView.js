@@ -5,6 +5,8 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import SafeGeoJSON from '../components/SafeGeoJSON';
 import MapTrees from '../components/MapTrees';
+import TrackAndField from '../components/TrackAndField';
+import ConcreteAreas from '../components/ConcreteAreas';
 import BuildingMarkers from '../components/BuildingMarkers';
 import BuildingPinMarker from '../components/BuildingPinMarker';
 import ChatBot from '../components/ChatBot';
@@ -2448,7 +2450,7 @@ function GuestView() {
                       type="line"
                       paint={{
                         'line-color': '#ffffff',
-                        'line-width': ['interpolate', ['linear'], ['zoom'], 16, 1.5, 20, 2.5, 22, 3],
+                        'line-width': ['interpolate', ['linear'], ['zoom'], 16, 2.5, 20, 4, 22, 5],
                         'line-opacity': 0.95,
                         'line-blur': 0.25,
                       }}
@@ -2468,6 +2470,18 @@ function GuestView() {
                   data={grassGeoJSON}
                   idPrefix="grass-geojson"
                   showPoints={false}
+                  beforeId="campus-boundary-fade-bands"
+                />
+              )}
+              {mapStyleLoaded && (
+                <TrackAndField
+                  idPrefix="guest-track-and-field"
+                  beforeId="campus-boundary-fade-bands"
+                />
+              )}
+              {mapStyleLoaded && (
+                <ConcreteAreas
+                  idPrefix="guest-concrete-areas"
                   beforeId="campus-boundary-fade-bands"
                 />
               )}

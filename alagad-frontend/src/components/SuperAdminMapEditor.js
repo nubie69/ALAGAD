@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import { buildingsAPI, roomsAPI, officesAPI } from '../utils/api';
 import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
+import TrackAndField from './TrackAndField';
+import ConcreteAreas from './ConcreteAreas';
 import grassGeoJSON from '../data/grass.json';
 import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_MASKS, constrainViewportToCampus, easeMapToViewState } from '../utils/campusBoundary';
 import '../styles/SuperAdminMapEditor.css';
@@ -543,7 +545,7 @@ function SuperAdminMapEditor() {
                     type="line"
                     paint={{
                       'line-color': '#ffffff',
-                      'line-width': ['interpolate', ['linear'], ['zoom'], 16, 1.5, 20, 2.5, 22, 3],
+                      'line-width': ['interpolate', ['linear'], ['zoom'], 16, 2.5, 20, 4, 22, 5],
                       'line-opacity': 0.95,
                       'line-blur': 0.25,
                     }}
@@ -566,7 +568,16 @@ function SuperAdminMapEditor() {
               />
             )}
             {mapStyleLoaded && (
-              <MapTrees idPrefix="grass-map-trees" beforeId="admin-campus-boundary-fade-bands" />
+              <TrackAndField
+                idPrefix="admin-track-and-field"
+                beforeId="admin-campus-boundary-fade-bands"
+              />
+            )}
+            {mapStyleLoaded && (
+              <ConcreteAreas
+                idPrefix="admin-concrete-areas"
+                beforeId="admin-campus-boundary-fade-bands"
+              />
             )}
             {mapStyleLoaded && (
               <SafeGeoJSON
@@ -574,6 +585,9 @@ function SuperAdminMapEditor() {
                 idPrefix="map-features-geojson"
                 beforeId="admin-campus-boundary-fade-bands"
               />
+            )}
+            {mapStyleLoaded && (
+              <MapTrees idPrefix="grass-map-trees" beforeId="admin-campus-boundary-fade-bands" />
             )}
           </Map>
 

@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "track-center-concrete",
+      "properties": {
+        "id": "track-center-concrete",
+        "kind": "concrete",
+        "source": "concrete.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [125.124512, 8.155669],
+            [125.12438, 8.155655],
+            [125.124404, 8.155405],
+            [125.124536, 8.155418],
+            [125.124512, 8.155669]
+          ]
+        ]
+      }
+    }
+  ]
+}
