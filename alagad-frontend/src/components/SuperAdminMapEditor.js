@@ -9,12 +9,12 @@ import { buildingsAPI, roomsAPI, officesAPI } from '../utils/api';
 import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_MASKS, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_MASKS, constrainViewportToCampus, easeMapToViewState } from '../utils/campusBoundary';
 import '../styles/SuperAdminMapEditor.css';
 
 const BUKSU_CAMPUS = {
-  center: { lat: 8.156970, lng: 125.124425 },
-  zoom: 19.10,
+  center: { lat: 8.156615, lng: 125.124337 },
+  zoom: 18.21,
   pitch: 0.00,
   bearing: -137.68,
   bounds: CAMPUS_BOUNDS_DETAILS,
@@ -134,12 +134,6 @@ function SuperAdminMapEditor() {
     if (!mapRef.current) return;
     
     const map = mapRef.current.getMap();
-    const fittedViewState = fitViewportInsideCampus(map, 22);
-    if (fittedViewState) {
-      lastValidViewStateRef.current = fittedViewState;
-      setViewState(fittedViewState);
-    }
-    
     // Wait for style to load before initializing draw controls
     const initializeDraw = () => {
       // Add a small delay to ensure style is completely ready
@@ -497,13 +491,6 @@ function SuperAdminMapEditor() {
             {...viewState}
             onMove={(evt) => setViewState(evt.viewState)}
             onMoveEnd={handleMapMoveEnd}
-            onResize={(evt) => {
-              const fittedViewState = fitViewportInsideCampus(evt.target, 22);
-              if (fittedViewState) {
-                lastValidViewStateRef.current = fittedViewState;
-                setViewState(fittedViewState);
-              }
-            }}
             mapboxAccessToken={MAPBOX_TOKEN}
             style={{ width: '100%', height: '100%' }}
             mapStyle="mapbox://styles/zach-2002/cmmfqzvkr000w01sp0vw694hy"
@@ -541,7 +528,28 @@ function SuperAdminMapEditor() {
                     type="fill"
                     paint={{
                       'fill-color': '#000000',
-                      'fill-opacity': 1,
+                      'fill-opacity': ['get', 'fadeOpacity'],
+                    }}
+                  />
+                </Source>
+
+                <Source
+                  id="admin-campus-shaded-polygon-outline-source"
+                  type="geojson"
+                  data={CAMPUS_FADE_MASKS.boundary}
+                >
+                  <Layer
+                    id="admin-campus-shaded-polygon-outline"
+                    type="line"
+                    paint={{
+                      'line-color': '#ffffff',
+                      'line-width': ['interpolate', ['linear'], ['zoom'], 16, 1.5, 20, 2.5, 22, 3],
+                      'line-opacity': 0.95,
+                      'line-blur': 0.25,
+                    }}
+                    layout={{
+                      'line-cap': 'round',
+                      'line-join': 'round',
                     }}
                   />
                 </Source>

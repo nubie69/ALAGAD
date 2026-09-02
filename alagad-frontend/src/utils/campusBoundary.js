@@ -3,17 +3,6 @@ import buffer from '@turf/buffer';
 import { polygon } from '@turf/helpers';
 
 export const CAMPUS_BOUNDARY = [
-  [125.124584, 8.153767],
-  [125.127011, 8.156269],
-  [125.124186, 8.158857],
-  [125.123881, 8.158488],
-  [125.121777, 8.156263],
-  [125.124584, 8.153767],
-];
-
-export const FOCUS_POLYGON = [CAMPUS_BOUNDARY];
-
-export const CAMPUS_FADE_BOUNDARY = [
   [125.1244987, 8.1545629],
   [125.1248841, 8.1551231],
   [125.1249252, 8.1557304],
@@ -26,10 +15,19 @@ export const CAMPUS_FADE_BOUNDARY = [
   [125.1244987, 8.1545629],
 ];
 
+export const FOCUS_POLYGON = [CAMPUS_BOUNDARY];
+export const CAMPUS_FADE_BOUNDARY = CAMPUS_BOUNDARY;
 export const CAMPUS_FADE_POLYGON = [CAMPUS_FADE_BOUNDARY];
 
 const WORLD_MASK_RING = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
-const CAMPUS_FADE_BUFFER_METERS = Array.from({ length: 96 }, (_, index) => (index + 1) / 3);
+const CAMPUS_FADE_DISTANCE_METERS = 48;
+const CAMPUS_FADE_BAND_COUNT = 160;
+const CAMPUS_FADE_EDGE_OPACITY = 0.08;
+const CAMPUS_OUTSIDE_OPACITY = 1;
+const CAMPUS_FADE_BUFFER_METERS = Array.from(
+  { length: CAMPUS_FADE_BAND_COUNT },
+  (_, index) => ((index + 1) / CAMPUS_FADE_BAND_COUNT) * CAMPUS_FADE_DISTANCE_METERS
+);
 
 const getPrimaryPolygonRing = (feature) => {
   const geometry = feature?.geometry;
@@ -41,20 +39,22 @@ const getPrimaryPolygonRing = (feature) => {
 export const createCampusFadeMasks = () => {
   const campusFeature = polygon(CAMPUS_FADE_POLYGON);
   const buffers = CAMPUS_FADE_BUFFER_METERS
-    .map((meters) => buffer(campusFeature, meters, { units: 'meters', steps: 18 }))
+    .map((meters) => buffer(campusFeature, meters, { units: 'meters', steps: 24 }))
     .map(getPrimaryPolygonRing)
     .filter(Boolean);
 
   const transitionFeatures = buffers.map((outerRing, index) => {
     const innerRing = index === 0 ? CAMPUS_FADE_POLYGON[0] : buffers[index - 1];
     const progress = (index + 1) / buffers.length;
-    const smoothOpacity = progress * progress * (3 - (2 * progress));
 
     return {
       type: 'Feature',
       properties: {
         band: index + 1,
-        fadeOpacity: Number((smoothOpacity * 0.985).toFixed(4)),
+        fadeOpacity: Number((
+          CAMPUS_FADE_EDGE_OPACITY
+          + (progress * (CAMPUS_OUTSIDE_OPACITY - CAMPUS_FADE_EDGE_OPACITY))
+        ).toFixed(4)),
       },
       geometry: {
         type: 'Polygon',
@@ -72,7 +72,9 @@ export const createCampusFadeMasks = () => {
     },
     outside: {
       type: 'Feature',
-      properties: {},
+      properties: {
+        fadeOpacity: CAMPUS_OUTSIDE_OPACITY,
+      },
       geometry: {
         type: 'Polygon',
         coordinates: [WORLD_MASK_RING, farOutsideRing],

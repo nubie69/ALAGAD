@@ -20,12 +20,12 @@ import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePaths
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import streetNamesGeoJSON from '../data/streetNames.json';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_MASKS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_MASKS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState } from '../utils/campusBoundary';
 
 // Bukidnon State University campus bounds (Malaybalay, Bukidnon)
 const BUKSU_CAMPUS = {
-  center: { lat: 8.156970, lng: 125.124425 },
-  zoom: 19.10,
+  center: { lat: 8.156615, lng: 125.124337 },
+  zoom: 18.21,
   pitch: 0.00,
   bearing: -137.68,
   bounds: CAMPUS_BOUNDS_DETAILS,
@@ -558,12 +558,6 @@ function GuestView() {
     // Mark style as loaded immediately on map load — the style is ready at this point
     setMapStyleLoaded(true);
 
-    const fittedViewState = fitViewportInsideCampus(map, 22);
-    if (fittedViewState) {
-      lastValidViewStateRef.current = fittedViewState;
-      setViewState(fittedViewState);
-    }
-    
     // Also listen for style.load in case the style is swapped later
     const handleStyleLoad = () => {
       setMapStyleLoaded(true);
@@ -2391,13 +2385,6 @@ function GuestView() {
               {...viewState}
               onMove={(evt) => setViewState(evt.viewState)}
               onMoveEnd={handleMapMoveEnd}
-              onResize={(evt) => {
-                const fittedViewState = fitViewportInsideCampus(evt.target, 22);
-                if (fittedViewState) {
-                  lastValidViewStateRef.current = fittedViewState;
-                  setViewState(fittedViewState);
-                }
-              }}
               mapboxAccessToken={MAPBOX_TOKEN}
               style={{ width: '100%', height: '100%' }}
               mapStyle="mapbox://styles/zach-2002/cmmfqzvkr000w01sp0vw694hy"
@@ -2446,7 +2433,28 @@ function GuestView() {
                       type="fill"
                       paint={{
                         'fill-color': '#000000',
-                        'fill-opacity': 1,
+                        'fill-opacity': ['get', 'fadeOpacity'],
+                      }}
+                    />
+                  </Source>
+
+                  <Source
+                    id="campus-shaded-polygon-outline-source"
+                    type="geojson"
+                    data={CAMPUS_FADE_MASKS.boundary}
+                  >
+                    <Layer
+                      id="campus-shaded-polygon-outline"
+                      type="line"
+                      paint={{
+                        'line-color': '#ffffff',
+                        'line-width': ['interpolate', ['linear'], ['zoom'], 16, 1.5, 20, 2.5, 22, 3],
+                        'line-opacity': 0.95,
+                        'line-blur': 0.25,
+                      }}
+                      layout={{
+                        'line-cap': 'round',
+                        'line-join': 'round',
                       }}
                     />
                   </Source>
@@ -2460,6 +2468,7 @@ function GuestView() {
                   data={grassGeoJSON}
                   idPrefix="grass-geojson"
                   showPoints={false}
+                  beforeId="campus-boundary-fade-bands"
                 />
               )}
               {mapStyleLoaded && mapFeatures?.features?.length > 0 && (
@@ -2470,7 +2479,7 @@ function GuestView() {
                 />
               )}
               {mapStyleLoaded && (
-                <MapTrees idPrefix="grass-map-trees" />
+                <MapTrees idPrefix="grass-map-trees" beforeId="campus-boundary-fade-bands" />
               )}
 
               {mapStyleLoaded && (() => {

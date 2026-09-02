@@ -7,12 +7,12 @@ import SafeGeoJSON from './SafeGeoJSON';
 import MapTrees from './MapTrees';
 import BuildingPinMarker from './BuildingPinMarker';
 import grassGeoJSON from '../data/grass.json';
-import { CAMPUS_BOUNDS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState, fitViewportInsideCampus } from '../utils/campusBoundary';
+import { CAMPUS_BOUNDS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState } from '../utils/campusBoundary';
 import './MapEditor.css';
 
 const BUKSU_CAMPUS = {
-  center: { lat: 8.156970, lng: 125.124425 },
-  zoom: 19.10,
+  center: { lat: 8.156615, lng: 125.124337 },
+  zoom: 18.21,
   pitch: 0.00,
   bearing: -137.68,
 };
@@ -121,11 +121,6 @@ function MapEditor() {
   const onMapLoad = useCallback(() => {
     if (!mapRef.current) return;
     const map = mapRef.current.getMap();
-    const fittedViewState = fitViewportInsideCampus(map, 22);
-    if (fittedViewState) {
-      lastValidViewStateRef.current = fittedViewState;
-      setViewState(fittedViewState);
-    }
     if (map.isStyleLoaded()) {
       setMapStyleLoaded(true);
     } else {
@@ -521,13 +516,6 @@ function MapEditor() {
             {...viewState}
             onMove={(event) => setViewState(event.viewState)}
             onMoveEnd={handleMapMoveEnd}
-            onResize={(event) => {
-              const fittedViewState = fitViewportInsideCampus(event.target, 22);
-              if (fittedViewState) {
-                lastValidViewStateRef.current = fittedViewState;
-                setViewState(fittedViewState);
-              }
-            }}
             onClick={handleMapClick}
             mapboxAccessToken={MAPBOX_TOKEN}
             style={{ width: '100%', height: '100%' }}
