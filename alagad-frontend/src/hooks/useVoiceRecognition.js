@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const useVoiceRecognition = (onResult, onError, language = 'en-US') => {
+const useVoiceRecognition = (onResult, onError, language = 'en-US', onInterimResult) => {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [error, setError] = useState(null);
   const recognitionRef = useRef(null);
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
+  const onInterimResultRef = useRef(onInterimResult);
+  const finalTranscriptRef = useRef('');
 
   // Keep refs up to date
   useEffect(() => {
@@ -18,6 +20,10 @@ const useVoiceRecognition = (onResult, onError, language = 'en-US') => {
   }, [onError]);
 
   useEffect(() => {
+    onInterimResultRef.current = onInterimResult;
+  }, [onInterimResult]);
+
+  useEffect(() => {
     // Check if browser supports speech recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
@@ -25,14 +31,31 @@ const useVoiceRecognition = (onResult, onError, language = 'en-US') => {
       setIsSupported(true);
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
+      recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = language;
       
       recognitionRef.current.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setIsListening(false);
-        if (onResultRef.current) {
-          onResultRef.current(transcript);
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscriptRef.current = `${finalTranscriptRef.current} ${transcript}`.trim();
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        const liveTranscript = `${finalTranscriptRef.current} ${interimTranscript}`.trim();
+        if (liveTranscript && onInterimResultRef.current) {
+          onInterimResultRef.current(liveTranscript);
+        }
+
+        if (finalTranscriptRef.current && !interimTranscript.trim()) {
+          setIsListening(false);
+          if (onResultRef.current) {
+            onResultRef.current(finalTranscriptRef.current);
+          }
         }
       };
       
@@ -67,6 +90,7 @@ const useVoiceRecognition = (onResult, onError, language = 'en-US') => {
     
     setError(null);
     try {
+      finalTranscriptRef.current = '';
       recognitionRef.current.start();
       setIsListening(true);
     } catch (err) {

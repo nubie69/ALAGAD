@@ -1627,6 +1627,11 @@ function GuestView() {
     },
     (error) => {
       console.warn('Voice search error:', error);
+    },
+    'en-US',
+    (transcript) => {
+      setSidebarQuery(String(transcript || '').trim());
+      if (isMobile) setSheetSnap('half');
     }
   );
 

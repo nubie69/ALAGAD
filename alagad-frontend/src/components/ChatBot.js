@@ -493,19 +493,18 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     chatAPI.logSuggestionSelection(partialQuery, suggestion).catch(() => {});
   }, []);
 
-  // Voice recognition: insert transcript and auto-send
+  // Voice recognition: insert transcript into the text box as the user speaks
   const handleVoiceResult = useCallback((transcript) => {
     const text = (transcript || '').trim();
     if (!text) return;
     setInputValue(text);
-    // Auto-send transcript
-    handleSendMessage(text);
-  }, [handleSendMessage]);
+  }, []);
   
   const { isListening, isSupported: voiceSupported, startListening, stopListening, setLanguage: setVoiceLang } = useVoiceRecognition(
     handleVoiceResult,
     (error) => console.error('Voice error:', error),
-    VOICE_LANG_MAP[language] || 'en-US'
+    VOICE_LANG_MAP[language] || 'en-US',
+    handleVoiceResult
   );
 
   // Sync voice recognition language when chatbot language changes
