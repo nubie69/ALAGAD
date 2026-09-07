@@ -8,8 +8,6 @@ import './ChatBot.css';
 // Map chatbot language → speech recognition BCP-47 code
 // Note: Web Speech API support varies; Cebuano isn't consistently available, so we fall back to a PH locale.
 const VOICE_LANG_MAP = { en: 'en-US', tl: 'fil-PH', ceb: 'en-PH' };
-const MIN_SUGGESTION_QUERY_LENGTH = 2;
-const SUGGESTION_DEBOUNCE_MS = 180;
 
 // Language translations
 const translations = {
@@ -62,33 +60,6 @@ const detectLanguageClient = (message) => {
   if (/\b(asa|ngano|unsa|pila|adto|dinhi|palihog|salamat)\b/.test(text)) return 'ceb';
   if (/\b(saan|paano|ano|nasaan|pakisuyo|salamat|opo|po)\b/.test(text)) return 'tl';
   return 'en';
-};
-
-const buildAppendOnlyInput = (currentText, suggestion) => {
-  const base = String(currentText || '');
-  const appendText = String(suggestion?.append_text || '');
-  const suggestedQuery = String(suggestion?.suggested_query || '').trim();
-
-  if (appendText) {
-    const next = `${base}${appendText}`;
-    return next;
-  }
-
-  if (!base.trim()) {
-    return suggestedQuery;
-  }
-
-  if (suggestedQuery && suggestedQuery.toLowerCase().startsWith(base.toLowerCase())) {
-    return `${base}${suggestedQuery.slice(base.length)}`;
-  }
-
-  if (suggestedQuery) {
-    return `${base}${base.endsWith(' ') ? '' : ' '}${suggestedQuery}`;
-  }
-
-  const fallback = String(suggestion?.display_name || suggestion?.canonical_name || '').trim();
-  if (!fallback) return base;
-  return `${base}${base.endsWith(' ') ? '' : ' '}${fallback}`;
 };
 
 const extractServiceParts = (replyText) => {
@@ -164,13 +135,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   ]);
   const nextMessageIdRef = useRef(2);
   const [inputValue, setInputValue] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
-  const [selectedSuggestion, setSelectedSuggestion] = useState(null);
-  const [isInputFocused, setIsInputFocused] = useState(false);
-  const suggestionRequestSeqRef = useRef(0);
-  const suggestionBlurTimeoutRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [activeMode, setActiveMode] = useState('ask');
   const [faqSearch, setFaqSearch] = useState('');
@@ -265,8 +229,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
 
   const handleModeChange = useCallback((mode) => {
     setActiveMode(mode);
-    setShowSuggestions(false);
-    setActiveSuggestionIndex(-1);
     if (mode === 'ask') {
       setExpandedFaqId(null);
     }
@@ -346,15 +308,11 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     messagesEndRef.current?.scrollIntoView({ behavior });
   }, []);
 
-  const handleSendMessage = useCallback(async (overrideText, options = {}) => {
+  const handleSendMessage = useCallback(async (overrideText) => {
     const textToSend = (typeof overrideText === 'string' ? overrideText : inputValue).trim();
-    const selectedSuggestionForSubmit = options.selectedSuggestion || selectedSuggestion || null;
     if (!textToSend) return;
 
     setShouldAutoScroll(true);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setActiveSuggestionIndex(-1);
 
     // Detect language for reply hint only; keep the UI language unchanged.
     const detectedLang = detectLanguageClient(textToSend);
@@ -389,7 +347,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       const response = await chatAPI.sendMessage(
         textToSend,
         detectedLang,
-        selectedSuggestionForSubmit,
+        null,
         conversationHistory
       );
 
@@ -450,7 +408,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
         navigationTargetEntity,
         responseType,
         verificationStatus: response.verificationStatus || response.metadata?.verificationStatus || null,
-        verificationNotice: response.verificationNotice || null,
         helpDesk: response.helpDesk || null,
         faq: response.faq || null,
         relatedFaqs: Array.isArray(response.relatedFaqs) ? response.relatedFaqs : [],
@@ -472,26 +429,8 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       setAnimatingMessageId(errorMessage.id);
     } finally {
       setLoading(false);
-      setSelectedSuggestion(null);
     }
-  }, [buildings, inputValue, messages, offices, rooms, selectedSuggestion]);
-
-  const applySuggestion = useCallback((suggestion, partialQuery = '') => {
-    if (!suggestion) return;
-    const nextText = buildAppendOnlyInput(partialQuery, suggestion);
-    if (!nextText) return;
-
-    setInputValue(nextText);
-    setSelectedSuggestion({
-      ...suggestion,
-      applied_query: nextText,
-    });
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setActiveSuggestionIndex(-1);
-
-    chatAPI.logSuggestionSelection(partialQuery, suggestion).catch(() => {});
-  }, []);
+  }, [buildings, inputValue, messages, offices, rooms]);
 
   // Voice recognition: insert transcript into the text box as the user speaks
   const handleVoiceResult = useCallback((transcript) => {
@@ -511,55 +450,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   useEffect(() => {
     setVoiceLang(VOICE_LANG_MAP[language] || 'en-US');
   }, [language, setVoiceLang]);
-
-  useEffect(() => () => {
-    if (suggestionBlurTimeoutRef.current) {
-      clearTimeout(suggestionBlurTimeoutRef.current);
-    }
-  }, []);
-
-  useEffect(() => {
-    const query = String(inputValue || '').trim();
-    if (activeMode !== 'ask' || !isOpen || loading || query.length < MIN_SUGGESTION_QUERY_LENGTH) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      setActiveSuggestionIndex(-1);
-      return;
-    }
-
-    if (selectedSuggestion) {
-      const selectedText = String(selectedSuggestion.applied_query || selectedSuggestion.suggested_query || '').trim();
-      if (selectedText && selectedText.toLowerCase() === query.toLowerCase()) {
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setActiveSuggestionIndex(-1);
-        return;
-      }
-    }
-
-    const seq = suggestionRequestSeqRef.current + 1;
-    suggestionRequestSeqRef.current = seq;
-
-    const timer = setTimeout(async () => {
-      try {
-        const detectedLang = detectLanguageClient(query) || language;
-        const data = await chatAPI.getSuggestions(query, detectedLang, 1);
-        if (seq !== suggestionRequestSeqRef.current) return;
-
-        const nextSuggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
-        setSuggestions(nextSuggestions);
-        setShowSuggestions(isInputFocused && nextSuggestions.length > 0);
-        setActiveSuggestionIndex(nextSuggestions.length > 0 ? 0 : -1);
-      } catch (_error) {
-        if (seq !== suggestionRequestSeqRef.current) return;
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setActiveSuggestionIndex(-1);
-      }
-    }, SUGGESTION_DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [activeMode, inputValue, isInputFocused, isOpen, language, loading, selectedSuggestion]);
 
   // Draggable trigger button position (ignore saved position on mobile to prevent off-screen placement)
   const [triggerPos, setTriggerPos] = useState(() => {
@@ -764,42 +654,8 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   // handleSendMessage is defined above (useCallback)
 
   const handleKeyDown = (e) => {
-    if (e.key === 'ArrowDown' && suggestions.length > 0) {
-      e.preventDefault();
-      setActiveSuggestionIndex((prev) => {
-        if (prev < 0) return 0;
-        return Math.min(prev + 1, suggestions.length - 1);
-      });
-      setShowSuggestions(true);
-      return;
-    }
-
-    if (e.key === 'ArrowUp' && suggestions.length > 0) {
-      e.preventDefault();
-      setActiveSuggestionIndex((prev) => {
-        if (prev <= 0) return 0;
-        return prev - 1;
-      });
-      setShowSuggestions(true);
-      return;
-    }
-
-    if (e.key === 'Tab' && showSuggestions && suggestions.length > 0) {
-      e.preventDefault();
-      const selected = suggestions[activeSuggestionIndex >= 0 ? activeSuggestionIndex : 0];
-      applySuggestion(selected, String(inputValue || ''));
-      return;
-    }
-
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (showSuggestions && suggestions.length > 0) {
-        const selected = suggestions[activeSuggestionIndex >= 0 ? activeSuggestionIndex : 0];
-        if (selected) {
-          applySuggestion(selected, String(inputValue || ''));
-          return;
-        }
-      }
       handleSendMessage();
     }
   };
@@ -815,10 +671,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
 
   const clearChat = () => {
     nextMessageIdRef.current = 2;
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setActiveSuggestionIndex(-1);
-    setSelectedSuggestion(null);
     setCompletedBotMessageIds(new Set());
     setAnimatingMessageId(1);
     setMessages([
@@ -1332,7 +1184,8 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                 )}
                 <div className="message-text">
                 {(() => {
-                  const text = typeof message.text === 'string' ? message.text : '';
+                  const rawText = typeof message.text === 'string' ? message.text : '';
+                  const text = message.sender === 'bot' ? rawText.replace(/\*\*/g, '"') : rawText;
                   const shouldAnimateThisMessage = message.sender === 'bot'
                     && message.id === animatingMessageId
                     && !completedBotMessageIds.has(message.id);
@@ -1359,7 +1212,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                   const isResponseFullyShown = !isAnimatingThisMessage || completedBotMessageIds.has(message.id);
                   if (message.sender !== 'bot' || !isResponseFullyShown) return null;
 
-                  const notice = message.verificationNotice;
                   const isReferralResponse = REFERRAL_RESPONSE_TYPES.has(String(message.responseType || ''));
                   const helpDesk = message.helpDesk || {};
                   const hasContact = Boolean(helpDesk.officialLink || helpDesk.email || helpDesk.phone);
@@ -1367,13 +1219,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
 
                   return (
                     <>
-                      {notice && (
-                        <div className="chatbot-verification-notice">
-                          <strong>{notice.title}</strong>
-                          <span>{notice.text}</span>
-                        </div>
-                      )}
-
                       {message.faq && Array.isArray(message.resources) && message.resources.length === 0 && (
                         <div className="chatbot-knowledge-section">
                           <div className="chatbot-knowledge-title">Downloadable Forms</div>
@@ -1559,64 +1404,15 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       {activeMode === 'ask' && (
       <div className="chatbot-input-area">
         <div className="chatbot-input-stack">
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="chatbot-suggestions" role="listbox" aria-label="Chat suggestions">
-              {suggestions.map((suggestion, index) => {
-                const aliasList = Array.isArray(suggestion.aliases_display) && suggestion.aliases_display.length > 0
-                  ? suggestion.aliases_display
-                  : (Array.isArray(suggestion.aliases) ? suggestion.aliases : []);
-                const aliasPreview = aliasList.length > 0 ? String(aliasList[0]) : '';
-                const category = String(suggestion.category_display || suggestion.category || '').trim();
-                const suggestionName = String(
-                  suggestion.suggested_query
-                  || suggestion.display_name
-                  || suggestion.canonical_name
-                  || ''
-                ).trim();
-                const isActive = index === activeSuggestionIndex;
-
-                return (
-                  <button
-                    key={`${suggestion.id || suggestionName}-${index}`}
-                    type="button"
-                    className={`chatbot-suggestion-item ${isActive ? 'active' : ''}`}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => applySuggestion(suggestion, String(inputValue || ''))}
-                  >
-                    <span className="chatbot-suggestion-name">{suggestionName}</span>
-                    <span className="chatbot-suggestion-meta">
-                      {category}
-                      {aliasPreview ? ` | ${aliasPreview}` : ''}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
           <textarea
             value={inputValue}
             onChange={(e) => {
               const nextValue = e.target.value;
               setInputValue(nextValue);
-              setSelectedSuggestion(null);
               const detected = detectLanguageClient(nextValue);
               if (detected && detected !== language) setLanguage(detected);
             }}
             onKeyDown={handleKeyDown}
-            onFocus={() => {
-              setIsInputFocused(true);
-              if (suggestions.length > 0) setShowSuggestions(true);
-            }}
-            onBlur={() => {
-              setIsInputFocused(false);
-              if (suggestionBlurTimeoutRef.current) {
-                clearTimeout(suggestionBlurTimeoutRef.current);
-              }
-              suggestionBlurTimeoutRef.current = setTimeout(() => {
-                setShowSuggestions(false);
-              }, 120);
-            }}
             placeholder={isListening ? 'Listening...' : t.placeholder}
             disabled={loading}
             rows="1"

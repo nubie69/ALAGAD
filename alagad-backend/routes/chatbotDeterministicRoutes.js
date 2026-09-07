@@ -58,6 +58,12 @@ const UNIT_HANDLES_INTENT_RE = /\b((?:what|which|unsa|ano)\s+unit\b.*\b(?:handle
 const SERVICE_WHERE_PROCESS_INTENT_RE = /\b(where\s+to\s+process|where\s+(?:can\s+i\s+)?(?:process|apply|get|request|avail)|asa\b.*\b(?:process|proseso|service|serbisyo)\b|saan\b.*\b(?:process|proseso|service|serbisyo)\b)\b/i;
 const SERVICE_REQUIREMENTS_INTENT_RE = /\b(requirements?|needed|need|kinahanglan|kailangan)\b/i;
 const SERVICE_PROCESS_INTENT_RE = /\b(process|step(?:\s+by\s+step)?|steps?|procedure|how(?:\s+to)?|paano|giunsa|proseso|hakbang|lakang)\b/i;
+// Requirements mentioned as the object of a specific question take precedence over generic how/process wording.
+const FOCUSED_REQUIREMENTS_RE = /\b(?:requirements?|required\s+documents?|documents?\s+(?:are\s+)?(?:needed|required)|what\s+(?:do\s+i\s+)?need|what\s+should\s+i\s+(?:bring|prepare))\b/i;
+const COMBINED_PROCESS_REQUIREMENTS_RE = /\b(?:process|steps?|procedure)\b.*\band\b|\band\b.*\b(?:process|steps?|procedure)\b/i;
+const isFocusedRequirementsQuery = (text) => FOCUSED_REQUIREMENTS_RE.test(text)
+  && !COMBINED_PROCESS_REQUIREMENTS_RE.test(text)
+  && !/\b(?:process|steps?|procedure)\s+(?:for|of|to)\s+(?:submit|submitting|submission)\b/i.test(text);
 const SERVICE_DESCRIPTION_INTENT_RE = /\b(description|about|what\s+is|what'?s|unsa\s+ang|ano\s+ang)\b/i;
 const DEADLINE_INTENT_RE = /\b(deadline|due\s+date|until\s+when|last\s+day|cutoff|cut-off|kanus-a|kailan|hanggang\s+kailan)\b/i;
 const PROCESSING_TIME_INTENT_RE = /\b(processing\s+time|how\s+long|duration|turnaround|release|when\s+can\s+i\s+(?:claim|get)|pila\s+ka\s+adlaw|gaano\s+katagal)\b/i;
@@ -94,7 +100,9 @@ const inferIntentFromQuery = (query, contextItem) => {
   const hasProcessingTime = PROCESSING_TIME_INTENT_RE.test(text);
   const hasContact = CONTACT_INTENT_RE.test(text);
 
-  // Strict overlap priority: Process > Requirements > Description > Location > Personnel
+  if (isFocusedRequirementsQuery(text)) return 'requirements';
+
+  // Use specific service intents before general description/location wording.
   if (isServiceContext && hasDeadline) return 'deadline';
   if (isServiceContext && hasProcessingTime) return 'processing_time';
   if (isServiceContext && hasContact) return 'contact';
@@ -172,7 +180,7 @@ const stripSourcesFromResponse = (text) => {
 };
 
 const sanitizeGeneratedResponse = (text) => {
-  const cleaned = String(text || '')
+  const cleaned = String(text || '').replace(/\*\*/g, '"')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
@@ -299,6 +307,7 @@ const getStructuredFieldValue = (contextItem, field) => {
 const detectRequestedInfoFields = (query, intent) => {
   const text = String(query || '').toLowerCase();
   const fields = new Set(serviceRequiredFieldsForIntent(intent));
+  if (isFocusedRequirementsQuery(text)) return ['name', 'requirements'];
   if (SERVICE_REQUIREMENTS_INTENT_RE.test(text)) fields.add('requirements');
   if (SERVICE_PROCESS_INTENT_RE.test(text)) fields.add('process_steps');
   if (SERVICE_WHERE_PROCESS_INTENT_RE.test(text) || WHERE_INTENT_RE.test(text)) {
@@ -454,19 +463,7 @@ const detectConflictingInformation = (candidates = []) => {
   return { hasConflict: false, field: null, records: [] };
 };
 
-const shouldShowInformationNotice = (contextItem, intent) => {
-  const type = String(contextItem?.type || '').toLowerCase();
-  const key = String(intent || '').toLowerCase();
-  return type === 'service' || ['requirements', 'process', 'where_process', 'unit_handler'].includes(key);
-};
-
-const buildVerificationNotice = (contextItem, intent) => {
-  if (!shouldShowInformationNotice(contextItem, intent)) return null;
-  return {
-    title: 'Information Notice',
-    text: 'This answer is based on available university records. For official or updated information, please verify with the concerned office.',
-  };
-};
+const buildVerificationNotice = () => null;
 
 const buildSourceAwareAnswer = (answer, contextItem) => {
   const base = sanitizeGeneratedResponse(answer);
@@ -486,20 +483,20 @@ const emphasizeTerm = (text, term) => {
   const source = String(text || '');
   const rawTerm = String(term || '').trim();
   if (!source || !rawTerm || rawTerm.length < 3) return source;
-  if (source.includes(`**${rawTerm}**`)) return source;
+  if (source.includes(`"${rawTerm}"`)) return source;
 
   const matcher = new RegExp(`(${escapeRegExp(rawTerm)})`, 'gi');
   return source
-    .split(/(\*\*[^*]+\*\*)/g)
+    .split(/("[^"]+")/g)
     .map((segment) => {
-      if (/^\*\*[^*]+\*\*$/.test(segment)) return segment;
-      return segment.replace(matcher, '**$1**');
+      if (/^"[^"]+"$/.test(segment)) return segment;
+      return segment.replace(matcher, '"$1"');
     })
     .join('');
 };
 
 const applyResponseEmphasis = (text, contextItem) => {
-  let output = String(text || '').trim();
+  let output = String(text || '').replace(/\*\*/g, '"').trim();
   if (!output || !contextItem) return output;
 
   const type = String(contextItem?.type || '').toLowerCase();
@@ -1187,6 +1184,7 @@ const appendLocalizedDetail = ({ text, contextItem, intent, targetLanguage }) =>
   };
 
   if (type === 'service') {
+    if (!['description', 'service'].includes(String(intent || '').toLowerCase())) return base;
     if (locationText && String(intent || '').toLowerCase() !== 'where_process') {
       addDetail('service_location', { location: locationText });
     }
@@ -1326,6 +1324,10 @@ const buildConversationAwareQuery = ({ message, conversationContext }) => {
   if (lastEntity && !queryLower.includes(lastEntity.toLowerCase())) {
     parts.push(lastEntity);
   }
+
+  // Carry the entity forward, without carrying an old question's intent into a new one.
+  const currentIntent = deriveQueryIntentSignal(query);
+  if (lastEntity || currentIntent !== 'unknown') return normalizeQuerySpace(parts.join(' '));
 
   const intentHint = intentToQueryHint(conversationContext?.lastIntent);
   if (intentHint && !queryLower.includes(intentHint)) {
@@ -1477,6 +1479,7 @@ const decideServiceClarification = ({
 const deriveQueryIntentSignal = (query) => {
   const text = String(query || '').toLowerCase();
   if (!text) return 'unknown';
+  if (isFocusedRequirementsQuery(text)) return 'requirements';
 
   if (DEADLINE_INTENT_RE.test(text)) return 'deadline';
   if (PROCESSING_TIME_INTENT_RE.test(text)) return 'processing_time';
@@ -2116,9 +2119,11 @@ router.post('/', async (req, res) => {
     }
 
     const primary = contextWithStructured[0] || null;
-    const intent = inferIntentFromQuery(retrievalQuery, primary);
+    // Retrieval includes service/history text; answer scope comes from the current question.
+    const answerQuery = translateToEnglishLexicon(message);
+    const intent = inferIntentFromQuery(answerQuery, primary);
     const requestedFields = String(primary?.type || '').toLowerCase() === 'service'
-      ? detectRequestedInfoFields(retrievalQuery || message, intent)
+      ? detectRequestedInfoFields(answerQuery, intent)
       : [];
     const completeness = evaluateInformationCompleteness({
       contextItem: primary,
@@ -2478,7 +2483,7 @@ router.post('/', async (req, res) => {
     });
 
     const location = primary?.location || null;
-    const steps = primary?.type === 'Service' && Array.isArray(primary?.structured?.process_steps)
+    const steps = intent === 'process' && primary?.type === 'Service' && Array.isArray(primary?.structured?.process_steps)
       ? primary.structured.process_steps
       : [];
 

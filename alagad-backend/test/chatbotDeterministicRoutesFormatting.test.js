@@ -548,8 +548,8 @@ describe('Chatbot Deterministic Response Formatting', () => {
 			}
 		);
 
-		expect(emphasized).to.include('**Transcript of Records**');
-		expect(emphasized).to.include('**Registrar Office**');
+		expect(emphasized).to.include('"Transcript of Records"');
+		expect(emphasized).to.include('"Registrar Office"');
 	});
 
 	it('adds subtle emphasis for office entity names in location answers', () => {
@@ -561,7 +561,7 @@ describe('Chatbot Deterministic Response Formatting', () => {
 			}
 		);
 
-		expect(emphasized).to.include('**Admissions Office**');
+		expect(emphasized).to.include('"Admissions Office"');
 	});
 
 	it('adds detailed localized hints for service responses to improve clarity', () => {
@@ -754,12 +754,12 @@ describe('Chatbot Deterministic Response Formatting', () => {
 		expect(conflict.field).to.equal('deadline');
 	});
 
-	it('shows verification notices for administrative service answers only', () => {
+	it('omits information notices from chatbot answers', () => {
 		const notice = buildVerificationNotice({ type: 'Service' }, 'requirements');
 		const noNotice = buildVerificationNotice({ type: 'Building' }, 'where');
 
 		expect(RESPONSE_TYPES.VERIFIED_ANSWER).to.equal('VERIFIED_ANSWER');
-		expect(notice.title).to.equal('Information Notice');
+		expect(notice).to.equal(null);
 		expect(noNotice).to.equal(null);
 	});
 
@@ -882,4 +882,69 @@ describe('Chatbot Deterministic Response Formatting', () => {
 		expect(referral).to.include('specific department help desk');
 		expect(referral).to.include('contact or go to');
 	});
+});
+
+
+describe('Chatbot Deterministic Response Formatting - focused service questions', () => {
+  const service = {
+    type: 'Service', canonical_name: 'Transcript of Records',
+    assigned_building: 'Administration Building',
+    structured: {
+      name: 'Transcript of Records', details: 'Official academic record',
+      requirements: ['Valid ID', 'Request form'],
+      process_steps: ['Submit the form', 'Pay the fee'],
+      office_name: 'Registrar Office', contact: 'registrar@campus.edu',
+    },
+  };
+
+  for (const question of [
+    'What is the requirement for that service?',
+    'What are the requirements to process transcript of records?',
+    'How do I find the requirements for that service?',
+    'What documents are required for transcript of records?',
+    'What should I bring for that service?',
+  ]) {
+    it(`answers only requirements for: ${question}`, () => {
+      expect(inferIntentFromQuery(question, service)).to.equal('requirements');
+      expect(deriveQueryIntentSignal(question)).to.equal('requirements');
+      expect(detectRequestedInfoFields(question, 'requirements')).to.deep.equal(['name', 'requirements']);
+    });
+  }
+
+  for (const intent of ['requirements', 'process']) {
+    for (const language of ['english', 'tagalog', 'cebuano']) {
+      it(`keeps ${intent} answers focused in ${language}`, () => {
+        const answer = buildServiceIntentAnswer(service, intent);
+        expect(appendLocalizedDetail({ text: answer, contextItem: service, intent, targetLanguage: language })).to.equal(answer);
+        expect(answer).not.to.include('registrar@campus.edu');
+        expect(answer).not.to.include('Administration Building');
+        expect(answer).not.to.include(intent === 'process' ? 'Valid ID' : 'Pay the fee');
+      });
+    }
+    it(`switches follow-up intent to ${intent} while retaining the service`, () => {
+      const previousIntent = intent === 'process' ? 'requirements' : 'process';
+      const context = resolveConversationContext([
+        { sender: 'user', text: `What is the ${previousIntent} for Transcript of Records?` },
+        { sender: 'bot', text: buildServiceIntentAnswer(service, previousIntent), intent: previousIntent, entityName: service.canonical_name },
+      ]);
+      const query = buildConversationAwareQuery({ message: `What is the ${intent} for that service?`, conversationContext: context });
+      expect(query).to.include(service.canonical_name);
+      expect(inferIntentFromQuery(query, service)).to.equal(intent);
+      expect(detectRequestedInfoFields(query, intent)).to.deep.equal(['name', intent === 'process' ? 'process_steps' : 'requirements']);
+    });
+  }
+});
+
+
+describe('Chatbot Deterministic Response Formatting - quotation marks', () => {
+  it('converts existing markdown emphasis without adding duplicate quotes', () => {
+    const context = { type: 'Service', canonical_name: 'Transcript of Records' };
+    const answer = applyResponseEmphasis('Requirements for **Transcript of Records**: **Valid ID**.', context);
+    expect(answer).to.equal('Requirements for "Transcript of Records": "Valid ID".');
+    expect(applyResponseEmphasis(answer, context)).to.equal(answer);
+  });
+
+  it('converts markdown markers even without an entity context', () => {
+    expect(applyResponseEmphasis('Bring **Valid ID**.', null)).to.equal('Bring "Valid ID".');
+  });
 });

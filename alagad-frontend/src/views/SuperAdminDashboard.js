@@ -1808,32 +1808,6 @@ function SuperAdminDashboard() {
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Stakeholders</label>
-                    <select
-                      multiple
-                      className="form-select"
-                      value={formData.stakeholders || []}
-                      onChange={(e) => setFormData({ ...formData, stakeholders: getMultiSelectValues(e) })}
-                      style={{ minHeight: 120 }}
-                    >
-                      {STAKEHOLDER_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Category</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.category || ''}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      placeholder="Scholarship, Clearance, Admission"
-                    />
-                  </div>
-
                   <div className="form-group form-group-full">
                     <label className="form-label">
                       Requirements
@@ -1859,28 +1833,6 @@ function SuperAdminDashboard() {
                       onChange={(e) => setFormData({ ...formData, stepsText: e.target.value })}
                       placeholder={"1. Go to the office\n2. Fill out the form\n3. Pay the fee\n4. Wait for release"}
                       rows="5"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Deadline</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.deadline || ''}
-                      onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                      placeholder="Only enter a verified deadline"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Processing Time</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.processingTime || ''}
-                      onChange={(e) => setFormData({ ...formData, processingTime: e.target.value })}
-                      placeholder="Only enter verified processing time"
                     />
                   </div>
                 </div>
