@@ -16,6 +16,8 @@
     "tunnel:mobile": "npm run tunnel:backend",
     "tunnel:single-link": "npm run tunnel:frontend",
     "start:prod": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run start --prefix alagad-backend\" \"npm run start --prefix alagad-frontend\"",
+    "evaluate": "node evaluation/evaluate.js",
+    "evaluate:verify": "node evaluation/verify-f1.js",
     "test:backend": "npm run test --prefix alagad-backend",
     "test:frontend": "npm run test --prefix alagad-frontend"
   },

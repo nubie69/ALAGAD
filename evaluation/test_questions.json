@@ -1,0 +1,16 @@
+[
+  {
+    "id": "Q001",
+    "question": "What are the requirements for obtaining an Exemption Slip?",
+    "expected_intent": "According to verified information from Student Leadership & Development Unit (SLEDEVU), to get an EXEMPTION SLIP, you should have these requirements: Validated Student Identification Card and Letter request (Attachment to the declared reason for exemption)",
+    "category": "information",
+    "rationale": "Information request about specific requirements for obtaining an exemption slip."
+  },
+  {
+    "id": "Q002",
+    "question": "What is the step-by-step procedure for getting an Exemption Slip?",
+    "expected_intent": "According to verified information from Student Leadership & Development Unit (SLEDEVU), the process for EXEMPTION SLIP is first, present Identification Card & Printed Letter request with attachment; next, sign the Logbook; finally, fill out the Customer Feedback Form /BOSES.",
+    "category": "information",
+    "rationale": "Information request about the procedure for obtaining an exemption slip."
+  }
+]
