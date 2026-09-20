@@ -2,7 +2,6 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LuArrowRight,
-  LuBrain,
   LuMap,
   LuMapPinned,
   LuMessageCircle,
@@ -131,7 +130,7 @@ const LandingPage = () => {
             </article>
             <article className="feature-box">
               <div className="feature-box-icon">
-                <LuBrain aria-hidden="true" />
+                <LuMessageCircle aria-hidden="true" />
               </div>
               <div className="feature-copy">
                 <h3 className="feature-box-label">AI Assistant</h3>

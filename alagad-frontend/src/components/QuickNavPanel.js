@@ -1,3 +1,4 @@
+import { BuildingIcon, MapPinIconOutline, RoomIcon, OfficeIcon, DepartmentIcon, InfoIcon, NavigationIcon, CloseIcon } from '../utils/icons';
 import React, { useEffect } from 'react';
 import '../styles/QuickNavPanel.css';
 
@@ -59,7 +60,7 @@ export const QuickNavPanel = ({
         <div className="panel-header">
           <div className="panel-title-section">
             <h2 className="panel-title">
-              🏢 {building?.name || 'Loading...'}
+              <BuildingIcon /> {building?.name || 'Loading...'}
             </h2>
             {building?.type && (
               <span className="panel-subtitle">{building.type}</span>
@@ -71,7 +72,7 @@ export const QuickNavPanel = ({
             aria-label="Close building details panel"
             title="Close (Esc)"
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
@@ -86,7 +87,7 @@ export const QuickNavPanel = ({
             <>
               {/* Basic Info Section */}
               <section className="info-section">
-                <h3 className="section-title">📍 Location & Info</h3>
+                <h3 className="section-title"><MapPinIconOutline /> Location & Info</h3>
                 <div className="info-grid">
                   {building.location && (
                     <div className="info-item">
@@ -120,7 +121,7 @@ export const QuickNavPanel = ({
               {/* Rooms Section */}
               {building.rooms && building.rooms.length > 0 && (
                 <section className="info-section">
-                  <h3 className="section-title">🚪 Rooms ({building.rooms.length})</h3>
+                  <h3 className="section-title"><RoomIcon /> Rooms ({building.rooms.length})</h3>
                   <div className="list-container">
                     {building.rooms.slice(0, 5).map((room, idx) => (
                       <div key={room._id || idx} className="list-item">
@@ -145,7 +146,7 @@ export const QuickNavPanel = ({
               {/* Offices Section */}
               {building.offices && building.offices.length > 0 && (
                 <section className="info-section">
-                  <h3 className="section-title">💼 Offices ({building.offices.length})</h3>
+                  <h3 className="section-title"><OfficeIcon /> Offices ({building.offices.length})</h3>
                   <div className="list-container">
                     {building.offices.slice(0, 5).map((office, idx) => (
                       <div key={office._id || idx} className="list-item">
@@ -170,7 +171,7 @@ export const QuickNavPanel = ({
               {/* Departments Section */}
               {building.department && (
                 <section className="info-section">
-                  <h3 className="section-title">🏛️ Department</h3>
+                  <h3 className="section-title"><DepartmentIcon /> Department</h3>
                   <div className="department-card">
                     <p className="department-name">{building.department}</p>
                   </div>
@@ -180,7 +181,7 @@ export const QuickNavPanel = ({
               {/* Additional Info Section */}
               {building.description && (
                 <section className="info-section">
-                  <h3 className="section-title">ℹ️ Description</h3>
+                  <h3 className="section-title"><InfoIcon /> Description</h3>
                   <p className="description-text">{building.description}</p>
                 </section>
               )}
@@ -188,10 +189,10 @@ export const QuickNavPanel = ({
               {/* Action Buttons */}
               <section className="action-section">
                 <button className="action-btn primary">
-                  📍 View on Map
+                  <MapPinIconOutline /> View on Map
                 </button>
                 <button className="action-btn secondary">
-                  📞 Get Directions
+                  <NavigationIcon /> Get Directions
                 </button>
               </section>
             </>

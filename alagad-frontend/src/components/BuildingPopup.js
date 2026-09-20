@@ -1,3 +1,4 @@
+import { BuildingIcon, MapPinIconOutline, TypeIcon } from '../utils/icons';
 import React from 'react';
 import '../styles/BuildingPopup.css';
 
@@ -25,7 +26,7 @@ export const BuildingPopup = ({
     <div className="building-popup-card">
       {/* Header with Icon */}
       <div className="popup-header">
-        <div className="popup-icon">🏢</div>
+        <div className="popup-icon"><BuildingIcon /></div>
         <h3 className="popup-title">{building.name}</h3>
       </div>
 
@@ -33,14 +34,14 @@ export const BuildingPopup = ({
       <div className="popup-content">
         {building.location && (
           <div className="popup-info-row">
-            <span className="popup-label">📍 Location:</span>
+            <span className="popup-label"><MapPinIconOutline /> Location:</span>
             <span className="popup-value">{building.location}</span>
           </div>
         )}
         
         {building.type && (
           <div className="popup-info-row">
-            <span className="popup-label">📋 Type:</span>
+            <span className="popup-label"><TypeIcon /> Type:</span>
             <span className="popup-badge">{building.type}</span>
           </div>
         )}

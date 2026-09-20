@@ -50,3 +50,10 @@
     font: inherit;
   }
 }
+
+/* Shared icons stay aligned in text, badges, and flex controls. */
+.app-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -0.18em;
+}

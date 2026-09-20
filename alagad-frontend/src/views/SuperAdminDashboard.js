@@ -1612,7 +1612,7 @@ function SuperAdminDashboard() {
               </div>
 
               <div className="form-section-card">
-                <h3 className="form-section-title">🏢 Assignment</h3>
+                <h3 className="form-section-title"><BuildingIcon /> Assignment</h3>
                 <p className="form-section-description">Assign this personnel to an office or a department.</p>
 
                 <div className="assignment-type-group">
@@ -1625,7 +1625,7 @@ function SuperAdminDashboard() {
                       onChange={() => { setFormData({ ...formData, assignmentType: 'office', department: '', supervisorId: '' }); setFormErrors({ ...formErrors, assignment: '', supervisorId: '' }); }}
                     />
                     <div className="assignment-type-content">
-                      <span className="assignment-type-icon">🏢</span>
+                      <span className="assignment-type-icon"><BuildingIcon /></span>
                       <div>
                         <strong>Office</strong>
                         <span>Assign to a specific office</span>
@@ -1641,7 +1641,7 @@ function SuperAdminDashboard() {
                       onChange={() => { setFormData({ ...formData, assignmentType: 'department', office: '', supervisorId: '' }); setFormErrors({ ...formErrors, assignment: '', supervisorId: '' }); }}
                     />
                     <div className="assignment-type-content">
-                      <span className="assignment-type-icon">🏫</span>
+                      <span className="assignment-type-icon"><DepartmentIcon /></span>
                       <div>
                         <strong>Department</strong>
                         <span>Assign to an academic department</span>
@@ -1839,7 +1839,7 @@ function SuperAdminDashboard() {
               </div>
 
               <div className="form-section-card">
-                <h3 className="form-section-title">🏢 Assignment</h3>
+                <h3 className="form-section-title"><BuildingIcon /> Assignment</h3>
                 <p className="form-section-description">Assign this service to an office or a department.</p>
 
                 <div className="assignment-type-group">
@@ -1852,7 +1852,7 @@ function SuperAdminDashboard() {
                       onChange={() => { setFormData({ ...formData, assignmentType: 'office', department: '' }); setFormErrors({ ...formErrors, assignment: '' }); }}
                     />
                     <div className="assignment-type-content">
-                      <span className="assignment-type-icon">🏢</span>
+                      <span className="assignment-type-icon"><BuildingIcon /></span>
                       <div>
                         <strong>Office</strong>
                         <span>Assign to a specific office</span>
@@ -1868,7 +1868,7 @@ function SuperAdminDashboard() {
                       onChange={() => { setFormData({ ...formData, assignmentType: 'department', office: '' }); setFormErrors({ ...formErrors, assignment: '' }); }}
                     />
                     <div className="assignment-type-content">
-                      <span className="assignment-type-icon">🏫</span>
+                      <span className="assignment-type-icon"><DepartmentIcon /></span>
                       <div>
                         <strong>Department</strong>
                         <span>Assign to an academic department</span>
@@ -2642,9 +2642,9 @@ function SuperAdminDashboard() {
                   <td>{item.title || '-'}</td>
                   <td>
                     {item.office?.name
-                      ? <span className="assignment-badge assignment-badge--office">🏢 {item.office.name}</span>
+                      ? <span className="assignment-badge assignment-badge--office"><BuildingIcon /> {item.office.name}</span>
                       : (item.departmentId?.name || item.department)
-                        ? <span className="assignment-badge assignment-badge--dept">🏫 {item.department}</span>
+                        ? <span className="assignment-badge assignment-badge--dept"><DepartmentIcon /> {item.department}</span>
                         : '-'}
                   </td>
                   <td>{item.supervisorId?.name || 'No Supervisor'}</td>
@@ -2675,12 +2675,12 @@ function SuperAdminDashboard() {
                         const office = offices.find((o) => o._id === officeId);
                         const officeName = typeof item.office === 'object' ? item.office.name : office?.name;
                         if (officeName) {
-                          return <span className="assignment-badge assignment-badge--office">🏢 {officeName}</span>;
+                          return <span className="assignment-badge assignment-badge--office"><BuildingIcon /> {officeName}</span>;
                         }
                       }
                       if (item.department) {
                         const deptName = departments.find((dept) => dept.code === item.department || dept.name === item.department)?.name || item.department;
-                        return <span className="assignment-badge assignment-badge--dept">🏫 {deptName}</span>;
+                        return <span className="assignment-badge assignment-badge--dept"><DepartmentIcon /> {deptName}</span>;
                       }
                       return '-';
                     })()}

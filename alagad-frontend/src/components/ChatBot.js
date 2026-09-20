@@ -1,9 +1,19 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useAnimationFrame, useMotionValue, useReducedMotion } from 'framer-motion';
 import { chatAPI, publicFaqsAPI } from '../utils/api';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
-import { MicIcon, DeleteIcon, CloseIcon, SendIcon } from '../utils/icons';
+import { MicIcon, DeleteIcon, CloseIcon, SendIcon, NavigationIcon } from '../utils/icons';
 import './ChatBot.css';
+
+const CampusMascot = ({ portrait = false }) => (
+  <span className={`campus-mascot ${portrait ? 'campus-mascot--portrait' : ''}`} aria-hidden="true">
+    <span
+      className="campus-mascot-sprite"
+      style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/images/campus-mascot-flight-sprite.png)` }}
+    />
+  </span>
+);
+
 
 // Map chatbot language → speech recognition BCP-47 code
 // Note: Web Speech API support varies; Cebuano isn't consistently available, so we fall back to a PH locale.
@@ -465,6 +475,13 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     } catch { return null; }
   });
   const dragRef = useRef({ dragging: false, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false });
+  const flightX = useMotionValue(0);
+  const flightY = useMotionValue(0);
+  const flightBank = useMotionValue(0);
+  const flightClock = useRef(0);
+  const flightInteraction = useRef({ hovered: false, focused: false });
+  const reduceMotion = useReducedMotion();
+
 
   const clampPosition = useCallback((x, y, elWidth, elHeight) => {
     const vw = window.innerWidth;
@@ -484,11 +501,11 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       dragging: true,
       startX: clientX,
       startY: clientY,
-      startLeft: rect.left,
-      startTop: rect.top,
+      startLeft: rect.left - flightX.get(),
+      startTop: rect.top - flightY.get(),
       moved: false,
     };
-  }, []);
+  }, [flightX, flightY]);
 
   const handleDragMove = useCallback((clientX, clientY) => {
     const d = dragRef.current;
@@ -499,13 +516,15 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     if (!d.moved) return;
     const el = triggerBtnRef.current;
     if (!el) return;
-    const size = el.offsetWidth;
-    const clamped = clampPosition(d.startLeft + dx, d.startTop + dy, size, size);
-    el.style.left = `${clamped.x}px`;
-    el.style.top = `${clamped.y}px`;
+    const clamped = clampPosition(
+      d.startLeft + dx + flightX.get(), d.startTop + dy + flightY.get(),
+      el.offsetWidth, el.offsetHeight
+    );
+    el.style.left = `${clamped.x - flightX.get()}px`;
+    el.style.top = `${clamped.y - flightY.get()}px`;
     el.style.right = 'auto';
     el.style.bottom = 'auto';
-  }, [clampPosition]);
+  }, [clampPosition, flightX, flightY]);
 
   const handleDragEnd = useCallback(() => {
     const d = dragRef.current;
@@ -515,9 +534,16 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const pos = { x: rect.left, y: rect.top };
+    // Start the next loop at the drop point, without shifting the visible bird.
+    el.style.left = `${pos.x}px`;
+    el.style.top = `${pos.y}px`;
+    flightClock.current = 0;
+    flightX.set(0);
+    flightY.set(0);
+    flightBank.set(0);
     setTriggerPos(pos);
     try { localStorage.setItem('chatbot-trigger-pos', JSON.stringify(pos)); } catch {}
-  }, []);
+  }, [flightX, flightY, flightBank]);
 
   // Mouse events
   const onMouseDown = useCallback((e) => { handleDragStart(e.clientX, e.clientY); }, [handleDragStart]);
@@ -554,6 +580,35 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   }, [onMouseMove, onMouseUp, onTouchMove, onTouchEnd]);
 
   const triggerBtnRef = useRef(null);
+
+  // Move the entire hit target with the bird. Pausing preserves its exact position.
+  useAnimationFrame((_, delta) => {
+    const el = triggerBtnRef.current;
+    if (!el || isOpen) {
+      flightInteraction.current = { hovered: false, focused: false };
+      return;
+    }
+    if (reduceMotion) {
+      flightX.set(0);
+      flightY.set(0);
+      flightBank.set(0);
+      return;
+    }
+    if (dragRef.current.dragging || flightInteraction.current.hovered || flightInteraction.current.focused) return;
+    // Cap elapsed time so returning to a backgrounded tab never causes a jump.
+    flightClock.current += Math.min(delta, 40);
+    const phase = (flightClock.current / 12000) * Math.PI * 2;
+    const compact = window.innerWidth <= 768;
+    const radiusX = compact ? 24 : 58;
+    const radiusY = compact ? 18 : 36;
+    const dx = -radiusX * (1 - Math.cos(phase));
+    const dy = -radiusY * (1 - Math.cos(phase * 2));
+    const position = clampPosition(el.offsetLeft + dx, el.offsetTop + dy, el.offsetWidth, el.offsetHeight);
+    flightX.set(position.x - el.offsetLeft);
+    flightY.set(position.y - el.offsetTop);
+    flightBank.set(-7 * Math.sin(phase));
+  });
+
 
   // Detect mobile
   const [isMobileChat, setIsMobileChat] = useState(() => window.innerWidth <= 768);
@@ -712,35 +767,20 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showGreeting, isOpen]);
 
-  // Spring configs for each phase
-  const robotVariants = {
-    idle:       { y: 8, scaleX: 1, scaleY: 1, rotate: 0 },
-    anticipate: { y: 12, scaleX: 1.08, scaleY: 0.92, rotate: 0 },
-    peek:       { y: -12, scaleX: 0.96, scaleY: 1.06, rotate: 0 },
-    float:      { y: -14, scaleX: 1, scaleY: 1, rotate: 2 },
-    retract:    { y: 4, scaleX: 1, scaleY: 1, rotate: 0 },
-    land:       { y: 10, scaleX: 1.06, scaleY: 0.94, rotate: 0 },
-  };
-
-  const robotTransitions = {
-    idle:       { type: 'spring', stiffness: 120, damping: 14, mass: 0.8 },
-    anticipate: { type: 'spring', stiffness: 300, damping: 20, mass: 0.6 },
-    peek:       { type: 'spring', stiffness: 180, damping: 12, mass: 0.7 },
-    float:      { type: 'spring', stiffness: 80,  damping: 10, mass: 1 },
-    retract:    { type: 'spring', stiffness: 200, damping: 18, mass: 0.7 },
-    land:       { type: 'spring', stiffness: 300, damping: 15, mass: 0.6 },
-  };
-
   const showSpeechBubble = mascotPhase === 'peek' || mascotPhase === 'float';
 
   return (
     <>
       {/* Mascot trigger — visible when chatbot is closed */}
       {!isOpen && (
-        <div
+        <motion.div
           ref={triggerBtnRef}
           className="chatbot-mascot-wrapper"
-          style={triggerPos ? { left: `${triggerPos.x}px`, top: `${triggerPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+          style={{ ...(triggerPos ? { left: `${triggerPos.x}px`, top: `${triggerPos.y}px`, right: 'auto', bottom: 'auto' } : {}), x: flightX, y: flightY }}
+          onMouseEnter={() => { flightInteraction.current.hovered = true; }}
+          onMouseLeave={() => { flightInteraction.current.hovered = false; }}
+          onFocus={() => { flightInteraction.current.focused = true; }}
+          onBlur={() => { flightInteraction.current.focused = false; }}
           onMouseDown={onMouseDown}
           onTouchStart={onTouchStart}
         >
@@ -759,134 +799,20 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
             )}
           </AnimatePresence>
 
-          {/* Trigger area with pulsing glow rings */}
+          {/* Transparent 3D mascot launcher */}
           <div className="chatbot-trigger-container">
-            <div className="chatbot-trigger-ring" aria-hidden="true" />
-            <div className="chatbot-trigger-ring chatbot-trigger-ring--2" aria-hidden="true" />
             <button
               className="chatbot-trigger"
               onClick={() => { if (!dragRef.current.moved) setIsOpen(true); }}
               title="Open Campus Assistant (drag to move)"
+              aria-label="Open Campus Assistant"
             >
-              {/* Mascot robot — spring animated */}
-              <motion.div
-                className="mascot-robot"
-                variants={robotVariants}
-                animate={mascotPhase}
-                transition={robotTransitions[mascotPhase]}
-              >
-              <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <radialGradient id="mg_body" cx="38%" cy="25%" r="72%">
-                    <stop offset="0%" stopColor="#8deaf6"/>
-                    <stop offset="42%" stopColor="#0ac4e0"/>
-                    <stop offset="100%" stopColor="#067d90"/>
-                  </radialGradient>
-                  <radialGradient id="mg_face" cx="50%" cy="35%" r="75%">
-                    <stop offset="0%" stopColor="#f3fcff"/>
-                    <stop offset="100%" stopColor="#d6f6fb"/>
-                  </radialGradient>
-                  <radialGradient id="mg_eye" cx="32%" cy="28%" r="65%">
-                    <stop offset="0%" stopColor="#475569"/>
-                    <stop offset="100%" stopColor="#020617"/>
-                  </radialGradient>
-                  <radialGradient id="mg_cup" cx="38%" cy="30%" r="68%">
-                    <stop offset="0%" stopColor="#4b5563"/>
-                    <stop offset="100%" stopColor="#0f172a"/>
-                  </radialGradient>
-                  <radialGradient id="mg_ant" cx="38%" cy="32%" r="65%">
-                    <stop offset="0%" stopColor="#66ddf0"/>
-                    <stop offset="55%" stopColor="#0ac4e0"/>
-                    <stop offset="100%" stopColor="#067d90"/>
-                  </radialGradient>
-                  <linearGradient id="mg_gloss" x1="5%" y1="5%" x2="75%" y2="65%">
-                    <stop offset="0%" stopColor="white" stopOpacity="0.50"/>
-                    <stop offset="55%" stopColor="white" stopOpacity="0.10"/>
-                    <stop offset="100%" stopColor="white" stopOpacity="0"/>
-                  </linearGradient>
-                  <linearGradient id="mg_rim" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="transparent"/>
-                    <stop offset="100%" stopColor="#045c6b" stopOpacity="0.24"/>
-                  </linearGradient>
-                </defs>
-
-                {/* Ambient aura */}
-                <ellipse cx="32" cy="33" rx="20" ry="18" fill="#0ac4e0" opacity="0.14"/>
-
-                {/* Headset band */}
-                <path d="M16 20 Q32 6 48 20" stroke="#0b3b66" strokeWidth="4.5" strokeLinecap="round" fill="none"/>
-                <path d="M16 20 Q32 6 48 20" stroke="#3e7d8f" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.55"/>
-
-                {/* Left earmuff */}
-                <ellipse cx="16" cy="25" rx="4.5" ry="6" fill="url(#mg_cup)"/>
-                <ellipse cx="16" cy="25" rx="2.6" ry="3.8" fill="#0f172a"/>
-                <ellipse cx="15.2" cy="23" rx="1.3" ry="0.9" fill="white" opacity="0.28"/>
-
-                {/* Right earmuff */}
-                <ellipse cx="48" cy="25" rx="4.5" ry="6" fill="url(#mg_cup)"/>
-                <ellipse cx="48" cy="25" rx="2.6" ry="3.8" fill="#0f172a"/>
-                <ellipse cx="47.2" cy="23" rx="1.3" ry="0.9" fill="white" opacity="0.28"/>
-
-                {/* Microphone arm */}
-                <path d="M48 28 Q54 32 50 38" stroke="#0b3b66" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-                <ellipse cx="49.5" cy="39.5" rx="3.2" ry="2.2" fill="#0f172a"/>
-                <ellipse cx="49.5" cy="39.5" rx="2" ry="1.3" fill="#334155"/>
-                <ellipse cx="49" cy="38.9" rx="0.8" ry="0.5" fill="white" opacity="0.35"/>
-
-                {/* Body */}
-                <rect x="16" y="22" width="32" height="26" rx="10" fill="url(#mg_body)"/>
-                <rect x="16" y="22" width="32" height="26" rx="10" fill="url(#mg_rim)"/>
-
-                {/* Head */}
-                <rect x="18" y="14" width="28" height="22" rx="11" fill="url(#mg_body)"/>
-                <rect x="18" y="14" width="28" height="22" rx="11" fill="url(#mg_rim)"/>
-
-                {/* Face panel */}
-                <rect x="22" y="18" width="20" height="14" rx="7" fill="url(#mg_face)"/>
-
-                {/* Left eye */}
-                <circle cx="28" cy="24" r="3.5" fill="url(#mg_eye)"/>
-                <circle cx="29.3" cy="22.7" r="1.4" fill="white" opacity="0.65"/>
-                <circle cx="28.7" cy="22.3" r="0.6" fill="white" opacity="0.90"/>
-
-                {/* Right eye */}
-                <circle cx="36" cy="24" r="3.5" fill="url(#mg_eye)"/>
-                <circle cx="37.3" cy="22.7" r="1.4" fill="white" opacity="0.65"/>
-                <circle cx="36.7" cy="22.3" r="0.6" fill="white" opacity="0.90"/>
-
-                {/* Smile */}
-                <path d="M27.5 29 Q32 33.5 36.5 29" stroke="#067d90" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-                <path d="M27.5 29 Q32 33.5 36.5 29" stroke="#bdeff7" strokeWidth="0.7" strokeLinecap="round" fill="none" opacity="0.6"/>
-
-                {/* Cheek blush */}
-                <ellipse cx="24" cy="29.5" rx="2.8" ry="1.7" fill="#8deaf6" opacity="0.32"/>
-                <ellipse cx="40" cy="29.5" rx="2.8" ry="1.7" fill="#8deaf6" opacity="0.32"/>
-
-                {/* Antenna */}
-                <line x1="32" y1="14" x2="32" y2="8" stroke="#067d90" strokeWidth="2.5" strokeLinecap="round"/>
-                <circle cx="32" cy="7" r="5" fill="#0ac4e0" opacity="0.24"/>
-                <circle cx="32" cy="7" r="3" fill="url(#mg_ant)"/>
-                <circle cx="31.3" cy="6.3" r="1" fill="white" opacity="0.60"/>
-
-                {/* Gloss highlights */}
-                <rect x="18" y="14" width="28" height="14" rx="11" fill="url(#mg_gloss)"/>
-                <rect x="16" y="22" width="32" height="10" rx="10" fill="url(#mg_gloss)" opacity="0.55"/>
-              </svg>
-            </motion.div>
+              <motion.span className="campus-mascot-flight" style={{ rotate: flightBank }}><CampusMascot /></motion.span>
           </button>
         </div>
 
-          {/* Decorative chevron pulse beneath */}
-          <motion.div
-            className="mascot-chevron"
-            animate={{ y: [0, 4, 0], opacity: [0.7, 0.3, 0.7] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
-              <path d="M2 2L12 10L22 2" stroke="#0ac4e0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </motion.div>
-        </div>
+
+        </motion.div>
       )}
 
       {/* Chat container — animated open/close */}
@@ -913,16 +839,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
             </svg>
           </button>
           <div className="chatbot-mobile-header-mascot">
-            <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
-              <rect x="16" y="22" width="32" height="26" rx="10" fill="#fff" opacity="0.9"/>
-              <rect x="18" y="14" width="28" height="22" rx="11" fill="#fff" opacity="0.9"/>
-              <rect x="22" y="18" width="20" height="14" rx="7" fill="#e8f8fc"/>
-              <circle cx="28" cy="24" r="3" fill="#0b3b66"/><circle cx="29" cy="23" r="1.2" fill="white" opacity="0.7"/>
-              <circle cx="36" cy="24" r="3" fill="#0b3b66"/><circle cx="37" cy="23" r="1.2" fill="white" opacity="0.7"/>
-              <path d="M28 29 Q32 33 36 29" stroke="#067d90" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-              <line x1="32" y1="14" x2="32" y2="9" stroke="#0ac4e0" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="32" cy="8" r="2.5" fill="#0ac4e0"/>
-            </svg>
+            <CampusMascot portrait />
           </div>
           <h3 className="chatbot-mobile-title">{t.title}</h3>
           <div className="chatbot-mobile-actions">
@@ -940,7 +857,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       {/* Desktop: original header */}
       {!isMobileChat && (
       <div className="chatbot-header">
-        <h3>{t.title}</h3>
+        <h3><span className="chatbot-header-avatar"><CampusMascot portrait /></span>{t.title}</h3>
         <div className="chatbot-controls">
           <button
             className="chatbot-clear-btn"
@@ -1160,26 +1077,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
               <div className="message-content">
                 {message.sender === 'bot' && (
                   <span className="bot-avatar">
-                  <svg width="22" height="22" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <radialGradient id="ba_body" cx="38%" cy="25%" r="72%"><stop offset="0%" stopColor="#8deaf6"/><stop offset="42%" stopColor="#0ac4e0"/><stop offset="100%" stopColor="#067d90"/></radialGradient>
-                      <radialGradient id="ba_face" cx="50%" cy="35%" r="75%"><stop offset="0%" stopColor="#f3fcff"/><stop offset="100%" stopColor="#d6f6fb"/></radialGradient>
-                      <radialGradient id="ba_eye" cx="32%" cy="28%" r="65%"><stop offset="0%" stopColor="#475569"/><stop offset="100%" stopColor="#020617"/></radialGradient>
-                    </defs>
-                    <rect x="16" y="22" width="32" height="26" rx="10" fill="url(#ba_body)"/>
-                    <rect x="18" y="14" width="28" height="22" rx="11" fill="url(#ba_body)"/>
-                    <rect x="22" y="18" width="20" height="14" rx="7" fill="url(#ba_face)"/>
-                    <circle cx="28" cy="24" r="3.5" fill="url(#ba_eye)"/>
-                    <circle cx="29.3" cy="22.7" r="1.4" fill="white" opacity="0.65"/>
-                    <circle cx="36" cy="24" r="3.5" fill="url(#ba_eye)"/>
-                    <circle cx="37.3" cy="22.7" r="1.4" fill="white" opacity="0.65"/>
-                    <path d="M27.5 29 Q32 33.5 36.5 29" stroke="#067d90" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-                    <ellipse cx="24" cy="29.5" rx="2.8" ry="1.7" fill="#8deaf6" opacity="0.32"/>
-                    <ellipse cx="40" cy="29.5" rx="2.8" ry="1.7" fill="#8deaf6" opacity="0.32"/>
-                    <line x1="32" y1="14" x2="32" y2="8" stroke="#067d90" strokeWidth="2.5" strokeLinecap="round"/>
-                    <circle cx="32" cy="7" r="3" fill="#0ac4e0"/>
-                    <circle cx="31.3" cy="6.3" r="1" fill="white" opacity="0.6"/>
-                  </svg>
+                  <CampusMascot portrait />
                   </span>
                 )}
                 <div className="message-text">
@@ -1337,7 +1235,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                       onMouseLeave={(e) => { e.currentTarget.style.background = '#16a34a'; e.currentTarget.style.transform = 'translateY(0)'; }}
                       title={t.navButton}
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11" /></svg>
+                      <NavigationIcon size={12} />
                       {t.navButton}
                     </button>
                   </div>
@@ -1357,26 +1255,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
             <div className="message bot">
               <div className="message-content">
                 <span className="bot-avatar">
-                <svg width="22" height="22" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <radialGradient id="ba_body2" cx="38%" cy="25%" r="72%"><stop offset="0%" stopColor="#8deaf6"/><stop offset="42%" stopColor="#0ac4e0"/><stop offset="100%" stopColor="#067d90"/></radialGradient>
-                    <radialGradient id="ba_face2" cx="50%" cy="35%" r="75%"><stop offset="0%" stopColor="#f3fcff"/><stop offset="100%" stopColor="#d6f6fb"/></radialGradient>
-                    <radialGradient id="ba_eye2" cx="32%" cy="28%" r="65%"><stop offset="0%" stopColor="#475569"/><stop offset="100%" stopColor="#020617"/></radialGradient>
-                  </defs>
-                  <rect x="16" y="22" width="32" height="26" rx="10" fill="url(#ba_body2)"/>
-                  <rect x="18" y="14" width="28" height="22" rx="11" fill="url(#ba_body2)"/>
-                  <rect x="22" y="18" width="20" height="14" rx="7" fill="url(#ba_face2)"/>
-                  <circle cx="28" cy="24" r="3.5" fill="url(#ba_eye2)"/>
-                  <circle cx="29.3" cy="22.7" r="1.4" fill="white" opacity="0.65"/>
-                  <circle cx="36" cy="24" r="3.5" fill="url(#ba_eye2)"/>
-                  <circle cx="37.3" cy="22.7" r="1.4" fill="white" opacity="0.65"/>
-                  <path d="M27.5 29 Q32 33.5 36.5 29" stroke="#067d90" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-                  <ellipse cx="24" cy="29.5" rx="2.8" ry="1.7" fill="#8deaf6" opacity="0.32"/>
-                  <ellipse cx="40" cy="29.5" rx="2.8" ry="1.7" fill="#8deaf6" opacity="0.32"/>
-                  <line x1="32" y1="14" x2="32" y2="8" stroke="#067d90" strokeWidth="2.5" strokeLinecap="round"/>
-                  <circle cx="32" cy="7" r="3" fill="#0ac4e0"/>
-                  <circle cx="31.3" cy="6.3" r="1" fill="white" opacity="0.6"/>
-                </svg>
+                <CampusMascot portrait />
                 </span>
                 <div className="message-text typing">
                   <span></span>

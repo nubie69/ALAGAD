@@ -17,7 +17,7 @@ import { buildingsAPI, roomsAPI, officesAPI, departmentsAPI, settingsAPI, popula
 
 import '../App.css';
 import './GuestView.modern.css';
-import { BackIcon, BuildingIcon, MapPinIconOutline, MicIcon, OfficeIcon, OrgChartIcon, RoomIcon, StopMicIcon } from '../utils/icons';
+import { BackIcon, BuildingIcon, DepartmentIcon, MapPinIconOutline, MicIcon, OfficeIcon, OrgChartIcon, RoomIcon, StopMicIcon } from '../utils/icons';
 import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePathsGeoJSON } from '../utils/campusPathfinding';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import streetNamesGeoJSON from '../data/streetNames.json';
@@ -2059,10 +2059,10 @@ function GuestView() {
               </div>
               <div className="bv-meta">
                 {quickNavBuilding.numberOfFloors && (
-                  <span className="bv-meta-tag">🏢 {quickNavBuilding.numberOfFloors} Floor{quickNavBuilding.numberOfFloors > 1 ? 's' : ''}</span>
+                  <span className="bv-meta-tag"><BuildingIcon /> {quickNavBuilding.numberOfFloors} Floor{quickNavBuilding.numberOfFloors > 1 ? 's' : ''}</span>
                 )}
                 {quickNavBuilding.department && (
-                  <span className="bv-meta-tag">🏛️ {quickNavBuilding.department}</span>
+                  <span className="bv-meta-tag"><DepartmentIcon /> {quickNavBuilding.department}</span>
                 )}
               </div>
               {quickNavBuilding.description && (
@@ -2682,12 +2682,12 @@ function GuestView() {
                           </div>
                           {office.building?.name && (
                             <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#6b7280' }}>
-                              <span style={{ fontWeight: '600' }}>📍 Building:</span> {office.building.name}
+                              <span style={{ fontWeight: '600' }}><MapPinIconOutline /> Building:</span> {office.building.name}
                             </p>
                           )}
                           {office.floor && (
                             <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#6b7280' }}>
-                              <span style={{ fontWeight: '600' }}>🏢 Floor:</span> {office.floor}
+                              <span style={{ fontWeight: '600' }}><BuildingIcon /> Floor:</span> {office.floor}
                             </p>
                           )}
                           {office.head && (
@@ -2697,7 +2697,7 @@ function GuestView() {
                           )}
                           {office.department && (
                             <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#6b7280' }}>
-                              <span style={{ fontWeight: '600' }}>🏛️ Dept:</span> {office.department}
+                              <span style={{ fontWeight: '600' }}><DepartmentIcon /> Dept:</span> {office.department}
                             </p>
                           )}
                           {office.description && (

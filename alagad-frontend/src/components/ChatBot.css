@@ -1471,3 +1471,170 @@
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.4); opacity: 0.6; }
 }
+
+/* Keep the assistant mark quiet and legible alongside the map controls. */
+.chatbot-trigger {
+  color: #155e75;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.14);
+}
+.chatbot-trigger:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.2);
+}
+.chatbot-mascot-wrapper::before,
+.chatbot-mascot-wrapper::after {
+  display: none;
+}
+.bot-avatar {
+  color: #155e75;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+}
+.chatbot-mobile-header-mascot {
+  color: #ffffff;
+}
+
+/* Reference-inspired 3D campus mascot. */
+.campus-mascot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.campus-mascot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+.chatbot-trigger-container,
+.chatbot-trigger {
+  width: 104px;
+  height: 104px;
+}
+.chatbot-trigger,
+.chatbot-trigger:hover,
+.chatbot-trigger:active {
+  background: transparent;
+  border: 0;
+  border-radius: 20px;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
+  transform: none;
+}
+.chatbot-trigger .campus-mascot {
+  filter: drop-shadow(0 5px 4px rgba(63, 39, 16, 0.24));
+  transition: transform 180ms ease;
+}
+.chatbot-trigger:hover .campus-mascot {
+  transform: translateY(-3px) rotate(-3deg);
+}
+.chatbot-trigger:active .campus-mascot {
+  transform: scale(0.96);
+}
+.chatbot-trigger:focus-visible {
+  outline: 3px solid #4472ca;
+  outline-offset: 4px;
+}
+.campus-mascot--portrait {
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #fff4db;
+}
+.campus-mascot--portrait img {
+  position: absolute;
+  width: 140%;
+  max-width: none;
+  height: 140%;
+  left: -20%;
+  top: -15%;
+}
+.bot-avatar {
+  border: 1px solid #ead7b4;
+  background: #fff4db;
+}
+.chatbot-mobile-header-mascot {
+  padding: 0;
+  border-radius: 50%;
+}
+.chatbot-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chatbot-header-avatar {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .chatbot-trigger-container,
+  .chatbot-trigger {
+    width: 80px;
+    height: 80px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chatbot-trigger .campus-mascot {
+    transition: none;
+  }
+  .chatbot-trigger:hover .campus-mascot {
+    transform: none;
+  }
+}
+
+/* The inner bank follows the flight path; the outer wrapper carries the hit target. */
+.campus-mascot-flight {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 60%;
+}
+.chatbot-trigger:hover .campus-mascot,
+.chatbot-trigger:active .campus-mascot {
+  transform: none;
+}
+
+/* Four wing poses across the atlas; open/closed eyelids occupy its two rows. */
+.campus-mascot-sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-size: 400% 200%;
+  background-repeat: no-repeat;
+  background-position: 0% 0%;
+  animation: campus-mascot-blink 5.6s step-end infinite;
+}
+.chatbot-trigger .campus-mascot-sprite {
+  animation: campus-mascot-flap 720ms step-end infinite,
+             campus-mascot-blink 5.6s step-end infinite;
+}
+.campus-mascot--portrait .campus-mascot-sprite {
+  position: absolute;
+  width: 170%;
+  height: 170%;
+  left: -35%;
+  top: -25%;
+}
+@keyframes campus-mascot-flap {
+  0%, 100% { background-position-x: 0%; }
+  25% { background-position-x: 33.333333%; }
+  50% { background-position-x: 66.666667%; }
+  75% { background-position-x: 100%; }
+}
+@keyframes campus-mascot-blink {
+  0%, 43%, 47%, 94%, 98%, 100% { background-position-y: 0%; }
+  44%, 95% { background-position-y: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .campus-mascot-sprite,
+  .chatbot-trigger .campus-mascot-sprite {
+    animation: none;
+    background-position: 0% 0%;
+  }
+}

@@ -1,82 +1,73 @@
 import React from 'react';
 import {
-	AcademicCapIcon,
-	ArrowLeftIcon,
-	BriefcaseIcon,
-	BuildingOffice2Icon,
-	ChartBarIcon,
-	ChatBubbleLeftEllipsisIcon,
-	Cog6ToothIcon,
-	FolderIcon,
-	LockClosedIcon,
-	MapIcon,
-	MapPinIcon,
-	MicrophoneIcon,
-	PaperAirplaneIcon,
-	PencilSquareIcon,
-	SpeakerWaveIcon,
-	Squares2X2Icon,
-	StopIcon,
-	TrashIcon,
-	UserGroupIcon,
-	UsersIcon,
-	WrenchScrewdriverIcon,
-	XMarkIcon,
-} from '@heroicons/react/24/outline';
+  LuPencil,
+  LuTrash2,
+  LuChartNoAxesCombined,
+  LuBuilding2,
+  LuGraduationCap,
+  LuSettings2,
+  LuMapPin,
+  LuMap,
+  LuUsersRound,
+  LuLandmark,
+  LuLogOut,
+  LuArrowLeft,
+  LuX,
+  LuMic,
+  LuSquare,
+  LuVolume2,
+  LuSend,
+  LuMessageCircle,
+  LuUsers,
+  LuDoorOpen,
+  LuBriefcaseBusiness,
+  LuWrench,
+  LuNetwork,
+  LuNavigation,
+  LuInfo,
+  LuClipboardList
+} from 'react-icons/lu';
 
-const DEFAULT_ICON_SIZE = 16;
-
-const normalizeSize = (size) => (typeof size === 'number' ? `${size}px` : size);
-
-const withSize = (className, props = {}) => {
-	const { size, style, className: userClassName, ...rest } = props;
-	const resolvedSize = normalizeSize(size || DEFAULT_ICON_SIZE);
-
-	return {
-		...rest,
-		className: `${className || ''} ${userClassName || ''}`.trim(),
-		style: {
-			width: resolvedSize,
-			height: resolvedSize,
-			...style,
-		},
-	};
+// One outline family, optical weight, and sizing contract across the app.
+const createIcon = (Glyph) => {
+  const Icon = ({ size = 16, className = '', style, title, ...props }) => (
+    <Glyph
+      aria-hidden={title ? undefined : true}
+      role={title ? 'img' : undefined}
+      aria-label={title}
+      focusable="false"
+      strokeWidth={1.75}
+      {...props}
+      className={`app-icon ${className}`.trim()}
+      style={{ width: size, height: size, ...style }}
+    />
+  );
+  return Icon;
 };
 
-// Re-export icons with consistent styling
-export const EditIcon = (props) => <PencilSquareIcon {...withSize('', props)} />;
-export const DeleteIcon = (props) => <TrashIcon {...withSize('', props)} />;
-export const DashboardIcon = (props) => <ChartBarIcon {...withSize('', props)} />;
-export const BuildingIcon = (props) => <BuildingOffice2Icon {...withSize('', props)} />;
-export const FacultyIcon = (props) => <AcademicCapIcon {...withSize('', props)} />;
-export const SettingsIcon = (props) => <Cog6ToothIcon {...withSize('', props)} />;
-export const MapPinIconOutline = (props) => <MapPinIcon {...withSize('', props)} />;
-export const MapIconOutline = (props) => <MapIcon {...withSize('', props)} />;
-export const AdminIcon = (props) => <UserGroupIcon {...withSize('', props)} />;
-export const DepartmentIcon = (props) => <FolderIcon {...withSize('', props)} />;
-export const LogoutIcon = (props) => <LockClosedIcon {...withSize('', props)} />;
-export const BackIcon = (props) => <ArrowLeftIcon {...withSize('', props)} />;
-export const CloseIcon = (props) => <XMarkIcon {...withSize('', props)} />;
-export const MicIcon = (props) => <MicrophoneIcon {...withSize('', props)} />;
-export const StopMicIcon = (props) => <StopIcon {...withSize('', props)} />;
-export const ListeningIcon = (props) => <SpeakerWaveIcon {...withSize('', props)} />;
-export const SendIcon = (props) => <PaperAirplaneIcon {...withSize('', props)} />;
-export const ChatIcon = (props) => <ChatBubbleLeftEllipsisIcon {...withSize('', props)} />;
-export const StaffIcon = (props) => <UsersIcon {...withSize('', props)} />;
-export const RoomIcon = (props) => <Squares2X2Icon {...withSize('', props)} />;
-export const OfficeIcon = (props) => <BriefcaseIcon {...withSize('', props)} />;
-export const ServiceIcon = (props) => <WrenchScrewdriverIcon {...withSize('', props)} />;
-
-// A small hierarchy glyph used by the public organizational chart entry point.
-// It follows the same outline treatment and sizing contract as the Heroicons above.
-export const OrgChartIcon = (props) => {
-	const sizedProps = withSize('', props);
-	return (
-		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...sizedProps}>
-			<rect x="9" y="3" width="6" height="5" rx="1" />
-			<rect x="3" y="16" width="6" height="5" rx="1" />
-			<rect x="15" y="16" width="6" height="5" rx="1" />
-			<path d="M12 8v4M6 12h12M6 12v4M18 12v4" />
-		</svg>
-	);
-};
+export const EditIcon = createIcon(LuPencil);
+export const DeleteIcon = createIcon(LuTrash2);
+export const DashboardIcon = createIcon(LuChartNoAxesCombined);
+export const BuildingIcon = createIcon(LuBuilding2);
+export const FacultyIcon = createIcon(LuGraduationCap);
+export const SettingsIcon = createIcon(LuSettings2);
+export const MapPinIconOutline = createIcon(LuMapPin);
+export const MapIconOutline = createIcon(LuMap);
+export const AdminIcon = createIcon(LuUsersRound);
+export const DepartmentIcon = createIcon(LuLandmark);
+export const LogoutIcon = createIcon(LuLogOut);
+export const BackIcon = createIcon(LuArrowLeft);
+export const CloseIcon = createIcon(LuX);
+export const MicIcon = createIcon(LuMic);
+export const StopMicIcon = createIcon(LuSquare);
+export const ListeningIcon = createIcon(LuVolume2);
+export const SendIcon = createIcon(LuSend);
+export const ChatIcon = createIcon(LuMessageCircle);
+export const StaffIcon = createIcon(LuUsers);
+export const RoomIcon = createIcon(LuDoorOpen);
+export const OfficeIcon = createIcon(LuBriefcaseBusiness);
+export const ServiceIcon = createIcon(LuWrench);
+export const OrgChartIcon = createIcon(LuNetwork);
+export const NavigationIcon = createIcon(LuNavigation);
+export const InfoIcon = createIcon(LuInfo);
+export const TypeIcon = createIcon(LuClipboardList);
