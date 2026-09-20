@@ -1,16 +1,22 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence, useAnimationFrame, useMotionValue, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { chatAPI, publicFaqsAPI } from '../utils/api';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import { MicIcon, DeleteIcon, CloseIcon, SendIcon, NavigationIcon } from '../utils/icons';
 import './ChatBot.css';
 
+// Show one fully opaque atlas pose at a time to avoid ghosting while flying.
+const MASCOT_ATLAS = `${process.env.PUBLIC_URL}/images/campus-mascot-flight-sprite.png`;
 const CampusMascot = ({ portrait = false }) => (
   <span className={`campus-mascot ${portrait ? 'campus-mascot--portrait' : ''}`} aria-hidden="true">
-    <span
-      className="campus-mascot-sprite"
-      style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/images/campus-mascot-flight-sprite.png)` }}
-    />
+    <span className="campus-mascot-frames">
+      {(portrait ? [0] : [0, 1, 2, 3]).map((frame) => (
+        <span className="campus-mascot-frame" key={frame} style={{ '--wing-frame': frame }}>
+          <span className="campus-mascot-sprite" style={{ backgroundImage: `url(${MASCOT_ATLAS})`, backgroundPosition: `${frame * 100 / 3}% 0%` }} />
+          <span className="campus-mascot-sprite campus-mascot-sprite--blink" style={{ backgroundImage: `url(${MASCOT_ATLAS})`, backgroundPosition: `${frame * 100 / 3}% 100%` }} />
+        </span>
+      ))}
+    </span>
   </span>
 );
 
@@ -475,11 +481,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     } catch { return null; }
   });
   const dragRef = useRef({ dragging: false, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false });
-  const flightX = useMotionValue(0);
-  const flightY = useMotionValue(0);
-  const flightBank = useMotionValue(0);
-  const flightClock = useRef(0);
-  const flightInteraction = useRef({ hovered: false, focused: false });
   const reduceMotion = useReducedMotion();
 
 
@@ -501,11 +502,11 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       dragging: true,
       startX: clientX,
       startY: clientY,
-      startLeft: rect.left - flightX.get(),
-      startTop: rect.top - flightY.get(),
+      startLeft: rect.left,
+      startTop: rect.top,
       moved: false,
     };
-  }, [flightX, flightY]);
+  }, []);
 
   const handleDragMove = useCallback((clientX, clientY) => {
     const d = dragRef.current;
@@ -517,33 +518,30 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     const el = triggerBtnRef.current;
     if (!el) return;
     const clamped = clampPosition(
-      d.startLeft + dx + flightX.get(), d.startTop + dy + flightY.get(),
+      d.startLeft + dx, d.startTop + dy,
       el.offsetWidth, el.offsetHeight
     );
-    el.style.left = `${clamped.x - flightX.get()}px`;
-    el.style.top = `${clamped.y - flightY.get()}px`;
+    el.style.left = `${clamped.x}px`;
+    el.style.top = `${clamped.y}px`;
     el.style.right = 'auto';
     el.style.bottom = 'auto';
-  }, [clampPosition, flightX, flightY]);
+  }, [clampPosition]);
 
   const handleDragEnd = useCallback(() => {
     const d = dragRef.current;
+    if (!d.dragging) return;
     d.dragging = false;
     if (!d.moved) return;
     const el = triggerBtnRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const pos = { x: rect.left, y: rect.top };
-    // Start the next loop at the drop point, without shifting the visible bird.
+    // Keep the mascot at the user-selected drop point.
     el.style.left = `${pos.x}px`;
     el.style.top = `${pos.y}px`;
-    flightClock.current = 0;
-    flightX.set(0);
-    flightY.set(0);
-    flightBank.set(0);
     setTriggerPos(pos);
     try { localStorage.setItem('chatbot-trigger-pos', JSON.stringify(pos)); } catch {}
-  }, [flightX, flightY, flightBank]);
+  }, []);
 
   // Mouse events
   const onMouseDown = useCallback((e) => { handleDragStart(e.clientX, e.clientY); }, [handleDragStart]);
@@ -571,44 +569,17 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     window.addEventListener('mouseup', mu);
     window.addEventListener('touchmove', tm, { passive: false });
     window.addEventListener('touchend', tu);
+    window.addEventListener('touchcancel', tu);
     return () => {
       window.removeEventListener('mousemove', mm);
       window.removeEventListener('mouseup', mu);
       window.removeEventListener('touchmove', tm);
       window.removeEventListener('touchend', tu);
+      window.removeEventListener('touchcancel', tu);
     };
   }, [onMouseMove, onMouseUp, onTouchMove, onTouchEnd]);
 
   const triggerBtnRef = useRef(null);
-
-  // Move the entire hit target with the bird. Pausing preserves its exact position.
-  useAnimationFrame((_, delta) => {
-    const el = triggerBtnRef.current;
-    if (!el || isOpen) {
-      flightInteraction.current = { hovered: false, focused: false };
-      return;
-    }
-    if (reduceMotion) {
-      flightX.set(0);
-      flightY.set(0);
-      flightBank.set(0);
-      return;
-    }
-    if (dragRef.current.dragging || flightInteraction.current.hovered || flightInteraction.current.focused) return;
-    // Cap elapsed time so returning to a backgrounded tab never causes a jump.
-    flightClock.current += Math.min(delta, 40);
-    const phase = (flightClock.current / 12000) * Math.PI * 2;
-    const compact = window.innerWidth <= 768;
-    const radiusX = compact ? 24 : 58;
-    const radiusY = compact ? 18 : 36;
-    const dx = -radiusX * (1 - Math.cos(phase));
-    const dy = -radiusY * (1 - Math.cos(phase * 2));
-    const position = clampPosition(el.offsetLeft + dx, el.offsetTop + dy, el.offsetWidth, el.offsetHeight);
-    flightX.set(position.x - el.offsetLeft);
-    flightY.set(position.y - el.offsetTop);
-    flightBank.set(-7 * Math.sin(phase));
-  });
-
 
   // Detect mobile
   const [isMobileChat, setIsMobileChat] = useState(() => window.innerWidth <= 768);
@@ -768,6 +739,8 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   }, [showGreeting, isOpen]);
 
   const showSpeechBubble = mascotPhase === 'peek' || mascotPhase === 'float';
+  const bubbleOnRight = triggerPos !== null && triggerPos.x < 190;
+  const bubbleBelow = isMobileChat || (triggerPos !== null && triggerPos.y < 90);
 
   return (
     <>
@@ -776,11 +749,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
         <motion.div
           ref={triggerBtnRef}
           className="chatbot-mascot-wrapper"
-          style={{ ...(triggerPos ? { left: `${triggerPos.x}px`, top: `${triggerPos.y}px`, right: 'auto', bottom: 'auto' } : {}), x: flightX, y: flightY }}
-          onMouseEnter={() => { flightInteraction.current.hovered = true; }}
-          onMouseLeave={() => { flightInteraction.current.hovered = false; }}
-          onFocus={() => { flightInteraction.current.focused = true; }}
-          onBlur={() => { flightInteraction.current.focused = false; }}
+          style={triggerPos ? { left: `${triggerPos.x}px`, top: `${triggerPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
           onMouseDown={onMouseDown}
           onTouchStart={onTouchStart}
         >
@@ -788,13 +757,14 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
           <AnimatePresence>
             {showSpeechBubble && (
               <motion.div
-                className="mascot-speech-bubble"
-                initial={{ opacity: 0, y: 8, scale: 0.8 }}
+                className={`mascot-speech-bubble${bubbleOnRight ? ' mascot-speech-bubble--right' : ''}${bubbleBelow ? ' mascot-speech-bubble--below' : ''}`}
+                initial={{ opacity: 0, y: reduceMotion ? 0 : 4, scale: reduceMotion ? 1 : 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.9 }}
-                transition={{ type: 'spring', stiffness: 260, damping: 20, mass: 0.6 }}
+                exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.98 }}
+                transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
               >
-                <span>Hello 👋</span>
+                <strong>Hi there!</strong>
+                <span>Looking for something?</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -807,7 +777,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
               title="Open Campus Assistant (drag to move)"
               aria-label="Open Campus Assistant"
             >
-              <motion.span className="campus-mascot-flight" style={{ rotate: flightBank }}><CampusMascot /></motion.span>
+              <span className="campus-mascot-flight"><CampusMascot /></span>
           </button>
         </div>
 

@@ -36,32 +36,67 @@
    ======================================== */
 .mascot-speech-bubble {
   position: absolute;
-  bottom: calc(100% + 6px);
-  right: -4px;
-  background: #ffffff;
-  color: #1e293b;
-  padding: 8px 14px;
-  border-radius: 14px;
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.10),
-    0 1px 4px rgba(0, 0, 0, 0.06);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
+  bottom: 62%;
+  right: 66%;
+  width: 166px;
+  padding: 10px 14px;
+  border: 1px solid #dfb778;
+  border-radius: 18px 18px 5px 18px;
+  background: linear-gradient(150deg, #fffdf5, #fff0cc);
+  color: #70431f;
+  box-shadow: 0 3px 10px rgba(91, 53, 22, 0.13), inset 0 1px 0 #ffffff;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
   pointer-events: none;
   z-index: 10000;
+  transform-origin: bottom right;
 }
-
+.mascot-speech-bubble strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #8c4b19;
+  font-size: 14px;
+  font-weight: 800;
+}
+.mascot-speech-bubble span {
+  display: block;
+  font-weight: 500;
+}
 .mascot-speech-bubble::after {
   content: '';
   position: absolute;
-  bottom: -7px;
-  right: 22px;
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 8px solid #ffffff;
+  bottom: -5px;
+  right: 9px;
+  width: 9px;
+  height: 9px;
+  background: #fff0cc;
+  border-right: 1px solid #dfb778;
+  border-bottom: 1px solid #dfb778;
+  transform: rotate(45deg);
+}
+.mascot-speech-bubble--right {
+  right: auto;
+  left: 66%;
+  border-radius: 18px 18px 18px 5px;
+  transform-origin: bottom left;
+}
+.mascot-speech-bubble--right::after { right: auto; left: 9px; }
+.mascot-speech-bubble--below {
+  bottom: auto;
+  top: 66%;
+  border-radius: 18px 5px 18px 18px;
+  transform-origin: top right;
+}
+.mascot-speech-bubble--below::after {
+  bottom: auto;
+  top: -5px;
+  background: #fffaeb;
+  transform: rotate(225deg);
+}
+.mascot-speech-bubble--right.mascot-speech-bubble--below {
+  border-radius: 5px 18px 18px 18px;
+  transform-origin: top left;
 }
 
 /* ========================================
@@ -198,21 +233,6 @@
   /* Hide chevron — irrelevant at top of screen */
   .mascot-chevron {
     display: none;
-  }
-
-  /* Flip speech bubble to appear BELOW the button on mobile (top-right) */
-  .mascot-speech-bubble {
-    bottom: auto;
-    top: calc(100% + 6px);
-    right: -4px;
-    font-size: 12px;
-    padding: 6px 12px;
-  }
-  .mascot-speech-bubble::after {
-    bottom: auto;
-    top: -7px;
-    border-top: none;
-    border-bottom: 8px solid #ffffff;
   }
 
   .chatbot-trigger-container {
@@ -1426,8 +1446,8 @@
   }
 
   .mascot-speech-bubble {
-    font-size: 12px;
-    padding: 6px 12px;
+    width: 158px;
+    padding: 9px 12px;
   }
 }
 
@@ -1600,41 +1620,56 @@
   transform: none;
 }
 
-/* Four wing poses across the atlas; open/closed eyelids occupy its two rows. */
+/* Discrete, fully opaque poses keep the face and feathers crisp during flight. */
+.campus-mascot-frames {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  isolation: isolate;
+}
+.campus-mascot-frame,
 .campus-mascot-sprite {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
+}
+.campus-mascot-sprite {
   background-size: 400% 200%;
   background-repeat: no-repeat;
-  background-position: 0% 0%;
-  animation: campus-mascot-blink 5.6s step-end infinite;
 }
-.chatbot-trigger .campus-mascot-sprite {
-  animation: campus-mascot-flap 720ms step-end infinite,
-             campus-mascot-blink 5.6s step-end infinite;
+.chatbot-trigger .campus-mascot-frame {
+  opacity: 0;
+  animation: campus-mascot-wing-frame 880ms step-end infinite;
+  animation-delay: calc(var(--wing-frame) * -220ms);
 }
-.campus-mascot--portrait .campus-mascot-sprite {
+.campus-mascot-sprite--blink {
+  opacity: 0;
+  animation: campus-mascot-blink 6.8s step-end infinite;
+}
+.campus-mascot--portrait .campus-mascot-frames {
   position: absolute;
   width: 170%;
   height: 170%;
   left: -35%;
   top: -25%;
 }
-@keyframes campus-mascot-flap {
-  0%, 100% { background-position-x: 0%; }
-  25% { background-position-x: 33.333333%; }
-  50% { background-position-x: 66.666667%; }
-  75% { background-position-x: 100%; }
+@keyframes campus-mascot-wing-frame {
+  0%, 100% { opacity: 1; }
+  25%, 50%, 75% { opacity: 0; }
 }
 @keyframes campus-mascot-blink {
-  0%, 43%, 47%, 94%, 98%, 100% { background-position-y: 0%; }
-  44%, 95% { background-position-y: 100%; }
+  0%, 41%, 86%, 100% { opacity: 0; }
+  39%, 84% { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .campus-mascot-sprite,
-  .chatbot-trigger .campus-mascot-sprite {
+  .chatbot-trigger .campus-mascot-frame,
+  .campus-mascot-sprite--blink {
     animation: none;
-    background-position: 0% 0%;
   }
+  .chatbot-trigger .campus-mascot-frame:first-child { opacity: 1; }
+  .chatbot-trigger .campus-mascot-frame:not(:first-child),
+  .campus-mascot-sprite--blink { opacity: 0; }
 }
