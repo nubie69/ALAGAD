@@ -17,6 +17,7 @@
     "tunnel:single-link": "npm run tunnel:frontend",
     "start:prod": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run start --prefix alagad-backend\" \"npm run start --prefix alagad-frontend\"",
     "evaluate": "node evaluation/evaluate.js",
+    "evaluate:nlp": "node evaluation/evaluate.js --dataset evaluation/test_questions.nlp_document.json",
     "evaluate:verify": "node evaluation/verify-f1.js",
     "test:backend": "npm run test --prefix alagad-backend",
     "test:frontend": "npm run test --prefix alagad-frontend"

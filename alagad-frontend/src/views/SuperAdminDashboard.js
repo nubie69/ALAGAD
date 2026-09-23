@@ -3049,15 +3049,22 @@ function SuperAdminDashboard() {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h2>ALAGAD</h2>
-          <p className="user-role"> Admin</p>
+          <div className="admin-sidebar-brand">
+            <div className="admin-sidebar-logo" aria-hidden="true">
+              <img src={`${process.env.PUBLIC_URL}/alagad.png`} alt="" width="44" height="44" />
+            </div>
+            <div className="admin-sidebar-brand-text">
+              <h2>ALAGAD</h2>
+              <p>Campus Administration</p>
+            </div>
+          </div>
           {user && user.department && (
-            <p style={{ fontSize: '12px', marginTop: '5px', color: 'rgba(255, 255, 255, 0.9)', textTransform: 'capitalize' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <MapPinIconOutline />
-                {user.department} Dept
-              </span>
-            </p>
+            <div className="admin-sidebar-context">
+              <p className="admin-sidebar-department">
+                <span aria-hidden="true"><DepartmentIcon size={15} /></span>
+                <span>{user.department}</span>
+              </p>
+            </div>
           )}
         </div>
         

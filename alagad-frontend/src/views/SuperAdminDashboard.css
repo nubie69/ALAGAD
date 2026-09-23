@@ -93,50 +93,99 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
-.sidebar-header {
-  padding: 32px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: var(--color-header);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  position: relative;
-  overflow: hidden;
+.super-admin-container .sidebar-header {
+  padding: 26px 20px 22px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(145deg, #172f50, #1e293b 80%);
 }
 
-.sidebar-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
-  pointer-events: none;
+.admin-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.sidebar-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
+.admin-sidebar-logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 56px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+}
+
+.admin-sidebar-logo img {
+  display: block;
+  object-fit: contain;
+}
+
+.admin-sidebar-brand-text {
+  min-width: 0;
+}
+
+.super-admin-container .sidebar-header h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 23px;
+  line-height: 1.2;
   font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.5px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  position: relative;
-  z-index: 1;
+  letter-spacing: 1px;
 }
 
-.user-role {
-  margin: 6px 0 0 0;
+.admin-sidebar-brand-text p {
+  margin: 5px 0 0;
+  color: #cbd5e1;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.9);
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.15);
-  padding: 4px 10px;
+  line-height: 1.5;
+}
+
+.admin-sidebar-context {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.super-admin-container .sidebar-header .user-role {
+  display: inline-flex;
+  margin: 0;
+  padding: 5px 9px;
+  border: 1px solid rgba(147, 197, 253, 0.3);
   border-radius: 6px;
-  display: inline-block;
-  position: relative;
-  z-index: 1;
+  background: rgba(59, 130, 246, 0.12);
+  color: #bfdbfe;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.admin-sidebar-department {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  max-width: 100%;
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-sidebar-department > span:first-child {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #93c5fd;
+}
+
+.admin-sidebar-department > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .sidebar-nav {

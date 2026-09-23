@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import MapView, { Source, Layer, Marker, Popup } from 'react-map-gl';
-import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import SafeGeoJSON from '../components/SafeGeoJSON';
 import MapTrees from '../components/MapTrees';
@@ -20,6 +19,7 @@ import './GuestView.modern.css';
 import { BackIcon, BuildingIcon, DepartmentIcon, MapPinIconOutline, MicIcon, OfficeIcon, OrgChartIcon, RoomIcon, StopMicIcon } from '../utils/icons';
 import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePathsGeoJSON } from '../utils/campusPathfinding';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
+import useNavigationCamera from '../hooks/useNavigationCamera';
 import streetNamesGeoJSON from '../data/streetNames.json';
 import grassGeoJSON from '../data/grass.json';
 import { CAMPUS_BOUNDS, CAMPUS_BOUNDS_DETAILS, CAMPUS_FADE_MASKS, clampLngLatToCampus, clampViewStateToCampus, constrainViewportToCampus, easeMapToViewState } from '../utils/campusBoundary';
@@ -779,18 +779,13 @@ function GuestView() {
     ));
   }, [activeNavigationGeometry, hasHeadingData, heading, isNavigating, smoothedUserLocation, userLocation]);
 
-  useEffect(() => {
-    if (!isNavigating || !smoothedUserLocation) return;
-
-    setViewState((prev) => ({
-      ...prev,
-      longitude: smoothedUserLocation.lng,
-      latitude: smoothedUserLocation.lat,
-      bearing: navigationHeading,
-      pitch: 52,
-      zoom: Math.max(prev.zoom, 18.2),
-    }));
-  }, [isNavigating, navigationHeading, smoothedUserLocation]);
+  useNavigationCamera({
+    active: isNavigating,
+    location: smoothedUserLocation,
+    heading: navigationHeading,
+    mapRef,
+    setViewState,
+  });
 
   useEffect(() => {
     if (!userLocation) {
@@ -1416,16 +1411,7 @@ function GuestView() {
         setSheetSnap('peek');
         setChatbotOpacity(1);
       }
-      // Fit map to show the full route
-      if (mapRef.current) {
-        const map = mapRef.current.getMap();
-        const routeCoords = result.geometry.coordinates;
-        const bounds = routeCoords.reduce(
-          (b, coord) => b.extend(coord),
-          new mapboxgl.LngLatBounds(routeCoords[0], routeCoords[0])
-        );
-        map.fitBounds(bounds, { padding: 80, duration: 1000, maxZoom: 19 });
-      }
+      // The navigation camera hook owns the entry transition and live following.
     }
   }, [userLocation, getCoords, computeRoute, isMobile, buildings, mapFeatures, NAV_DEBUG]);
 
