@@ -3258,25 +3258,46 @@
   font-size: 11px;
 }
 
+.public-org-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  color: #52677d;
+  font-size: 12px;
+}
+
 .public-org-chart-viewport {
+  position: relative;
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  padding: 22px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
   background-color: #eef3f7;
   background-image: radial-gradient(#cedae5 0.7px, transparent 0.7px);
   background-size: 18px 18px;
   overscroll-behavior: contain;
 }
 
+.public-org-chart-viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.public-org-chart-viewport:focus-visible {
+  outline: 2px solid #285d9f;
+  outline-offset: -2px;
+}
+
 .public-org-chart-document {
-  min-width: 50%;
+  width: 100%;
   min-height: 100%;
-  margin: 0 auto;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  transition: width 0.16s ease, height 0.16s ease;
+  padding: 12px;
+  box-sizing: border-box;
+  transform-origin: 0 0;
+  pointer-events: none;
 }
 
 .public-org-chart-document img {
@@ -3414,10 +3435,6 @@
 
   .public-org-zoom {
     margin-left: auto;
-  }
-
-  .public-org-chart-viewport {
-    padding: 12px;
   }
 
   .public-org-chart-document object {

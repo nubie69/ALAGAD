@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import OrgChartViewer from './OrgChartViewer';
 import { BackIcon, CloseIcon, OrgChartIcon } from '../utils/icons';
 
 const normalize = (value) => String(value || '').trim();
 const entityId = (value) => normalize(value?._id || value?.id || value);
-const MIN_ZOOM = 50;
-const MAX_ZOOM = 200;
-const ZOOM_STEP = 25;
 
 const buildUnits = (offices, departments) => [
   ...(offices || [])
@@ -45,7 +43,6 @@ const formatLastUpdated = (value) => {
 function PublicOrgChart({ offices, departments, loadChart, onClose }) {
   const [query, setQuery] = useState('');
   const [selectedUnitKey, setSelectedUnitKey] = useState('');
-  const [zoom, setZoom] = useState(100);
   const [loadedChart, setLoadedChart] = useState(null);
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState('');
@@ -95,7 +92,6 @@ function PublicOrgChart({ offices, departments, loadChart, onClose }) {
 
   const chooseUnit = (unitKey) => {
     setSelectedUnitKey(unitKey);
-    setZoom(100);
   };
 
   return ReactDOM.createPortal(
@@ -164,13 +160,7 @@ function PublicOrgChart({ offices, departments, loadChart, onClose }) {
                     <h3>{selectedUnit.name}</h3>
                     {lastUpdated && <p>Last Updated: {lastUpdated}</p>}
                   </div>
-                  {hasChart && (
-                    <div className="public-org-zoom" aria-label="Chart zoom controls">
-                      <button type="button" onClick={() => setZoom((value) => Math.max(MIN_ZOOM, value - ZOOM_STEP))} disabled={zoom === MIN_ZOOM} aria-label="Zoom out">−</button>
-                      <button type="button" className="public-org-zoom-value" onClick={() => setZoom(100)} aria-label="Reset zoom">{zoom}%</button>
-                      <button type="button" onClick={() => setZoom((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP))} disabled={zoom === MAX_ZOOM} aria-label="Zoom in">+</button>
-                    </div>
-                  )}
+
                 </div>
                 {chartLoading ? (
                   <div className="public-org-empty public-org-empty--compact" role="status">
@@ -178,17 +168,7 @@ function PublicOrgChart({ offices, departments, loadChart, onClose }) {
                     <h3>Loading organizational chart...</h3>
                   </div>
                 ) : hasChart ? (
-                  <div className="public-org-chart-viewport">
-                    <div className="public-org-chart-document" style={{ width: `${zoom}%`, height: chart.mimeType === 'application/pdf' ? `${zoom}%` : 'auto' }}>
-                      {chart.mimeType === 'application/pdf' ? (
-                        <object data={chart.data} type="application/pdf" aria-label={`${selectedUnit.name} organizational chart`}>
-                          <p>This PDF cannot be previewed in the current browser.</p>
-                        </object>
-                      ) : (
-                        <img src={chart.data} alt={`${selectedUnit.name} organizational chart`} draggable="false" />
-                      )}
-                    </div>
-                  </div>
+                  <OrgChartViewer key={`${selectedUnit.key}:${chart.data}`} chart={chart} name={selectedUnit.name} />
                 ) : (
                   <div className="public-org-empty public-org-empty--compact">
                     <OrgChartIcon size={34} />
