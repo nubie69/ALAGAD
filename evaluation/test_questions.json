@@ -1,16 +1,310 @@
 [
   {
     "id": "Q001",
-    "question": "What are the requirements for obtaining an Exemption Slip?",
-    "expected_intent": "According to verified information from Student Leadership & Development Unit (SLEDEVU), to get an EXEMPTION SLIP, you should have these requirements: Validated Student Identification Card and Letter request (Attachment to the declared reason for exemption)",
-    "category": "information",
-    "rationale": "Information request about specific requirements for obtaining an exemption slip."
+    "question": "Where is the Registrar?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
   },
   {
     "id": "Q002",
-    "question": "What is the step-by-step procedure for getting an Exemption Slip?",
-    "expected_intent": "According to verified information from Student Leadership & Development Unit (SLEDEVU), the process for EXEMPTION SLIP is first, present Identification Card & Printed Letter request with attachment; next, sign the Logbook; finally, fill out the Customer Feedback Form /BOSES.",
-    "category": "information",
-    "rationale": "Information request about the procedure for obtaining an exemption slip."
+    "question": "Please show me where the Registrar office is located.",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q003",
+    "question": "registrar location?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q004",
+    "question": "Where the Registrar office at?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q005",
+    "question": "Where is the Library?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q006",
+    "question": "Can you help me find the SCHOOL CLINIC?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q007",
+    "question": "Where is IT Office located?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q008",
+    "question": "Where can I find the Admission and Testing Unit (ATU)?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q009",
+    "question": "Where is the Auditorium?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q010",
+    "question": "Where is the COT building?",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q011",
+    "question": "Library locaton please",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q012",
+    "question": "Take me to the Library.",
+    "expected_intent": "where",
+    "category": "navigation",
+    "rationale": "Location request for an office/building listed by the local campus API."
+  },
+  {
+    "id": "Q013",
+    "question": "What does the IT Office do?",
+    "expected_intent": "service",
+    "category": "office_info",
+    "rationale": "Native generic information label; ALAGAD has no office_info label. Expects information about an existing record, not directions."
+  },
+  {
+    "id": "Q014",
+    "question": "Tell me about the IT Office.",
+    "expected_intent": "service",
+    "category": "office_info",
+    "rationale": "Native generic information label; ALAGAD has no office_info label. Expects information about an existing record, not directions."
+  },
+  {
+    "id": "Q015",
+    "question": "What is the ADMIN bldgg.?",
+    "expected_intent": "service",
+    "category": "office_info",
+    "rationale": "Native generic information label; ALAGAD has no office_info label. Expects information about an existing record, not directions."
+  },
+  {
+    "id": "Q016",
+    "question": "What is the purpose of the IT Office?",
+    "expected_intent": "service",
+    "category": "office_info",
+    "rationale": "Native generic information label; ALAGAD has no office_info label. Expects information about an existing record, not directions."
+  },
+  {
+    "id": "Q017",
+    "question": "How do I apply for the TES?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q018",
+    "question": "Hi, how can I apply for TES?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q019",
+    "question": "how i apply for TES?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q020",
+    "question": "How to apply to become a student assistant?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q021",
+    "question": "Can you explain how to become a student assistant?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q022",
+    "question": "student assistant application steps?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q023",
+    "question": "What is the process for ID Reissuance?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q024",
+    "question": "I lost my ID. What is the ID reissuance process?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q025",
+    "question": "What is the process for ID Validation?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q026",
+    "question": "ID validation process pls",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q027",
+    "question": "How much does a Certificate cost?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q028",
+    "question": "How much is the certificate fee?",
+    "expected_intent": "faq",
+    "category": "service_info",
+    "rationale": "Question targets a stored public FAQ; the production FAQ answer branch returns faq, even for process questions."
+  },
+  {
+    "id": "Q029",
+    "question": "What are the scholarships I can avail of?",
+    "expected_intent": "faq",
+    "category": "campus_faq",
+    "rationale": "Question targets a stored public FAQ. Presence of a record does not certify that its answer is current or factually correct."
+  },
+  {
+    "id": "Q030",
+    "question": "Which scholarships are available?",
+    "expected_intent": "faq",
+    "category": "campus_faq",
+    "rationale": "Question targets a stored public FAQ. Presence of a record does not certify that its answer is current or factually correct."
+  },
+  {
+    "id": "Q031",
+    "question": "Who are qualified to be TES grantees?",
+    "expected_intent": "faq",
+    "category": "campus_faq",
+    "rationale": "Question targets a stored public FAQ. Presence of a record does not certify that its answer is current or factually correct."
+  },
+  {
+    "id": "Q032",
+    "question": "who qualified for TES grantees?",
+    "expected_intent": "faq",
+    "category": "campus_faq",
+    "rationale": "Question targets a stored public FAQ. Presence of a record does not certify that its answer is current or factually correct."
+  },
+  {
+    "id": "Q033",
+    "question": "How is the selection of the grantees done?",
+    "expected_intent": "faq",
+    "category": "campus_faq",
+    "rationale": "Question targets a stored public FAQ. Presence of a record does not certify that its answer is current or factually correct."
+  },
+  {
+    "id": "Q034",
+    "question": "Are there any applications for CHED-StuFAPS?",
+    "expected_intent": "faq",
+    "category": "campus_faq",
+    "rationale": "Question targets a stored public FAQ. Presence of a record does not certify that its answer is current or factually correct."
+  },
+  {
+    "id": "Q035",
+    "question": "Who will win the NBA Finals?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q036",
+    "question": "What should I eat tonight?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q037",
+    "question": "What is the weather in Japan?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q038",
+    "question": "Tell me tomorrow's lottery numbers.",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q039",
+    "question": "Can you write me a love poem?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q040",
+    "question": "How do I bake a chocolate cake?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q041",
+    "question": "Who is the king of Mars?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q042",
+    "question": "Where is the campus teleportation portal?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q043",
+    "question": "How can I enroll in dragon flight lessons?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
+  },
+  {
+    "id": "Q044",
+    "question": "nba winner pls?",
+    "expected_intent": "unknown",
+    "category": "unknown",
+    "rationale": "Unsupported question: out of campus scope or an explicitly fictional campus facility."
   }
 ]
