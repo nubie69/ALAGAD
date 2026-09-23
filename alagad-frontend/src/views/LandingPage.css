@@ -16,6 +16,7 @@
 }
 
 .landing-page {
+  --university-logo-size: clamp(72px, 8vw, 96px);
   position: relative;
   min-height: 100vh;
   box-sizing: border-box;
@@ -65,11 +66,31 @@
   background: linear-gradient(90deg, rgba(2, 10, 32, 0.28) 0%, transparent 26%, transparent 74%, rgba(2, 10, 32, 0.28) 100%);
 }
 
+.landing-university-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 16px clamp(16px, 3vw, 40px);
+}
+
+.landing-university-logo {
+  display: block;
+  width: var(--university-logo-size);
+  height: var(--university-logo-size);
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: #05012e;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
+}
+
 .landing-shell {
   position: relative;
   z-index: 2;
   width: min(1180px, calc(100% - clamp(36px, 6vw, 96px)));
-  min-height: calc(100vh - 44px);
+  min-height: calc(100vh - 44px - var(--university-logo-size) - 32px);
   margin: 0 auto;
   padding: clamp(22px, 3.2vh, 40px) 0 clamp(18px, 2.5vh, 28px);
   display: flex;

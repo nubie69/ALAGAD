@@ -22,6 +22,16 @@ const LandingPage = () => {
         <img src="/bg.jpg" alt="" className="landing-bg-image" />
       </div>
 
+      <header className="landing-university-header">
+        <img
+          src={`${process.env.PUBLIC_URL}/buksu-logo.png`}
+          alt="Bukidnon State University"
+          className="landing-university-logo"
+          width="96"
+          height="96"
+        />
+      </header>
+
       <main className="landing-shell">
         <section className="landing-hero" aria-label="ALAGAD hero">
           <div className="hero-card">
