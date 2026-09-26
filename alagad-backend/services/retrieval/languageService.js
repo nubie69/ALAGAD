@@ -1,28 +1,15 @@
 const DEFAULT_LANGUAGE = 'english';
 const SUPPORTED_LANGUAGES = new Set(['english', 'tagalog', 'cebuano']);
-const STRICT_NO_INFO_RESPONSE = 'sorry I dont have the information';
+const STRICT_NO_INFO_RESPONSE = require('./campusBehavior').UNKNOWN;
 
-const TAGALOG_MARKERS = new Set([
-	'nasaan', 'saan', 'ano', 'sino', 'paano', 'kailan', 'bakit',
-	'kailangan', 'serbisyo', 'opisina', 'silid', 'gusali', 'kagawaran',
-	'departamento', 'hakbang', 'proseso', 'lokasyon', 'impormasyon',
-	'kumuha', 'makuha', 'pagkuha',
-]);
-
-const CEBUANO_MARKERS = new Set([
-	'asa', 'unsa', 'unsaon', 'kinsa', 'giunsa', 'ngano', 'kanus', 'kanus-a',
-	'kinahanglan', 'serbisyo', 'opisina', 'kwarto', 'departamento',
-	'lakang', 'proseso', 'lokasyon', 'impormasyon', 'pagkuha',
-]);
-
-const ENGLISH_MARKERS = new Set([
-	'where', 'what', 'who', 'how', 'when', 'why', 'requirements',
-	'process', 'steps', 'office', 'building', 'room', 'department',
-	'service', 'location', 'details',
-]);
-
-const CEBUANO_UNIQUE = new Set(['asa', 'unsa', 'unsaon', 'kinsa', 'giunsa', 'ngano', 'kanus', 'kanus-a', 'kinahanglan']);
-const TAGALOG_UNIQUE = new Set(['nasaan', 'saan', 'ano', 'sino', 'paano', 'kailan', 'bakit', 'kailangan', 'kumuha', 'makuha']);
+// Question words and grammar carry more language evidence than borrowed campus terms.
+const LANGUAGE_CUES = {
+  english: new Set('where what who how when why please can could should would is are does do they their the my your get find'.split(' ')),
+  tagalog: new Set('nasaan saan saang ano anong sino paano kailan bakit kailangan kumuha kukuha makuha mahahanap makikita pumunta makapunta doon diyan yung iyong inyong ito at bilang pakisuyo opo po'.split(' ')),
+  cebuano: new Set('asa unsa unsang unsay unsaon kinsa giunsa ngano kanus-a kinahanglan makakuha makita makaadto adto didto dinhi diha nako akong imong nga og ug palihog kini kani'.split(' ')),
+};
+const QUESTION_CUES = new Set('where what who how when why nasaan saan saang ano anong sino paano kailan bakit asa unsa unsang unsay unsaon kinsa giunsa ngano kanus-a'.split(' '));
+const BORROWED_TERMS = new Set('requirements process steps office building room department service services location details records enrollment documents'.split(' '));
 
 const LEXICON_RULES = [
 	{ pattern: /\bunsaon\s+pagkuha\b/gi, replacement: 'how to get' },
@@ -72,8 +59,8 @@ const LEXICON_RULES = [
 ];
 
 const NO_INFO_TRANSLATIONS = {
-	tagalog: STRICT_NO_INFO_RESPONSE,
-	cebuano: STRICT_NO_INFO_RESPONSE,
+	tagalog: require('./campusBehavior').UNKNOWN_TRANSLATIONS.tagalog,
+	cebuano: require('./campusBehavior').UNKNOWN_TRANSLATIONS.cebuano,
 };
 
 const RESPONSE_LABEL_TRANSLATIONS = {
@@ -139,16 +126,9 @@ const SUGGESTION_TRANSLATION_RULES = {
 
 const normalizeWhitespace = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
-const keepConciseResponse = (value, maxSentences = 2) => {
-	const normalized = normalizeWhitespace(value);
-	if (!normalized) return '';
-
-	const sentenceParts = (normalized.match(/[^.!?]+[.!?]?/g) || [])
-		.map((part) => part.trim())
-		.filter(Boolean);
-
-	if (sentenceParts.length === 0) return normalized;
-	return normalizeWhitespace(sentenceParts.slice(0, Math.max(1, maxSentences)).join(' '));
+const preserveResponseText = (value) => {
+	// Preserve every verified step, requirement and paragraph.
+	return String(value || '').trim();
 };
 
 const tokenize = (text) => normalizeWhitespace(
@@ -159,83 +139,31 @@ const tokenize = (text) => normalizeWhitespace(
 	.split(' ')
 	.filter(Boolean);
 
-const countMatches = (tokens, dictionary) => tokens.reduce((count, token) => (
-	dictionary.has(token) ? count + 1 : count
-), 0);
-
-const countUniqueMatches = (tokens, dictionary) => tokens.reduce((count, token) => (
-	dictionary.has(token) ? count + 1 : count
-), 0);
-
 const isSupportedLanguage = (language) => SUPPORTED_LANGUAGES.has(String(language || '').toLowerCase());
 
 const detectLanguage = (text) => {
-	const tokens = tokenize(text);
-	if (tokens.length === 0) {
-		return {
-			language: DEFAULT_LANGUAGE,
-			scores: { english: 0, tagalog: 0, cebuano: 0 },
-			reason: 'empty_default',
-		};
-	}
-
-	const scores = {
-		english: countMatches(tokens, ENGLISH_MARKERS),
-		tagalog: countMatches(tokens, TAGALOG_MARKERS),
-		cebuano: countMatches(tokens, CEBUANO_MARKERS),
-	};
-
-	const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-	const topScore = sorted[0][1];
-	const secondScore = sorted[1][1];
-
-	if (topScore === 0) {
-		return {
-			language: DEFAULT_LANGUAGE,
-			scores,
-			reason: 'fallback_default',
-		};
-	}
-
-	if (topScore > secondScore) {
-		return {
-			language: sorted[0][0],
-			scores,
-			reason: 'majority_score',
-		};
-	}
-
-	const cebuanoUniqueHits = countUniqueMatches(tokens, CEBUANO_UNIQUE);
-	const tagalogUniqueHits = countUniqueMatches(tokens, TAGALOG_UNIQUE);
-	if (cebuanoUniqueHits > tagalogUniqueHits) {
-		return {
-			language: 'cebuano',
-			scores,
-			reason: 'tie_breaker_unique_markers',
-		};
-	}
-
-	if (tagalogUniqueHits > cebuanoUniqueHits) {
-		return {
-			language: 'tagalog',
-			scores,
-			reason: 'tie_breaker_unique_markers',
-		};
-	}
-
-	if (scores.english > 0) {
-		return {
-			language: 'english',
-			scores,
-			reason: 'tie_breaker_english',
-		};
-	}
-
-	return {
-		language: DEFAULT_LANGUAGE,
-		scores,
-		reason: 'tie_breaker_default',
-	};
+  const tokens = tokenize(text);
+  const scores = { english: 0, tagalog: 0, cebuano: 0 };
+  const first = {};
+  tokens.forEach((token, index) => {
+    for (const [language, cues] of Object.entries(LANGUAGE_CUES)) {
+      if (!cues.has(token)) continue;
+      scores[language] += QUESTION_CUES.has(token) ? 3 : token === 'makaadto' ? 4 : 1;
+      if (first[language] === undefined) first[language] = index;
+    }
+  });
+  const ranked = Object.keys(scores).sort((a, b) => scores[b] - scores[a]
+    || (first[a] ?? Infinity) - (first[b] ?? Infinity));
+  const language = scores[ranked[0]] ? ranked[0] : DEFAULT_LANGUAGE;
+  // Borrowed university terms identify mixed wording but cannot outweigh local grammar.
+  const present = Object.keys(scores).filter(key => scores[key] > 0);
+  if (language !== 'english' && tokens.some(token => BORROWED_TERMS.has(token)) && !present.includes('english')) present.push('english');
+  return {
+    language, scores,
+    language_style: present.length > 1 ? 'mixed' : 'single',
+    languages: present,
+    reason: !tokens.length ? 'empty_default' : scores[ranked[0]] || tokens.some(token => BORROWED_TERMS.has(token)) ? 'current_query_cues' : 'fallback_default',
+  };
 };
 
 const translateToEnglishLexicon = (text) => {
@@ -246,7 +174,17 @@ const translateToEnglishLexicon = (text) => {
 	return normalizeWhitespace(output);
 };
 
-const runOpenAiTranslation = async ({ openaiClient, model, text, sourceLanguage, targetLanguage, styleHint }) => {
+const runOpenAiTranslation = async ({ openaiClient, model, text, sourceLanguage, targetLanguage, styleHint, officialNames = [] }) => {
+  let protectedText = String(text || '').trim();
+  const names = [...new Set(officialNames.filter(name => typeof name === 'string' && name.trim()))]
+    .sort((a, b) => b.length - a.length);
+  const protectedNames = [];
+  for (const name of names) {
+    if (!protectedText.includes(name)) continue;
+    const token = `__ALAGAD_NAME_${protectedNames.length}__`;
+    protectedText = protectedText.split(name).join(token);
+    protectedNames.push({ token, name });
+  }
 	const completion = await openaiClient.chat.completions.create({
 		model,
 		temperature: 0,
@@ -258,19 +196,24 @@ const runOpenAiTranslation = async ({ openaiClient, model, text, sourceLanguage,
 					'Return only the translated text with no extra explanation.',
 					'Translate only the chatbot answer text.',
 					'Do not translate interface labels, buttons, or system instructions.',
-					'Keep the translated reply short, natural, and professional (1-2 concise sentences).',
-					'Preserve proper nouns, IDs, room numbers, and source identifiers exactly.',
+					'Translate every sentence and list item. Preserve line breaks, numbering, facts and intent; never summarize or omit steps.',
+					'Preserve official service, personnel, office, department, building and room names, TOR, IDs and placeholders exactly. Translate only the surrounding explanation.',
 					styleHint || '',
 				].join(' '),
 			},
 			{
 				role: 'user',
-				content: `Translate from ${sourceLanguage} to ${targetLanguage}:\n${String(text || '').trim()}`,
+				content: `Translate from ${sourceLanguage} to ${targetLanguage}:\n${protectedText}`,
 			},
 		],
 	});
 
-	return normalizeWhitespace(completion?.choices?.[0]?.message?.content || '');
+	let translated = String(completion?.choices?.[0]?.message?.content || '').trim();
+  for (const { token, name } of protectedNames) {
+    if (!translated.includes(token)) throw new Error('Translation did not preserve an official name');
+    translated = translated.split(token).join(name);
+  }
+  return translated;
 };
 
 const translateQueryToEnglish = async ({ query, detectedLanguage, openaiClient, model, options = {} }) => {
@@ -355,14 +298,14 @@ const translateStructuredTemplateFallback = (englishText, targetLanguage) => {
 	if (whoMatch) {
 		const name = String(whoMatch[1] || '').trim();
 		const unit = String(whoMatch[2] || '').trim();
-		return `Si ${name} is the head of ${unit}.`;
+		return normalizedTarget === 'tagalog' ? `Si ${name} ang pinuno ng ${unit}.` : `Si ${name} ang pangulo sa ${unit}.`;
 	}
 
 	const wherePersonMatch = source.match(/^(.+?) can be found at (.+)\.$/i);
 	if (wherePersonMatch) {
 		const name = String(wherePersonMatch[1] || '').trim();
 		const location = String(wherePersonMatch[2] || '').trim();
-		return `${name} can be found sa ${location}.`;
+		return normalizedTarget === 'tagalog' ? `Matatagpuan si ${name} sa ${location}.` : `Makita si ${name} sa ${location}.`;
 	}
 
 	const requirementsMatch = source.match(/^To get (.+?), you should have these requirements: (.+)\.$/i);
@@ -380,9 +323,9 @@ const translateStructuredTemplateFallback = (englishText, targetLanguage) => {
 		const serviceName = String(processMatch[1] || '').trim();
 		const processText = String(processMatch[2] || '').trim();
 		if (normalizedTarget === 'tagalog') {
-			return `Ang proseso for ${serviceName} is ${processText}.`;
+			return `Ang proseso para sa ${serviceName} ay ${processText}.`;
 		}
-		return `Ang proseso sa ${serviceName} is ${processText}.`;
+		return `Ang proseso sa ${serviceName} mao ang ${processText}.`;
 	}
 
 	const unitHandlerMatch = source.match(/^The unit that handles (.+?) is (.+)\.$/i);
@@ -390,33 +333,33 @@ const translateStructuredTemplateFallback = (englishText, targetLanguage) => {
 		const serviceName = String(unitHandlerMatch[1] || '').trim();
 		const unitName = String(unitHandlerMatch[2] || '').trim();
 		if (normalizedTarget === 'tagalog') {
-			return `Ang unit na nagha-handle ng ${serviceName} is ${unitName}.`;
+			return `Ang unit na nangangasiwa sa ${serviceName} ay ${unitName}.`;
 		}
-		return `Ang unit nga mo-handle sa ${serviceName} is ${unitName}.`;
+		return `Ang unit nga nagdumala sa ${serviceName} mao ang ${unitName}.`;
 	}
 
 	const whereProcessMatch = source.match(/^(.+?) can be processed at (.+)\.$/i);
 	if (whereProcessMatch) {
 		const serviceName = String(whereProcessMatch[1] || '').trim();
 		const location = String(whereProcessMatch[2] || '').trim();
-		return `${serviceName} can be processed sa ${location}.`;
+		return normalizedTarget === 'tagalog' ? `Maaaring iproseso ang ${serviceName} sa ${location}.` : `Mahimong iproseso ang ${serviceName} sa ${location}.`;
 	}
 
 	const descriptionMatch = source.match(/^(.+?) is (.+)\.$/i);
 	if (descriptionMatch) {
 		const subject = String(descriptionMatch[1] || '').trim();
 		const description = String(descriptionMatch[2] || '').trim();
-		return `${subject} is ${description}.`;
+		return normalizedTarget === 'tagalog' ? `Ang ${subject} ay ${description}.` : `Ang ${subject} mao ang ${description}.`;
 	}
 
 	return '';
 };
 
-const translateEnglishResponse = async ({ englishText, targetLanguage, openaiClient, model, noInfoText }) => {
+const translateEnglishResponse = async ({ englishText, targetLanguage, openaiClient, model, noInfoText, officialNames = [], forceTranslation = false }) => {
 	const normalizedTarget = isSupportedLanguage(targetLanguage) ? targetLanguage : DEFAULT_LANGUAGE;
 	const source = String(englishText || '').trim();
 
-	if (normalizedTarget === 'english') {
+	if (normalizedTarget === 'english' && !forceTranslation) {
 		return {
 			text: source,
 			sourceLanguage: 'english',
@@ -438,22 +381,23 @@ const translateEnglishResponse = async ({ englishText, targetLanguage, openaiCli
 
 	if (openaiClient) {
 		try {
-			const styleHint = normalizedTarget === 'tagalog'
-				? 'Use natural Taglish (Tagalog + English mix). Use simple, common Tagalog words like: saan, sino, ano, kailangan, proseso. Keep it short and professional.'
-				: 'Use natural Cebuano + English mix. Use simple, common Cebuano words like: asa, kinsa, unsa, kinahanglan, proseso. Keep it short and professional.';
+			const styleHint = normalizedTarget === 'english' ? 'Use English. Keep every verified detail and list item.' : normalizedTarget === 'tagalog'
+				? 'Use Tagalog grammar and explanations. Retain commonly used English university terms and official names. Use simple, common Tagalog words like: saan, sino, ano, kailangan, proseso. Keep every verified detail and list item.'
+				: 'Use Cebuano grammar and explanations. Retain commonly used English university terms and official names. Use simple, common Cebuano words like: asa, kinsa, unsa, kinahanglan, proseso. Keep every verified detail and list item.';
 
 			const translated = await runOpenAiTranslation({
 				openaiClient,
 				model,
 				text: source,
-				sourceLanguage: 'English',
-				targetLanguage: normalizedTarget === 'tagalog' ? 'Tagalog' : 'Cebuano',
+				sourceLanguage: forceTranslation ? 'the language of the supplied text (which may be mixed)' : 'English',
+				targetLanguage: { english: 'English', tagalog: 'Tagalog', cebuano: 'Cebuano' }[normalizedTarget],
 				styleHint,
+                officialNames,
 			});
 
 			if (translated) {
 				return {
-					text: keepConciseResponse(translated),
+					text: preserveResponseText(translated),
 					sourceLanguage: 'english',
 					targetLanguage: normalizedTarget,
 					translated: true,
@@ -464,7 +408,7 @@ const translateEnglishResponse = async ({ englishText, targetLanguage, openaiCli
 			const templateFallback = translateStructuredTemplateFallback(source, normalizedTarget);
 			if (templateFallback) {
 				return {
-					text: keepConciseResponse(templateFallback),
+					text: preserveResponseText(templateFallback),
 					sourceLanguage: 'english',
 					targetLanguage: normalizedTarget,
 					translated: true,
@@ -475,7 +419,7 @@ const translateEnglishResponse = async ({ englishText, targetLanguage, openaiCli
 
 			const fallbackText = translateResponseLabelsFallback(source, normalizedTarget);
 			return {
-				text: keepConciseResponse(fallbackText),
+				text: preserveResponseText(fallbackText),
 				sourceLanguage: 'english',
 				targetLanguage: normalizedTarget,
 				translated: fallbackText !== source,
@@ -488,7 +432,7 @@ const translateEnglishResponse = async ({ englishText, targetLanguage, openaiCli
 	const templateFallback = translateStructuredTemplateFallback(source, normalizedTarget);
 	if (templateFallback) {
 		return {
-			text: keepConciseResponse(templateFallback),
+			text: preserveResponseText(templateFallback),
 			sourceLanguage: 'english',
 			targetLanguage: normalizedTarget,
 			translated: true,
@@ -498,7 +442,7 @@ const translateEnglishResponse = async ({ englishText, targetLanguage, openaiCli
 
 	const fallbackText = translateResponseLabelsFallback(source, normalizedTarget);
 	return {
-		text: keepConciseResponse(fallbackText),
+		text: preserveResponseText(fallbackText),
 		sourceLanguage: 'english',
 		targetLanguage: normalizedTarget,
 		translated: fallbackText !== source,
@@ -532,8 +476,8 @@ const translateSuggestionList = (suggestions, targetLanguage) => {
 			language: normalizedTarget,
 			category: type,
 			category_display: categoryMap[type] || type,
-			display_name: translateSuggestionTextFallback(canonicalName, normalizedTarget),
-			aliases_display: aliases.map((alias) => translateSuggestionTextFallback(alias, normalizedTarget)),
+			display_name: canonicalName,
+			aliases_display: aliases,
 		};
 	});
 };
@@ -564,11 +508,17 @@ const translateQuerySuggestionText = (englishText, targetLanguage) => {
 			.replace(/^steps for\s+/i, 'mga lakang para sa ');
 	}
 
-	output = translateSuggestionTextFallback(output, normalizedTarget);
 	return normalizeWhitespace(output);
 };
 
+const officialNamesFromRecords = (records = []) => [...new Set(records.flatMap(record => {
+  const s = record.structured || {};
+  return [record.canonical_name, record.assigned_building, record.department_name, record.source_office,
+    s.name, s.office_name, s.building_name, s.department, s.role, ...(s.personnel_names || [])];
+}).filter(value => typeof value === 'string' && value.trim()))];
+
 module.exports = {
+    officialNamesFromRecords,
 	DEFAULT_LANGUAGE,
 	STRICT_NO_INFO_RESPONSE,
 	detectLanguage,

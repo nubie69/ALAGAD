@@ -1,10 +1,13 @@
 const Building = require('../../models/Building');
 const Room = require('../../models/Room');
+const Office = require('../../models/Office');
+const Department = require('../../models/Department');
 const FacultyStaff = require('../../models/FacultyStaff');
 const Service = require('../../models/Service');
 const FAQ = require('../../models/FAQ');
 const Resource = require('../../models/Resource');
 const { isSafeResourceUrl } = require('../../utils/resourceUrl');
+const { isCurrentVerifiedKnowledge } = require('./knowledgePolicy');
 
 const clean = (value) => {
   const text = String(value || '').trim();
@@ -52,18 +55,22 @@ const get_room = async (id) => {
 
 const get_personnel = async (id) => {
   const item = await FacultyStaff.findById(id)
-    .populate({ path: 'office', select: 'name building', populate: { path: 'building', select: 'name' } })
+    .populate({ path: 'office', select: 'name building isActive', populate: { path: 'building', select: 'name' } })
+    .populate({ path: 'departmentId', select: 'name building active', populate: { path: 'building', select: 'name' } })
     .lean();
   if (!item || isInactive(item)) return null;
+  const assignedOffice = item.office?.isActive === false ? null : item.office;
+  const assignedDepartment = item.departmentId?.active === false ? null : item.departmentId;
 
   return {
     id: String(item._id),
     name: clean(item.name),
     role: clean(item.title),
-    department: clean(item.department),
-    office_id: item?.office?._id ? String(item.office._id) : null,
-    office_name: clean(item?.office?.name),
-    building_name: clean(item?.office?.building?.name),
+    department: clean(assignedDepartment?.name) || (item.departmentId?.active === false ? null : clean(item.department)),
+    department_id: assignedDepartment?._id ? String(assignedDepartment._id) : null,
+    office_id: assignedOffice?._id ? String(assignedOffice._id) : null,
+    office_name: clean(assignedOffice?.name),
+    building_name: clean(assignedOffice?.building?.name) || clean(assignedDepartment?.building?.name),
     contact: clean(item.contactInfo),
     office_hours: null,
     last_updated: item.updatedAt ? new Date(item.updatedAt).toISOString() : null,
@@ -72,16 +79,18 @@ const get_personnel = async (id) => {
 
 const get_service_details = async (id) => {
   const item = await Service.findById(id)
-    .populate({ path: 'office', select: 'name contactInfo building', populate: { path: 'building', select: 'name' } })
+    .populate({ path: 'office', select: 'name contactInfo building isActive', populate: { path: 'building', select: 'name' } })
     .lean();
-  if (!item || isInactive(item)) return null;
+  if (!item || isInactive(item) || !isCurrentVerifiedKnowledge(item)) return null;
+  const assignedOffice = item.office?.isActive === false ? null : item.office;
 
   return {
     id: String(item._id),
     name: clean(item.name),
     department: clean(item.department),
-    office_name: clean(item?.office?.name),
-    building_name: clean(item?.office?.building?.name),
+    office_id: assignedOffice?._id ? String(assignedOffice._id) : null,
+    office_name: clean(assignedOffice?.name),
+    building_name: clean(assignedOffice?.building?.name),
     requirements: Array.isArray(item.requirements)
       ? item.requirements.map((entry) => String(entry || '').trim()).filter(Boolean)
       : [],
@@ -89,7 +98,7 @@ const get_service_details = async (id) => {
     process_steps: Array.isArray(item.steps)
       ? item.steps.map((entry) => String(entry || '').trim()).filter(Boolean)
       : [],
-    contact: clean(item?.office?.contactInfo),
+    contact: clean(assignedOffice?.contactInfo),
     stakeholder: clean(item.stakeholder),
     stakeholders: Array.isArray(item.stakeholders) ? item.stakeholders.map(clean).filter(Boolean) : [],
     category: clean(item.category),
@@ -232,6 +241,13 @@ const get_resource_details = async (id) => {
 };
 
 const fetchStructuredByType = async (type, id) => {
+  if (type === 'Office' || type === 'Department') {
+    const Model = type === 'Office' ? Office : Department;
+    const item = await Model.findById(id).populate('building', 'name').lean();
+    if (!item || isInactive(item) || item.active === false) return null;
+    return { id: String(item._id), name: clean(item.name), details: clean(item.description),
+      contact: clean(item.contactInfo), building_name: clean(item.building?.name) };
+  }
   if (type === 'Building') return get_building(id);
   if (type === 'Room') return get_room(id);
   if (type === 'Personnel') return get_personnel(id);

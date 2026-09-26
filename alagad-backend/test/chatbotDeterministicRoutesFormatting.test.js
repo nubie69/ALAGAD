@@ -396,11 +396,7 @@ describe('Chatbot Deterministic Response Formatting', () => {
 	it('resolves language to tagalog for code-mixed current queries when tagalog markers are present', () => {
 		const language = resolveDetectedLanguage({
 			hintLanguage: 'tagalog',
-			languageDetection: {
-				language: 'english',
-				reason: 'majority_score',
-				scores: { english: 2, tagalog: 1, cebuano: 0 },
-			},
+			languageDetection: require('../services/retrieval/languageService').detectLanguage('Ano yung requirements for TOR?'),
 		});
 
 		expect(language).to.equal('tagalog');
@@ -409,11 +405,7 @@ describe('Chatbot Deterministic Response Formatting', () => {
 	it('resolves language to cebuano for code-mixed current queries when cebuano markers are present', () => {
 		const language = resolveDetectedLanguage({
 			hintLanguage: 'cebuano',
-			languageDetection: {
-				language: 'english',
-				reason: 'majority_score',
-				scores: { english: 3, tagalog: 0, cebuano: 1 },
-			},
+			languageDetection: require('../services/retrieval/languageService').detectLanguage('Unsa ang requirements for TOR?'),
 		});
 
 		expect(language).to.equal('cebuano');

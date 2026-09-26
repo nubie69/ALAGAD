@@ -3,6 +3,7 @@ const {
 	stripDiacritics,
 	normalizeTokenForMatch,
 } = require('./textNormalizer');
+const { classify: classifyCampusRequest } = require('./campusBehavior');
 
 const TYPE_SYNONYMS = {
 	Building: ['building', 'buildings', 'bldg', 'hall', 'gusali'],
@@ -19,16 +20,9 @@ const TYPE_SYNONYMS = {
 const PHRASE_SYNONYMS = [
 	['id renewal', 'student id renewal'],
 	['id card renewal', 'student id renewal'],
-	['tor', 'transcript of records'],
-	['coe', 'certificate of enrollment'],
-	['cor', 'certificate of registration'],
-	['coc', 'certificate of candidacy'],
 	['enrolment', 'enrollment'],
 	['registrar office', 'registrar'],
 	['dept', 'department'],
-	['cs dept', 'computer science department'],
-	['it dept', 'information technology department'],
-	['comp sci', 'computer science'],
 	['head of department', 'department head'],
 	['exam', 'examination'],
 	['exams', 'examination'],
@@ -116,6 +110,14 @@ const classifyIntent = (input) => {
 		.map((token) => normalizeTokenForMatch(token));
 	const normalizedBaseText = normalizedTokens.join(' ');
 	if (!normalizedInput) return 'unknown';
+	const request = classifyCampusRequest(input);
+	if (request.intent.startsWith('service_')) return 'service';
+	if (['position_personnel', 'personnel_position', 'office_personnel'].includes(request.intent)) return 'who';
+	if (request.intent === 'personnel_location') return 'where';
+	if (request.navigation) return request.service ? 'service' : 'where';
+	if (request.service && !request.requirements) return 'service';
+	if (request.schedule) return 'unknown';
+	if (request.information && !GENERIC_SERVICE_RE.test(normalizedBaseText)) return 'unknown';
 
 	// Strict overlap priority: Process > Requirements > Description > Location > Personnel
 	if (SERVICE_PROCESS_RE.test(normalizedBaseText)) {
@@ -162,6 +164,15 @@ const classifyRetrievalCategory = (input) => {
 		.map((token) => normalizeTokenForMatch(token));
 	const normalizedBaseText = normalizedTokens.join(' ');
 	if (!normalizedBaseText) return RETRIEVAL_CATEGORIES.DESCRIPTION;
+	const request = classifyCampusRequest(input);
+	if (request.intent === 'service_requirements') return RETRIEVAL_CATEGORIES.REQUIREMENTS;
+	if (request.intent === 'service_process') return RETRIEVAL_CATEGORIES.PROCESS;
+	if (request.intent === 'service_description') return RETRIEVAL_CATEGORIES.DESCRIPTION;
+	if (request.intent === 'service_location') return RETRIEVAL_CATEGORIES.LOCATION;
+	if (['position_personnel', 'personnel_position', 'office_personnel'].includes(request.intent)) return RETRIEVAL_CATEGORIES.PERSONNEL;
+	if (request.navigation) return RETRIEVAL_CATEGORIES.LOCATION;
+	if (request.service && request.person) return RETRIEVAL_CATEGORIES.SERVICE;
+	if (request.schedule) return RETRIEVAL_CATEGORIES.DESCRIPTION;
 
 	if (PERSONNEL_RE.test(normalizedBaseText)) {
 		return RETRIEVAL_CATEGORIES.PERSONNEL;

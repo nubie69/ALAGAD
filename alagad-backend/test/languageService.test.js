@@ -68,7 +68,7 @@ describe('Language Service', () => {
 		expect(translated.text.toLowerCase()).to.include('certificate');
 	});
 
-	it('keeps strict no-info response unchanged across languages', async () => {
+	it('localizes the strict no-info response', async () => {
 		const translated = await translateEnglishResponse({
 			englishText: STRICT_NO_INFO_RESPONSE,
 			targetLanguage: 'cebuano',
@@ -77,7 +77,7 @@ describe('Language Service', () => {
 			noInfoText: STRICT_NO_INFO_RESPONSE,
 		});
 
-		expect(translated.text).to.equal(STRICT_NO_INFO_RESPONSE);
+		expect(translated.text).to.equal(require('../services/retrieval/campusBehavior').UNKNOWN_TRANSLATIONS.cebuano);
 		expect(translated.method).to.equal('fixed_no_info_passthrough');
 	});
 

@@ -36,6 +36,8 @@ const translations = {
     close: 'Close',
     language: 'Language',
     navQuestion: 'Do you want me to navigate you there?',
+    navStart: 'Choose your starting point on the map to calculate the route.',
+    viewMap: 'View on map',
     navButton: 'Navigate',
     contactHelpDesk: 'Contact Help Desk',
     findHelpDesk: 'Find Help Desk',
@@ -49,7 +51,9 @@ const translations = {
     clear: 'Limasin ang chat',
     close: 'Isara',
     language: 'Wika',
-    navQuestion: 'Do you want me to navigate you there?',
+    navQuestion: 'Gusto mo bang mag-navigate papunta roon?',
+    navStart: 'Piliin ang panimulang lugar sa mapa para kalkulahin ang ruta.',
+    viewMap: 'Tingnan sa mapa',
     navButton: 'Mag-navigate',
     contactHelpDesk: 'Contact Help Desk',
     findHelpDesk: 'Hanapin ang Help Desk',
@@ -63,7 +67,9 @@ const translations = {
     clear: 'Limpyohan ang chat',
     close: 'Isara',
     language: 'Pinulongan',
-    navQuestion: 'Do you want me to navigate you there?',
+    navQuestion: 'Gusto nimo nga mag-navigate padulong didto?',
+    navStart: 'Pilia ang sinugdanan sa mapa aron makalkula ang ruta.',
+    viewMap: 'Tan-awa sa mapa',
     navButton: 'Mag-navigate',
     contactHelpDesk: 'Contact Help Desk',
     findHelpDesk: 'Pangitaa ang Help Desk',
@@ -71,10 +77,12 @@ const translations = {
   }
 };
 
+const messageTranslations = (message) => translations[({ english: 'en', tagalog: 'tl', cebuano: 'ceb' }[message.language] || message.language)] || translations.en;
+
 const detectLanguageClient = (message) => {
   const text = (message || '').toLowerCase();
-  if (/\b(asa|ngano|unsa|pila|adto|dinhi|palihog|salamat)\b/.test(text)) return 'ceb';
-  if (/\b(saan|paano|ano|nasaan|pakisuyo|salamat|opo|po)\b/.test(text)) return 'tl';
+  if (/\b(asa|ngano|unsa|unsaon|unsang|unsay|kinsa|pila|adto|makaadto|makakuha|didto|dinhi|nako|akong|imong|palihog)\b/.test(text)) return 'ceb';
+  if (/\b(saan|saang|paano|ano|anong|sino|nasaan|kumuha|kukuha|mahahanap|makikita|doon|yung|pakisuyo|salamat|opo|po)\b/.test(text)) return 'tl';
   return 'en';
 };
 
@@ -374,16 +382,18 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       const locationName = rawLocationName || parsedParts.locationLabel || null;
       const entityName = String(response.entityName || parsedParts.serviceName || '').trim() || null;
       const responseLanguage = String(response.responseLanguage || '').trim() || detectLanguageClient(replyText);
+      const responseLocale = { english: 'en', tagalog: 'tl', cebuano: 'ceb', en: 'en', tl: 'tl', ceb: 'ceb' }[responseLanguage];
+      if (responseLocale) setLanguage(responseLocale);
       const responseType = String(response.responseType || response.metadata?.responseType || '').trim();
       const isReferralResponse = REFERRAL_RESPONSE_TYPES.has(responseType);
 
       const shouldSuppressNavigation = isReferralResponse || isNoInfoDatabaseReply(replyText);
-      const navigation = !shouldSuppressNavigation && (response.navigation === true || intent === 'navigation' || intent === 'service');
+      const navigation = !shouldSuppressNavigation && response.navigation === true;
       const steps = Array.isArray(response.steps) ? response.steps.filter(s => typeof s === 'string' && s.trim()) : [];
 
       // Try to resolve a navigation target entity (building/office/room) based on the model's location field
       const normalize = (s) => (typeof s === 'string' ? s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim() : '');
-      const locKey = normalize(locationName);
+      const locKey = normalize(response.navigationTarget?.name || locationName);
 
       const resolveByName = (items) => {
         if (!Array.isArray(items) || !locKey) return null;
@@ -391,16 +401,23 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
         const exact = items.find((item) => normalize(item?.name) === locKey);
         if (exact) return exact;
 
-        const partial = items.find((item) => {
+        const partial = items.filter((item) => {
           const itemKey = normalize(item?.name);
           return itemKey && (itemKey.includes(locKey) || locKey.includes(itemKey));
         });
 
-        return partial || null;
+        return partial.length === 1 ? partial[0] : null;
       };
 
       let navigationTargetEntity = null;
-      if (locKey) {
+      if (response.navigationTarget) {
+        const target = response.navigationTarget;
+        const items = target.type === 'building' ? buildings : target.type === 'room' ? rooms : offices;
+        const matches = items.filter((item) => target.id
+          ? String(item._id || item.id) === String(target.id)
+          : normalize(item.name) === normalize(target.name));
+        navigationTargetEntity = matches.length === 1 ? matches[0] : null;
+      } else if (locKey) {
         navigationTargetEntity = resolveByName(buildings);
         if (!navigationTargetEntity) {
           navigationTargetEntity = resolveByName(offices);
@@ -415,6 +432,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
         text: replyText,
         sender: 'bot',
         language: responseLanguage,
+        languageStyle: response.language_style || 'single',
         timestamp: new Date(),
         intent,
         locationName,
@@ -1050,7 +1068,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                   <CampusMascot portrait />
                   </span>
                 )}
-                <div className="message-text">
+                <div className="message-text" lang={{ english: 'en', tagalog: 'fil', cebuano: 'ceb', tl: 'fil' }[message.language] || message.language || undefined}>
                 {(() => {
                   const rawText = typeof message.text === 'string' ? message.text : '';
                   const text = message.sender === 'bot' ? rawText.replace(/\*\*/g, '"') : rawText;
@@ -1175,8 +1193,16 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                 })() && (
                   <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <span style={{ fontSize: '12px', color: '#4b5563' }}>
-                      {message.intent === 'service' ? t.navQuestion : 'Do you want me to navigate there?'}
+                      {message.intent === 'navigation' ? messageTranslations(message).navStart : messageTranslations(message).navQuestion}
                     </span>
+                    {onViewLocation && (
+                      <button onClick={() => {
+                        const target = message.navigationTargetEntity;
+                        const type = rooms.includes(target) ? 'room' : offices.includes(target) ? 'office' : 'building';
+                        onViewLocation(target, type, target.building || null);
+                        setIsOpen(false);
+                      }}>{messageTranslations(message).viewMap}</button>
+                    )}
                     <button
                       onClick={() => {
                         if (onNavigate) {
@@ -1203,10 +1229,10 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
                       }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = '#15803d'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = '#16a34a'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                      title={t.navButton}
+                      title={messageTranslations(message).navButton}
                     >
                       <NavigationIcon size={12} />
-                      {t.navButton}
+                      {messageTranslations(message).navButton}
                     </button>
                   </div>
                 )}

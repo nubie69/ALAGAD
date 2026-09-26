@@ -2,6 +2,8 @@ const express = require('express');
 const OpenAI = require('openai');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const Settings = require('../models/Settings');
+const campusBehavior = require('../services/retrieval/campusBehavior');
+const { fetchPersonnelIntent } = require('../services/retrieval/personnelIntent');
 
 const { RetrievalPipeline } = require('../services/retrieval/pipeline');
 const { sharedVectorIndexManager } = require('../services/retrieval/vectorIndexManager');
@@ -23,6 +25,7 @@ const {
   detectLanguage,
   translateQueryToEnglish,
   translateEnglishResponse,
+  officialNamesFromRecords,
   translateToEnglishLexicon,
 } = require('../services/retrieval/languageService');
 const {
@@ -74,7 +77,7 @@ const SERVICE_VAGUE_TERMS = new Set([
   'paano', 'giunsa', 'unsa', 'ano', 'saan', 'asa', 'proseso', 'kailangan', 'kinahanglan',
 ]);
 const FOLLOW_UP_START_RE = /^(?:i\s+mean|how\s+about|what\s+about|and\b|also\b|then\b|about\b|regarding\b|siya\b|kani\b|kini\b|mao\s+ni\b)/i;
-const CONTEXT_PRONOUN_RE = /\b(him|her|it|that|this|there|siya|kani|kini|niya)\b/i;
+const CONTEXT_PRONOUN_RE = /\b(him|her|it|they|them|that|this|there|siya|kani|kini|niya)\b/i;
 const GENERIC_SHORT_QUERY_RE = /^(?:where|who|what|how|requirements?|process|description|saan|asa|sino|kinsa|ano|unsa)\??$/i;
 const MATCH_STOPWORDS = new Set([
   'where', 'what', 'who', 'how', 'when', 'find', 'locate', 'location',
@@ -91,6 +94,10 @@ const inferIntentFromQuery = (query, contextItem) => {
   const byType = String(contextItem?.type || '').toLowerCase();
 
   const isServiceContext = byType === 'service';
+  const campusIntent = campusBehavior.classify(query, contextItem);
+  if (campusIntent.navigation) return isServiceContext ? 'where_process' : 'where';
+  if (campusIntent.person && isServiceContext) return 'unit_handler';
+  if (campusIntent.service && campusIntent.location && !campusIntent.requirements && !campusIntent.process && !campusIntent.information) return 'where_process';
   const hasUnitHandles = UNIT_HANDLES_INTENT_RE.test(text);
   const hasWhereProcess = SERVICE_WHERE_PROCESS_INTENT_RE.test(text);
   const hasProcess = SERVICE_PROCESS_INTENT_RE.test(text);
@@ -236,7 +243,7 @@ const buildHelpDeskReferralPayload = async ({
   responsibleOffice = '',
 } = {}) => {
   const helpDesk = await getHelpDeskContact();
-  const reply = buildLocalizedReferralText(language, responsibleOffice);
+  const reply = campusBehavior.unknownReply(language);
   return {
     intent,
     location: null,
@@ -1097,17 +1104,11 @@ const resolveDetectedLanguage = ({ hintLanguage, languageDetection }) => {
   const hint = normalizeLanguageHint(hintLanguage);
   const detection = languageDetection || {};
   const detected = String(detection.language || 'english').toLowerCase();
-  const scores = detection.scores || {};
 
   if (!hint) return detected;
   if (detection.reason === 'fallback_default') return hint;
 
-  // Prefer the user's current non-English query hint for code-mixed input
-  // when it has any marker support in the detector scores.
-  if (hint !== 'english' && detected === 'english') {
-    const hintScore = Number(scores?.[hint] || 0);
-    if (hintScore > 0) return hint;
-  }
+  // A detected current-query language always wins over a stored/client hint.
 
   return detected;
 };
@@ -1288,14 +1289,15 @@ const resolveConversationContext = (history) => {
 };
 
 const isLikelyFollowUpQuery = (query) => {
-  const text = String(query || '').trim();
+  const text = campusBehavior.understand(String(query || '').replace(/\bIT\b/g, 'department-name')).trim();
   if (!text) return false;
 
   const tokenCount = text.split(/\s+/).filter(Boolean).length;
   if (GENERIC_SHORT_QUERY_RE.test(text)) return true;
+  if (/^(?:what (?:are )?(?:the )?office hours|what documents do i need|what are the requirements|what should i bring|what documents are required)\??$/i.test(text)) return true;
   if (FOLLOW_UP_START_RE.test(text)) return true;
   if (CONTEXT_PRONOUN_RE.test(text) && tokenCount <= 12) return true;
-  return tokenCount <= 5;
+  return false;
 };
 
 const intentToQueryHint = (intent) => {
@@ -1479,6 +1481,9 @@ const decideServiceClarification = ({
 const deriveQueryIntentSignal = (query) => {
   const text = String(query || '').toLowerCase();
   if (!text) return 'unknown';
+  const request = campusBehavior.classify(query);
+  if (request.navigation) return request.service ? 'where_process' : 'where';
+  if (request.service && request.person) return 'unit_handler';
   if (isFocusedRequirementsQuery(text)) return 'requirements';
 
   if (DEADLINE_INTENT_RE.test(text)) return 'deadline';
@@ -1673,7 +1678,6 @@ router.get('/suggestions', async (req, res) => {
       hintLanguage,
       languageDetection,
     });
-
     const queryTranslation = await translateQueryToEnglish({
       query: partialQuery,
       detectedLanguage,
@@ -1855,10 +1859,36 @@ router.get('/functions/get_service_details/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+const handleChat = async (req, res, currentLanguage = null) => {
   try {
     const message = String(req.body?.message || '').trim();
-    const hintLanguage = normalizeLanguageHint(req.body?.language);
+    const languageDetection = currentLanguage?.detection || detectLanguage(message);
+    const detectedLanguage = currentLanguage?.language || resolveDetectedLanguage({
+      hintLanguage: normalizeLanguageHint(req.body?.language), languageDetection,
+    });
+    const languageCode = { english: 'en', tagalog: 'tl', cebuano: 'ceb' }[detectedLanguage] || 'en';
+    const clauses = message.split(/\s+(?:and|also|at|ug)\s+(?=(?:where|what|how|when|who|take me|navigate|saan|paano|ano|sino|asa|unsa|unsaon|kinsa)\b)/i);
+    if (clauses.length > 1 && clauses.length <= 4) {
+      const answers = [];
+      const history = normalizeConversationHistory(req.body?.conversationHistory);
+      for (const clause of clauses) {
+        let answer;
+        let statusCode = 200;
+        await handleChat({ body: { ...req.body, message: clause, conversationHistory: history } }, {
+          status(code) { statusCode = code; return this; },
+          json(body) { answer = body; return body; },
+        }, { detection: languageDetection, language: detectedLanguage });
+        if (statusCode !== 200) return res.status(statusCode).json(answer);
+        answers.push(answer);
+        history.push({ sender: 'user', text: clause }, { sender: 'bot', text: answer.reply, entityName: answer.entityName, intent: answer.intent });
+      }
+      const action = [...answers].reverse().find(answer => answer.requires_navigation)
+        || [...answers].reverse().find(answer => answer.navigation) || answers[answers.length - 1];
+      return res.json({ ...action, language: languageCode, responseLanguage: detectedLanguage,
+        language_style: languageDetection.language_style, reply: answers.map(answer => answer.reply).join('\n\n'),
+        intents: answers.flatMap(answer => answer.intents || [answer.intent]),
+        requested_information: [...new Set(answers.flatMap(answer => answer.requested_information || []))], answers });
+    }
     const conversationHistory = normalizeConversationHistory(req.body?.conversationHistory);
     const conversationContext = resolveConversationContext(conversationHistory);
     const selectedSuggestion = req.body?.selectedSuggestion && typeof req.body.selectedSuggestion === 'object'
@@ -1873,19 +1903,35 @@ router.post('/', async (req, res) => {
       registerSuggestionSelection(selectedSuggestionId);
     }
 
-    const languageDetection = detectLanguage(message);
-    const detectedLanguage = resolveDetectedLanguage({
-      hintLanguage,
-      languageDetection,
+    const sendJson = res.json.bind(res);
+    res.json = (body) => sendJson({
+      entity_type: null, entity: body.entityName || null, service: null,
+      requested_information: [], requires_navigation: false,
+      needs_clarification: body.intent === 'clarification', ...body,
+      language: languageCode, responseLanguage: detectedLanguage,
+      language_style: languageDetection.language_style,
     });
+    const conversationalReply = campusBehavior.earlyReply(message, conversationContext, detectedLanguage);
+    if (conversationalReply) {
+      return res.json(conversationalReply);
+    }
     const contextualizedInput = buildConversationAwareQuery({
       message,
       conversationContext,
     });
+    const previousPersonnel = /^(?:position_personnel|personnel_position|personnel_location)$/.test(conversationContext.lastIntent);
+    const requestedIntent = campusBehavior.classify(message,
+      previousPersonnel && isLikelyFollowUpQuery(message) ? { type: 'Personnel' } : null);
+    if (['position_personnel', 'personnel_position', 'office_personnel', 'personnel_location'].includes(requestedIntent.intent)) {
+      const answer = await fetchPersonnelIntent(contextualizedInput, requestedIntent, detectedLanguage);
+      logAudit({ original_query: message, intent: answer.intent, response_text: answer.reply,
+        requested_information: answer.requested_information, entity: answer.entity });
+      return res.json(answer);
+    }
 
     const queryTranslation = await translateQueryToEnglish({
       // Use resolved conversation references for follow-up retrieval (for example, "Where is it?").
-      query: contextualizedInput,
+      query: campusBehavior.understand(contextualizedInput),
       detectedLanguage,
       openaiClient: openai,
       model: CHAT_MODEL,
@@ -1896,6 +1942,13 @@ router.post('/', async (req, res) => {
     const retrieval = await pipeline.retrieve(retrievalQuery, {
       stakeholder: detectedStakeholder,
     });
+    const ambiguousPlaces = campusBehavior.ambiguousLocations(retrievalQuery,
+      sharedVectorIndexManager.getCanonicalDocuments().filter(isAuthoritativeContext));
+    if (ambiguousPlaces.length > 1) {
+      const options = ambiguousPlaces.slice(0, 4).map(item => `${item.canonical_name}${item.assigned_building && item.assigned_building !== item.canonical_name ? ` (${item.assigned_building})` : ''}`);
+      const question = detectedLanguage === 'tagalog' ? 'Aling lokasyon ang tinutukoy mo' : detectedLanguage === 'cebuano' ? 'Unsang lokasyon ang imong gipasabot' : 'Which location do you mean';
+      return res.json(campusBehavior.payload('clarification', `${question}: ${options.join('; ')}?`));
+    }
     const queryIntentSignal = deriveQueryIntentSignal(retrievalQuery || message);
     const rankedContextCandidates = prioritizeVerifiedFaqCandidates(rankContextCandidatesByIntentAndLanguage({
       candidates: retrieval.candidateContexts,
@@ -1990,7 +2043,10 @@ router.post('/', async (req, res) => {
 
     const conflict = detectConflictingInformation(rankedContextCandidates);
     if (conflict.hasConflict) {
-      const conflictReply = `I found conflicting information about the ${conflict.field} in the available university records. Please verify the current information with the Help Desk.`;
+      const conflictReply = detectedLanguage === 'tagalog'
+        ? `May magkasalungat na impormasyon tungkol sa ${conflict.field} sa mga rekord. Mangyaring magtanong sa Help Desk.`
+        : detectedLanguage === 'cebuano' ? `Adunay nagkasumpaki nga impormasyon bahin sa ${conflict.field} sa mga rekord. Palihog pangutana sa Help Desk.`
+          : `I found conflicting information about the ${conflict.field} in the available university records. Please verify the current information with the Help Desk.`;
       const helpDesk = await getHelpDeskContact();
 
       logAlert({
@@ -2119,6 +2175,43 @@ router.post('/', async (req, res) => {
     }
 
     const primary = contextWithStructured[0] || null;
+    if (primary && ['Building', 'Room', 'Office', 'Department', 'Personnel', 'Service'].includes(primary.type) && !primary.structured) {
+      return res.json(campusBehavior.payload('unknown', campusBehavior.unknownReply(detectedLanguage), { responseType: 'NO_MATCH' }));
+    }
+    if (primary?.type === 'FAQ' && isAuthoritativeContext(primary)) {
+      const requested = campusBehavior.classify(message, { type: 'Service' });
+      const faq = primary.structured;
+      const stored = campusBehavior.classify(faq?.question || primary.canonical_name, { type: 'Service' });
+      const scoped = requested.intents.every(intent => stored.intents.includes(intent))
+        && stored.intents.every(intent => requested.intents.includes(intent));
+      if (!scoped) return res.json(campusBehavior.payload('unknown', campusBehavior.unknownReply(detectedLanguage), {
+        requested_information: requested.requested_information, responseType: 'NO_MATCH' }));
+    }
+    if (primary && isAuthoritativeContext(primary)) {
+      const relatedRecords = sharedVectorIndexManager.getCanonicalDocuments()
+        .filter(isAuthoritativeContext);
+      const groundedAnswer = campusBehavior.answerFromRecord(message, primary, relatedRecords, detectedLanguage);
+      if (groundedAnswer) {
+        // Only prose from the selected fields needs model translation. Names and
+        // deterministic navigation/personnel templates already use the target language.
+        const proseIntents = ['service_process', 'service_requirements', 'service_description', 'general_information', 'schedule'];
+        if (groundedAnswer.responseType !== 'NO_MATCH' && groundedAnswer.intents.some(intent => proseIntents.includes(intent)) && openai) {
+          const translated = await translateEnglishResponse({
+            englishText: groundedAnswer.reply, targetLanguage: detectedLanguage, openaiClient: openai,
+            model: CHAT_MODEL, noInfoText: NO_RELIABLE_INFO_RESPONSE, forceTranslation: true,
+            officialNames: officialNamesFromRecords([primary, ...relatedRecords]),
+          });
+          groundedAnswer.reply = translated.text;
+          groundedAnswer.translation = { method: translated.method, translated: translated.translated };
+        }
+        logAudit({ original_query: message, contextualized_query: contextualizedInput,
+          intent: groundedAnswer.intent, response_text: groundedAnswer.reply,
+          response_type: groundedAnswer.responseType, verification_status: groundedAnswer.verificationStatus,
+          chosen_match: { id: primary.id, type: primary.type, canonical_name: primary.canonical_name },
+          requires_navigation: groundedAnswer.requires_navigation });
+        return res.json(groundedAnswer);
+      }
+    }
     // Retrieval includes service/history text; answer scope comes from the current question.
     const answerQuery = translateToEnglishLexicon(message);
     const intent = inferIntentFromQuery(answerQuery, primary);
@@ -2145,6 +2238,7 @@ router.post('/', async (req, res) => {
       const partialTranslation = partialEnglishReply
         ? await translateEnglishResponse({
             englishText: partialEnglishReply,
+            officialNames: officialNamesFromRecords(contextWithStructured),
             targetLanguage: detectedLanguage,
             openaiClient: openai,
             model: CHAT_MODEL,
@@ -2218,22 +2312,17 @@ router.post('/', async (req, res) => {
       }
 
       const faq = primary.structured || {};
-      const resources = Array.isArray(faq.resources) ? faq.resources : [];
-      const relatedFaqs = Array.isArray(faq.relatedFaqs) ? faq.relatedFaqs : [];
-      const asksForDownload = /\b(download|form|link|document|pdf|docx?|website|view)\b/i.test(`${message} ${retrievalQuery}`);
+      const faqRequest = campusBehavior.classify(message, { type: 'Service' });
+      const asksForDownload = /\b(download|link|pdf|docx?|website|view form)\b/i.test(message);
+      const resources = asksForDownload && Array.isArray(faq.resources) ? faq.resources : [];
+      const relatedFaqs = /\brelated (?:questions|faqs)\b/i.test(message) && Array.isArray(faq.relatedFaqs) ? faq.relatedFaqs : [];
       const noResourceNotice = asksForDownload && resources.length === 0
         ? ' I can provide the available information, but I could not verify a downloadable resource in the available university information. Please contact the Help Desk or the assigned office for the official form.'
         : '';
-      const faqAnswer = buildSourceAwareAnswer(
-        `${String(faq.answer || '').trim()}${noResourceNotice}`.trim(),
-        {
-          ...primary,
-          structured: faq,
-          source_office: faq.sourceOffice || primary?.source_office,
-        }
-      );
+      const faqAnswer = `${String(faq.answer || '').trim()}${noResourceNotice}`.trim();
       const faqTranslation = await translateEnglishResponse({
         englishText: faqAnswer,
+        officialNames: officialNamesFromRecords(contextWithStructured),
         targetLanguage: detectedLanguage,
         openaiClient: openai,
         model: CHAT_MODEL,
@@ -2271,27 +2360,29 @@ router.post('/', async (req, res) => {
       });
 
       return res.json({
-        intent: 'faq',
-        location: faq.officeName || faq.departmentName || null,
+        intent: faqRequest.intent,
+        intents: faqRequest.intents,
+        requested_information: faqRequest.requested_information,
+        location: faqRequest.location ? faq.officeName || faq.departmentName || null : null,
         entityName: String(faq.question || primary?.canonical_name || '').trim() || null,
         responseLanguage: faqTranslation.targetLanguage,
         reply: faqReply,
         navigation: false,
         steps: [],
-        faq: {
+        faq: faqRequest.location ? {
           id: faq.id,
           question: faq.question,
           category: faq.category,
           officeName: faq.officeName,
           departmentName: faq.departmentName,
           lastVerified: faq.lastVerified,
-        },
+        } : null,
         relatedFaqs,
         resources,
         responseType: RESPONSE_TYPES.VERIFIED_ANSWER,
         verificationStatus: 'verified',
-        verificationNotice: buildVerificationNotice(primary, intent),
-        helpDesk: await getHelpDeskContact(),
+        verificationNotice: null,
+        helpDesk: null,
         metadata: {
           question: message,
           retrievedRecords: [{
@@ -2413,6 +2504,7 @@ router.post('/', async (req, res) => {
     const sourceAwareEnglishResponse = buildSourceAwareAnswer(sanitizedEnglishResponse, primary);
     const responseTranslation = await translateEnglishResponse({
       englishText: sourceAwareEnglishResponse,
+      officialNames: officialNamesFromRecords(contextWithStructured),
       targetLanguage: detectedLanguage,
       openaiClient: openai,
       model: CHAT_MODEL,
@@ -2527,7 +2619,8 @@ router.post('/', async (req, res) => {
       error: error.message || 'Error processing chat request',
     });
   }
-});
+};
+router.post('/', (req, res) => handleChat(req, res));
 
 module.exports = router;
 module.exports.__testables = {
