@@ -1,125 +1,68 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { speechAPI } from '../utils/api';
+import { VoiceCapture, supportedRecording } from '../utils/voiceCapture';
 
-const useVoiceRecognition = (onResult, onError, language = 'en-US', onInterimResult) => {
-  const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
-  const [error, setError] = useState(null);
-  const recognitionRef = useRef(null);
-  const onResultRef = useRef(onResult);
-  const onErrorRef = useRef(onError);
-  const onInterimResultRef = useRef(onInterimResult);
-  const finalTranscriptRef = useRef('');
+const useVoiceRecognition = (onResult, language = 'auto', enabled = true) => {
+  const [state, setState] = useState('idle');
+  const [error, setError] = useState('');
+  const [config, setConfig] = useState(null);
+  const [checking, setChecking] = useState(true);
+  const resultRef = useRef(onResult); resultRef.current = onResult;
+  const captureRef = useRef(null);
+  const mounted = useRef(false);
+  const configRequest = useRef(null);
 
-  // Keep refs up to date
-  useEffect(() => {
-    onResultRef.current = onResult;
-  }, [onResult]);
-
-  useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
-
-  useEffect(() => {
-    onInterimResultRef.current = onInterimResult;
-  }, [onInterimResult]);
-
-  useEffect(() => {
-    // Check if browser supports speech recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (SpeechRecognition) {
-      setIsSupported(true);
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = language;
-      
-      recognitionRef.current.onresult = (event) => {
-        let interimTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscriptRef.current = `${finalTranscriptRef.current} ${transcript}`.trim();
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        const liveTranscript = `${finalTranscriptRef.current} ${interimTranscript}`.trim();
-        if (liveTranscript && onInterimResultRef.current) {
-          onInterimResultRef.current(liveTranscript);
-        }
-
-        if (finalTranscriptRef.current && !interimTranscript.trim()) {
-          setIsListening(false);
-          if (onResultRef.current) {
-            onResultRef.current(finalTranscriptRef.current);
-          }
-        }
-      };
-      
-      recognitionRef.current.onerror = (event) => {
-        setIsListening(false);
-        setError(event.error);
-        if (onErrorRef.current) {
-          onErrorRef.current(event.error);
-        }
-      };
-      
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
-    } else {
-      setIsSupported(false);
-      setError('Speech recognition not supported in this browser');
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [language]);
-
-  const startListening = useCallback(() => {
-    if (!isSupported) {
-      setError('Speech recognition not supported');
-      return;
-    }
-    
-    setError(null);
+  const checkConfig = useCallback(async () => {
+    configRequest.current?.abort();
+    const controller = new AbortController(); configRequest.current = controller;
+    setChecking(true); setError('');
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
-      finalTranscriptRef.current = '';
-      recognitionRef.current.start();
-      setIsListening(true);
+      if (!supportedRecording()) throw new Error('Voice input requires HTTPS and a browser with microphone recording support. You can type your question instead.');
+      const next = await speechAPI.getConfig(controller.signal);
+      if (mounted.current && configRequest.current === controller) {
+        setConfig(next);
+        if (!next.enabled) setError('Voice input is not configured. You can type your question instead.');
+      }
     } catch (err) {
-      setError(err.message);
-      setIsListening(false);
-    }
-  }, [isSupported]);
-
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
+      if (mounted.current && configRequest.current === controller) {
+        setConfig(null); setError('Voice input is unavailable. Check your connection and retry, or type your question.');
+        if (!supportedRecording()) setError(err.message);
+      }
+    } finally {
+      clearTimeout(timeout);
+      if (mounted.current && configRequest.current === controller) setChecking(false);
     }
   }, []);
 
-  const setLanguage = useCallback((newLanguage) => {
-    if (recognitionRef.current) {
-      recognitionRef.current.lang = newLanguage;
-    }
-  }, []);
+  useEffect(() => {
+    mounted.current = true;
+    captureRef.current = new VoiceCapture({ transcribe: speechAPI.transcribe,
+      onState: next => { if (mounted.current) setState(next); },
+      onError: message => { if (mounted.current) setError(message); },
+      onResult: text => { if (mounted.current) resultRef.current(text); },
+    });
+    checkConfig();
+    return () => {
+      mounted.current = false; configRequest.current?.abort(); captureRef.current?.cancel();
+    };
+  }, [checkConfig]);
 
-  return {
-    isListening,
-    isSupported,
-    error,
-    startListening,
-    stopListening,
-    setLanguage
-  };
+  const cancelRecording = useCallback(() => captureRef.current?.cancel(), []);
+  useEffect(() => { if (!enabled) cancelRecording(); }, [enabled, cancelRecording]);
+  const startListening = useCallback(() => {
+    if (!enabled || !config?.enabled || checking) return;
+    setError(''); captureRef.current?.start(language);
+  }, [config, checking, enabled, language]);
+  const stopListening = useCallback(() => captureRef.current?.stop(), []);
+  const retry = useCallback(() => {
+    if (!config?.enabled) checkConfig(); else startListening();
+  }, [checkConfig, config, startListening]);
+  const isBusy = ['requesting', 'recording', 'processing'].includes(state);
+  const isCaptureBusy = useCallback(() => ['requesting', 'recording', 'processing'].includes(captureRef.current?.state), []);
+  return { state, error, checking, config, isBusy, isCaptureBusy, isListening: state === 'recording',
+    isSupported: Boolean(config?.enabled && supportedRecording()), startListening, stopListening,
+    cancelRecording, retry };
 };
 
 export default useVoiceRecognition;

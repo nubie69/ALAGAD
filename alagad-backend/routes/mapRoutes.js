@@ -3,6 +3,7 @@ const router = express.Router();
 const Building = require('../models/Building');
 const Office = require('../models/Office');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const { syncRecordIndexByType, syncRecordDeactivationByType } = require('../services/retrieval/indexSyncService');
 
 // @desc    Get all map features as GeoJSON
 // @route   GET /api/map/features
@@ -83,6 +84,7 @@ router.post('/features', protect, authorize('super_admin'), async (req, res) => 
       if (!building) {
         return res.status(404).json({ message: 'Building not found' });
       }
+      await syncRecordIndexByType('Building', building._id);
       res.json(building);
     } else if (type === 'office') {
       const office = await Office.findByIdAndUpdate(
@@ -97,6 +99,7 @@ router.post('/features', protect, authorize('super_admin'), async (req, res) => 
       if (!office) {
         return res.status(404).json({ message: 'Office not found' });
       }
+      await syncRecordIndexByType('Office', office._id);
       res.json(office);
     } else {
       res.status(400).json({ message: 'Invalid feature type' });
@@ -122,6 +125,7 @@ router.post('/features/new', protect, authorize('super_admin'), async (req, res)
         department: properties.department || fallbackDepartment,
         geometry: geometry,
       });
+      await syncRecordIndexByType('Building', building._id);
       res.status(201).json(building);
     } else if (type === 'office') {
       const office = await Office.create({
@@ -134,6 +138,7 @@ router.post('/features/new', protect, authorize('super_admin'), async (req, res)
       });
       await office.populate('building', 'name');
       await office.populate('room', 'name floor');
+      await syncRecordIndexByType('Office', office._id);
       res.status(201).json(office);
     } else {
       res.status(400).json({ message: 'Invalid feature type' });
@@ -163,6 +168,7 @@ router.delete('/features/:id', protect, authorize('super_admin'), async (req, re
       return res.status(404).json({ message: 'Feature not found' });
     }
 
+    await syncRecordDeactivationByType(type === 'building' ? 'Building' : 'Office', req.params.id, true);
     res.json({ message: 'Feature deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -204,6 +210,7 @@ router.put('/features/:id/pin', protect, authorize('super_admin'), async (req, r
       return res.status(404).json({ message: 'Item not found' });
     }
 
+    await syncRecordIndexByType(type === 'building' ? 'Building' : 'Office', result._id);
     res.json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -238,6 +245,7 @@ router.delete('/features/:id/pin', protect, authorize('super_admin'), async (req
       return res.status(404).json({ message: 'Item not found' });
     }
 
+    await syncRecordIndexByType(type === 'building' ? 'Building' : 'Office', result._id);
     res.json({ message: 'Pin removed successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

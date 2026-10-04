@@ -21,10 +21,6 @@ const CampusMascot = ({ portrait = false }) => (
 );
 
 
-// Map chatbot language → speech recognition BCP-47 code
-// Note: Web Speech API support varies; Cebuano isn't consistently available, so we fall back to a PH locale.
-const VOICE_LANG_MAP = { en: 'en-US', tl: 'fil-PH', ceb: 'en-PH' };
-
 // Language translations
 const translations = {
   en: {
@@ -159,6 +155,8 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   ]);
   const nextMessageIdRef = useRef(2);
   const [inputValue, setInputValue] = useState('');
+  const [voiceLanguage, setVoiceLanguage] = useState('auto');
+  const sendingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [activeMode, setActiveMode] = useState('ask');
   const [faqSearch, setFaqSearch] = useState('');
@@ -332,9 +330,20 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     messagesEndRef.current?.scrollIntoView({ behavior });
   }, []);
 
+  const handleVoiceResult = useCallback((transcript) => {
+    if (typeof transcript === 'string' && transcript.trim()) setInputValue(transcript);
+  }, []);
+  const { state: voiceState, error: voiceError, checking: voiceChecking, config: voiceConfig,
+    isBusy: voiceBusy, isCaptureBusy, isListening, isSupported: voiceSupported,
+    startListening, stopListening, cancelRecording, retry: retryVoice } = useVoiceRecognition(
+    handleVoiceResult, voiceLanguage, isOpen && activeMode === 'ask'
+  );
+
   const handleSendMessage = useCallback(async (overrideText) => {
+    if (isCaptureBusy() || sendingRef.current) return;
     const textToSend = (typeof overrideText === 'string' ? overrideText : inputValue).trim();
     if (!textToSend) return;
+    sendingRef.current = true;
 
     setShouldAutoScroll(true);
 
@@ -462,28 +471,10 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       setMessages((prev) => [...prev, errorMessage]);
       setAnimatingMessageId(errorMessage.id);
     } finally {
+      sendingRef.current = false;
       setLoading(false);
     }
-  }, [buildings, inputValue, messages, offices, rooms]);
-
-  // Voice recognition: insert transcript into the text box as the user speaks
-  const handleVoiceResult = useCallback((transcript) => {
-    const text = (transcript || '').trim();
-    if (!text) return;
-    setInputValue(text);
-  }, []);
-  
-  const { isListening, isSupported: voiceSupported, startListening, stopListening, setLanguage: setVoiceLang } = useVoiceRecognition(
-    handleVoiceResult,
-    (error) => console.error('Voice error:', error),
-    VOICE_LANG_MAP[language] || 'en-US',
-    handleVoiceResult
-  );
-
-  // Sync voice recognition language when chatbot language changes
-  useEffect(() => {
-    setVoiceLang(VOICE_LANG_MAP[language] || 'en-US');
-  }, [language, setVoiceLang]);
+  }, [buildings, inputValue, messages, offices, rooms, isCaptureBusy]);
 
   // Draggable trigger button position (ignore saved position on mobile to prevent off-screen placement)
   const [triggerPos, setTriggerPos] = useState(() => {
@@ -708,6 +699,8 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
     if (!voiceSupported) return;
     if (isListening) {
       stopListening();
+    } else if (voiceState === 'requesting') {
+      cancelRecording();
     } else {
       startListening();
     }
@@ -1268,11 +1261,30 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
         </div>
       </div>
 
-      {/* Voice listening indicator */}
-      {activeMode === 'ask' && isListening && (
-        <div className="chatbot-voice-indicator">
-          <div className="chatbot-voice-indicator-dot" />
-          <span>Listening...</span>
+      {activeMode === 'ask' && (
+        <div className="chatbot-voice-controls">
+          <label>
+            Spoken language
+            <select aria-label="Spoken language" value={voiceLanguage}
+              disabled={voiceBusy || loading || voiceChecking}
+              onChange={event => setVoiceLanguage(event.target.value)}>
+              {voiceConfig?.autoDetection && <option value="auto">Auto</option>}
+              <option value="en">English</option>
+              <option value="tl">Tagalog</option>
+              <option value="ceb">Cebuano</option>
+            </select>
+          </label>
+          <span role="status" aria-live="polite">
+            {voiceChecking ? 'Checking voice input...' : voiceState === 'requesting' ? 'Waiting for microphone permission...'
+              : isListening ? 'Recording. Tap stop when finished.'
+              : voiceState === 'processing' ? 'Transcribing...'
+              : voiceState === 'stopped' ? 'Recording stopped. Review the text before sending.' : 'Record, then review before sending.'}
+          </span>
+          {voiceState === 'processing' && <button type="button" onClick={cancelRecording}>Cancel</button>}
+          {voiceError && <div className="chatbot-voice-error" role="alert">
+            <span>{voiceError}</span>
+            <button type="button" disabled={voiceBusy || loading || voiceChecking} onClick={retryVoice}>Retry</button>
+          </div>}
         </div>
       )}
 
@@ -1289,16 +1301,18 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
             }}
             onKeyDown={handleKeyDown}
             placeholder={isListening ? 'Listening...' : t.placeholder}
-            disabled={loading}
+            disabled={loading || voiceBusy}
             rows="1"
           />
         </div>
         <div className="chatbot-button-group">
-          {voiceSupported && (
+          {(
             <button
               className={`chatbot-voice-btn ${isListening ? 'listening' : ''}`}
               onClick={handleVoiceToggle}
-              disabled={loading}
+              disabled={loading || !voiceSupported || voiceChecking || voiceState === 'processing'}
+              aria-label={isListening ? 'Stop recording' : voiceState === 'requesting' ? 'Cancel microphone request' : 'Record a question'}
+              aria-pressed={isListening}
               title={isListening ? 'Tap to stop' : 'Tap to speak'}
             >
               {isListening ? (
@@ -1312,7 +1326,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
           )}
           <button
             onClick={handleSendMessage}
-            disabled={loading || !inputValue.trim()}
+            disabled={loading || voiceBusy || !inputValue.trim()}
             className="chatbot-send-btn"
           >
             {loading ? '...' : <SendIcon size={18} />}

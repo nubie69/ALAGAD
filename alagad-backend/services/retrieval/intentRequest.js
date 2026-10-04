@@ -47,10 +47,14 @@ function detectRequest(message, item) {
   const asksWhere = /\b(?:where|location|looking for|find|show me)\b/.test(text);
   const handles = /\b(?:handles?|responsible|which office|what office|what unit)\b/.test(text) && !/\bassigned\b/.test(text);
   const requirements = /\b(?:requirements?|documents?|what (?:do i )?need|what should i (?:bring|prepare))\b/.test(text);
-  const process = !navigation && !asksWhere && !handles && /\b(?:how|process|steps?|procedure)\b/.test(text)
-    && !/\bhow (?:long|to contact)\b/.test(text);
   const contact = /\b(?:contact|phone|email|hotline|contact information|kontak)\b/.test(text);
   const schedule = /\b(?:what time|hours|open(?:s)?|clos(?:e|es|ing)|schedule|when can i visit)\b/.test(text);
+  // "How" alone does not make requirements, contact, or schedule a procedure request.
+  const process = !navigation && !asksWhere && !handles
+    && (/\b(?:steps?|procedure)\b/.test(text)
+      || (/\bprocess\b/.test(text) && (!requirements || /\b(?:and|also|at saka|ug|og)\b/.test(text)))
+      || (/\bhow\b/.test(text) && !requirements && !contact && !schedule))
+    && !/\bhow long\b/.test(text);
   const who = /\bwho\b/.test(text);
   const officePersonnel = who && /\b(?:works? in|assigned (?:to|in)|assigned (?:sa|ang sa)|assigned sa)\b/.test(text)
     && !/\b(?:assigned as|assigned (?:na|nga)|position)\b/.test(text);

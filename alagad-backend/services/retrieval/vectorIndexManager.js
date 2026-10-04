@@ -10,7 +10,16 @@ const { logAudit, logAlert } = require('./auditLogger');
 const INDEX_TTL_MS = Number(process.env.RETRIEVAL_INDEX_TTL_MS || 60000);
 
 class VectorIndexManager {
-  constructor() {
+  constructor({
+    loadDatabase = buildIndexPayloadFromDatabase,
+    loadRecord = buildIndexPayloadForSingleRecord,
+    embedText = text => sharedEmbeddingProvider.embedText(text),
+    saveLastIndexed = saveLastIndexedByTypeAndId,
+  } = {}) {
+    this.loadDatabase = loadDatabase;
+    this.loadRecord = loadRecord;
+    this.embedText = embedText;
+    this.saveLastIndexed = saveLastIndexed;
     this.vectorStore = new InMemoryVectorStore();
     this.state = {
       loadedAt: 0,
@@ -19,6 +28,14 @@ class VectorIndexManager {
     };
 
     this.rebuildPromise = null;
+    this.mutationQueue = Promise.resolve();
+  }
+
+  enqueueMutation(operation) {
+    const pending = this.mutationQueue.then(operation);
+    // A failed update must not prevent later admin changes from being indexed.
+    this.mutationQueue = pending.catch(() => {});
+    return pending;
   }
 
   toVectorDocument(chunk, embedding, lastIndexedIso) {
@@ -103,15 +120,19 @@ class VectorIndexManager {
     return Boolean(chunk?.metadata?.deactivated !== true);
   }
 
-  async rebuildFromDatabase() {
-    const payload = await buildIndexPayloadFromDatabase();
+  rebuildFromDatabase() {
+    return this.enqueueMutation(() => this.rebuildIndex());
+  }
+
+  async rebuildIndex() {
+    const payload = await this.loadDatabase();
     const lastIndexedIso = new Date().toISOString();
     const vectorDocuments = [];
 
     for (const chunk of payload.chunkDocuments || []) {
       if (!this.isActiveChunk(chunk)) continue;
       // eslint-disable-next-line no-await-in-loop
-      const embedding = await sharedEmbeddingProvider.embedText(chunk.content);
+      const embedding = await this.embedText(chunk.content);
       vectorDocuments.push(this.toVectorDocument(chunk, embedding, lastIndexedIso));
     }
 
@@ -128,6 +149,7 @@ class VectorIndexManager {
   }
 
   async ensureFreshIndex({ ttlMs = INDEX_TTL_MS } = {}) {
+    await this.mutationQueue;
     const stale = (Date.now() - this.state.loadedAt) > ttlMs;
     if (!stale && this.state.vectorCount > 0) {
       return this.state;
@@ -153,8 +175,12 @@ class VectorIndexManager {
     this.state.canonicalDocuments = [...retained, canonicalDoc];
   }
 
-  async upsertRecordByType(type, recordId) {
-    const payload = await buildIndexPayloadForSingleRecord(type, recordId);
+  upsertRecordByType(type, recordId) {
+    return this.enqueueMutation(() => this.upsertRecord(type, recordId));
+  }
+
+  async upsertRecord(type, recordId) {
+    const payload = await this.loadRecord(type, recordId);
     const lastIndexed = new Date();
     const lastIndexedIso = lastIndexed.toISOString();
 
@@ -172,9 +198,10 @@ class VectorIndexManager {
       : null;
     const shouldEmbedActiveRecord = Boolean(canonicalDoc && canonicalDoc.deactivated !== true);
 
-    const removed = this.vectorStore.removeByRecordId(payload.recordId);
+    let removed;
 
     if (!shouldEmbedActiveRecord) {
+      removed = this.vectorStore.removeByRecordId(payload.recordId);
       for (const doc of payload.canonicalDocuments || []) {
         this.updateCanonicalRecord({
           ...doc,
@@ -183,8 +210,7 @@ class VectorIndexManager {
       }
 
       this.state.vectorCount = this.vectorStore.listDocuments().length;
-      this.state.loadedAt = Date.now();
-      await saveLastIndexedByTypeAndId(type, payload.recordId, lastIndexed);
+      await this.saveLastIndexed(type, payload.recordId, lastIndexed);
 
       logAudit({
         event: 'vector_upsert_record',
@@ -212,12 +238,14 @@ class VectorIndexManager {
     for (const chunk of payload.chunkDocuments || []) {
       if (!this.isActiveChunk(chunk)) continue;
       // eslint-disable-next-line no-await-in-loop
-      const embedding = await sharedEmbeddingProvider.embedText(chunk.content);
+      const embedding = await this.embedText(chunk.content);
       const vectorDoc = this.toVectorDocument(chunk, embedding, lastIndexedIso);
       vectorDocuments.push(vectorDoc);
       vectorIds.push(vectorDoc.id);
     }
 
+    // Publish only after embeddings succeed, so a failed update keeps the old record.
+    removed = this.vectorStore.removeByRecordId(payload.recordId);
     this.vectorStore.upsertMany(vectorDocuments);
 
     for (const canonicalDoc of payload.canonicalDocuments || []) {
@@ -228,9 +256,9 @@ class VectorIndexManager {
     }
 
     this.state.vectorCount = this.vectorStore.listDocuments().length;
-    this.state.loadedAt = Date.now();
-
-    await saveLastIndexedByTypeAndId(type, payload.recordId, lastIndexed);
+    // Only a full database load refreshes loadedAt. Incremental changes must not
+    // make a partial index look complete or postpone refreshes indefinitely.
+    await this.saveLastIndexed(type, payload.recordId, lastIndexed);
 
     const indexedCanonical = (payload.canonicalDocuments || []).map((doc) => ({
       record_id: String(doc?.record_id || doc?.id || ''),
@@ -257,7 +285,11 @@ class VectorIndexManager {
     };
   }
 
-  async markRecordDeactivated(type, recordId, deactivated = true) {
+  markRecordDeactivated(type, recordId, deactivated = true) {
+    return this.enqueueMutation(() => this.deactivateRecord(type, recordId, deactivated));
+  }
+
+  async deactivateRecord(type, recordId, deactivated = true) {
     const shouldDeactivate = Boolean(deactivated);
     const affected = shouldDeactivate
       ? this.vectorStore.removeByRecordId(recordId)
@@ -274,10 +306,9 @@ class VectorIndexManager {
 
     this.state.canonicalDocuments = canonicalDocs;
     this.state.vectorCount = this.vectorStore.listDocuments().length;
-    this.state.loadedAt = Date.now();
 
     const lastIndexed = new Date();
-    await saveLastIndexedByTypeAndId(type, recordId, lastIndexed);
+    await this.saveLastIndexed(type, recordId, lastIndexed);
 
     logAudit({
       event: 'vector_mark_deactivated',

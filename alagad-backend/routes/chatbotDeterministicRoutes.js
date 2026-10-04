@@ -3,6 +3,7 @@ const OpenAI = require('openai');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const Settings = require('../models/Settings');
 const campusBehavior = require('../services/retrieval/campusBehavior');
+const { formatServiceProcess } = require('../services/retrieval/serviceProcess');
 const { fetchPersonnelIntent } = require('../services/retrieval/personnelIntent');
 
 const { RetrievalPipeline } = require('../services/retrieval/pipeline');
@@ -743,32 +744,6 @@ const toSentenceList = (items) => {
   return `${normalized.slice(0, -1).join(', ')}, and ${normalized[normalized.length - 1]}`;
 };
 
-const toProcessParagraph = (steps) => {
-  const normalized = asCleanList(steps)
-    .map((step) => stripTrailingPunctuation(step))
-    .filter(Boolean);
-
-  if (normalized.length === 0) return '';
-
-  const asClause = (step) => {
-    const clean = stripTrailingPunctuation(step);
-    if (!clean) return '';
-    if (/^[A-Z]{2,}/.test(clean)) return clean;
-    return `${clean.charAt(0).toLowerCase()}${clean.slice(1)}`;
-  };
-
-  if (normalized.length === 1) {
-    return `first, ${asClause(normalized[0])}`;
-  }
-
-  return normalized.map((step, index) => {
-    const clause = asClause(step);
-    if (index === 0) return `first, ${clause}`;
-    if (index === normalized.length - 1) return `finally, ${clause}`;
-    return `next, ${clause}`;
-  }).join('; ');
-};
-
 const buildServiceIntentAnswer = (contextItem, intent, fallbackText = NO_RELIABLE_INFO_RESPONSE) => {
   if (!contextItem || String(contextItem.type || '').toLowerCase() !== 'service') {
     return sanitizeGeneratedResponse(fallbackText);
@@ -839,9 +814,7 @@ const buildServiceIntentAnswer = (contextItem, intent, fallbackText = NO_RELIABL
     return NO_RELIABLE_INFO_RESPONSE;
   }
 
-  const processParagraph = toProcessParagraph(processSteps);
-  if (!processParagraph) return NO_RELIABLE_INFO_RESPONSE;
-  return polishGrammar(`The process for ${serviceName} is ${processParagraph}`);
+  return formatServiceProcess(serviceName, processSteps) || NO_RELIABLE_INFO_RESPONSE;
 };
 
 const FIELD_LABELS = Object.freeze({

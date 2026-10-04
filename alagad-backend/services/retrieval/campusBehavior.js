@@ -11,6 +11,7 @@ const SERVICE = /\b(?:service|transcript|tor|where (?:can i|do i|to) (?:get|requ
 const REF = /\b(?:it|there|they|them|doon|didto|that (?:place|office|building|service)|this (?:place|office|building|service))\b/;
 
 const { detectRequest, understand } = require('./intentRequest');
+const { formatServiceProcess, cleanProcessActions } = require('./serviceProcess');
 const classify = detectRequest;
 
 function payload(intent, reply, extra = {}) {
@@ -33,6 +34,9 @@ function earlyReply(message, context = {}, language = 'english') {
       'Walay sapayan! Ingna ko kung kinahanglan nimo og tabang sa pagpangita og laing lugar sa campus.'));
   }
   const referenceText = understand(String(message).replace(/\bIT\b/g, 'department-name'));
+  if (!context.lastEntity && /^(?:how (?:do i |can i |to )?(?:apply|request|enroll|process)|(?:what (?:is|are) (?:the )?)?(?:process|steps|procedure|requirements))$/.test(referenceText)) {
+    return payload('clarification', local('Which service would you like help with?', 'Anong serbisyo ang kailangan mo ng tulong?', 'Unsang serbisyo ang imong kinahanglan og tabang?'));
+  }
   if (!context.lastEntity && (REF.test(referenceText) || /^(?:where is the office|where is the building|navigate me|take me|office|building|room)$/.test(text))) {
     return payload('clarification', local('Which campus place or service do you mean?', 'Aling lugar o serbisyo sa campus ang tinutukoy mo?', 'Unsang lugar o serbisyo sa campus ang imong gipasabot?'));
   }
@@ -96,8 +100,7 @@ function answerFromRecord(message, item, relatedRecords = [], language = 'englis
   for (const intent of request.intents) {
     switch (intent) {
       case 'service_process':
-        add(intent, type === 'service' && s.process_steps?.length
-          ? `${t.process} ${name}:\n${s.process_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}` : null);
+        add(intent, type === 'service' ? formatServiceProcess(name, s.process_steps, lang) : null);
         break;
       case 'service_requirements':
         add(intent, type === 'service' && s.requirements?.length
@@ -160,7 +163,7 @@ function answerFromRecord(message, item, relatedRecords = [], language = 'englis
     location: canNavigate ? location || null : null,
     navigation: canNavigate, requires_navigation: request.navigation && canNavigate,
     navigationTarget: canNavigate ? target : null,
-    steps: request.intents.includes('service_process') && Array.isArray(s.process_steps) ? s.process_steps : [],
+    steps: request.intents.includes('service_process') ? cleanProcessActions(s.process_steps) : [],
     intents: request.intents, requested_information: request.requested_information,
     responseLanguage: lang, language: { english: 'en', tagalog: 'tl', cebuano: 'ceb' }[lang] || 'en',
     responseType: missing.length ? (missing.length === request.intents.length ? 'NO_MATCH' : 'PARTIAL_INFORMATION') : 'VERIFIED_ANSWER',

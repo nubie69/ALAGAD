@@ -107,7 +107,7 @@ describe('Chatbot Deterministic Response Formatting', () => {
 		expect(answer).to.equal('To get Transcript of Records, you should have these requirements: Valid ID and Request form.');
 	});
 
-	it('formats service process responses with exact process sentence', () => {
+	it('formats service process responses with clear professional sentences', () => {
 		const answer = buildServiceIntentAnswer({
 			type: 'Service',
 			canonical_name: 'Transcript of Records',
@@ -118,7 +118,7 @@ describe('Chatbot Deterministic Response Formatting', () => {
 			},
 		}, 'process');
 
-		expect(answer).to.equal('The process for Transcript of Records is first, submit requirements; next, pay the fee; finally, claim document.');
+		expect(answer).to.equal('To complete Transcript of Records, follow these steps: First, submit requirements. Next, pay the fee. Finally, claim document.');
 		expect(answer).to.not.match(/step\s*\d+/i);
 		expect(answer).to.not.include('Request and release of transcript');
 	});
@@ -203,7 +203,7 @@ describe('Chatbot Deterministic Response Formatting', () => {
 			},
 		}, 'process');
 
-		expect(answer).to.equal('The process for Entrance Examination Application is first, fill out the online form; finally, submit requirements.');
+		expect(answer).to.equal('To complete Entrance Examination Application, follow these steps: First, fill out the online form. Finally, submit requirements.');
 		expect(answer).to.not.match(/step\s*\d+/i);
 		expect(answer).to.not.include('AGENCY ACTION');
 		expect(answer).to.not.include('STEP 1');

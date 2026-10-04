@@ -27,6 +27,23 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+// Multipart voice upload stays separate from the existing typed-chat request.
+const speechRequest = async (path, options) => {
+  const response = await fetch(`${API_BASE_URL}/speech/${path}`, options);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || 'Voice input is unavailable. Please try again.');
+  return data;
+};
+export const speechAPI = {
+  getConfig: signal => speechRequest('config', { signal }),
+  transcribe: (audio, language, signal) => {
+    const form = new FormData();
+    form.append('audio', audio, 'recording');
+    form.append('language', language);
+    return speechRequest('transcribe', { method: 'POST', body: form, signal });
+  },
+};
+
 // Helper function to get auth token from localStorage
 const getToken = () => {
   return localStorage.getItem('token');

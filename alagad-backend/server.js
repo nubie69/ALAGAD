@@ -98,6 +98,7 @@ app.use('/api/settings', require('./routes/settingsRoutes'));
 app.use('/api/overview', require('./routes/overviewRoutes'));
 app.use('/api/map', require('./routes/mapRoutes'));
 app.use('/api/chat', require('./routes/chatbotDeterministicRoutes'));
+app.use('/api/speech', require('./routes/speechRoutes'));
 app.use('/api/popular', require('./routes/popularRoutes'));
 app.use('/api/public/faqs', require('./routes/publicFaqRoutes'));
 app.use('/api/faqs', require('./routes/faqRoutes'));

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const supertest = require('supertest');
 const { detectRequest } = require('../services/retrieval/intentRequest');
-const { answerFromRecord, UNKNOWN, unknownReply } = require('../services/retrieval/campusBehavior');
+const { answerFromRecord, earlyReply, UNKNOWN, unknownReply } = require('../services/retrieval/campusBehavior');
 const { resolvePersonnel } = require('../services/retrieval/personnelIntent');
 const { classifyIntent } = require('../services/retrieval/queryNormalizer');
 const FacultyStaff = require('../models/FacultyStaff');
@@ -56,6 +56,47 @@ const examples = {
 };
 
 describe('Intent-specific multilingual requests', () => {
+  it('uses sentences without step numbers or internal agency actions', () => {
+    const answer = answerFromRecord('How do I get my TOR?', {
+      ...service, structured: { ...service.structured, process_steps: [
+        'STEP 1:', 'CLIENT STEPS: Submit the request form.',
+        'AGENCY ACTION: Verify records.', 'STEP 2:', 'CLIENT STEPS: Pay the fee.',
+        'STEP 3: Claim the document.', 'CLIENT STEPS: Claim the document.',
+      ] },
+    });
+    assert.equal(answer.reply, 'To complete Transcript of Records, follow these steps: First, submit the request form. Next, pay the fee. Finally, claim the document.');
+    assert.doesNotMatch(answer.reply, /\d|AGENCY|CLIENT|STEP/);
+    assert.deepEqual(answer.steps, ['Submit the request form.', 'Pay the fee.', 'Claim the document.']);
+  });
+  it('preserves verified quantities rather than adding procedure numbers', () => {
+    const answer = answerFromRecord('TOR process', { ...service,
+      structured: { ...service.structured, process_steps: ['1. Submit 2 copies of the form.', '2) Pay PHP 100.'] } });
+    assert.match(answer.reply, /submit 2 copies/);
+    assert.match(answer.reply, /pay PHP 100/);
+    assert.doesNotMatch(answer.reply, /(?:^|\n)\d+[.)]/);
+  });
+  for (const language of ['tagalog', 'cebuano']) {
+    it(`uses unnumbered process transitions in ${language}`, () => {
+      const answer = answerFromRecord('TOR process', { ...service,
+        structured: { ...service.structured, process_steps: ['Submit the form', 'Claim the document'] } }, [], language);
+      assert.doesNotMatch(answer.reply, /\d|follow these steps|First|Finally/);
+      assert.match(answer.reply, /Una/);
+    });
+  }
+  for (const [question, intent] of [
+    ['How do I prepare the requirements for TOR?', 'service_requirements'],
+    ['What are the requirements to process TOR?', 'service_requirements'],
+    ['How can I contact the Registrar?', 'contact_information'],
+    ['How do I check office hours?', 'schedule'],
+  ]) {
+    it(`understands the requested field before answering: ${question}`, () => {
+      assert.deepEqual(detectRequest(question, service).intents, [intent]);
+    });
+  }
+  it('asks which service is intended when an application question has no context', () => {
+    assert.equal(earlyReply('How do I apply?').intent, 'clarification');
+    assert.equal(earlyReply('How do I apply?', { lastEntity: 'Transcript of Records' }), null);
+  });
   for (const [intent, queries] of Object.entries(examples)) {
     for (const query of queries) it(`${intent}: ${query}`, () => {
       assert.equal(detectRequest(query).intent, intent);

@@ -3056,7 +3056,7 @@ function SuperAdminDashboard() {
             <div className="admin-sidebar-brand-text">
               <h2>ALAGAD</h2>
               <p>Campus Administration</p>
-            </div>
+            </div>  
           </div>
           {user && user.department && (
             <div className="admin-sidebar-context">
