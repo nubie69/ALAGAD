@@ -4,7 +4,7 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 const Settings = require('../models/Settings');
 const campusBehavior = require('../services/retrieval/campusBehavior');
 const { formatServiceProcess } = require('../services/retrieval/serviceProcess');
-const { fetchPersonnelIntent } = require('../services/retrieval/personnelIntent');
+const { fetchPersonnelIntent, isNamedPersonnelQuery } = require('../services/retrieval/personnelIntent');
 
 const { RetrievalPipeline } = require('../services/retrieval/pipeline');
 const { sharedVectorIndexManager } = require('../services/retrieval/vectorIndexManager');
@@ -1902,6 +1902,20 @@ const handleChat = async (req, res, currentLanguage = null) => {
       return res.json(answer);
     }
 
+    // Resolve named people against the current admin personnel list before
+    // semantic retrieval can substitute another person or campus entity.
+    if (!requestedIntent.service && requestedIntent.intents.some(intent =>
+      ['find_location', 'navigation', 'contact_information', 'schedule', 'general_information'].includes(intent))
+      && isNamedPersonnelQuery(contextualizedInput,
+        sharedVectorIndexManager.getCanonicalDocuments().filter(item => item.type === 'Personnel'))) {
+      const answer = await fetchPersonnelIntent(contextualizedInput, requestedIntent, detectedLanguage, { onlyIfNamed: true });
+      if (answer) {
+        logAudit({ original_query: message, intent: answer.intent, response_text: answer.reply,
+          requested_information: answer.requested_information, entity: answer.entity });
+        return res.json(answer);
+      }
+    }
+
     const queryTranslation = await translateQueryToEnglish({
       // Use resolved conversation references for follow-up retrieval (for example, "Where is it?").
       query: campusBehavior.understand(contextualizedInput),
@@ -1933,6 +1947,13 @@ const handleChat = async (req, res, currentLanguage = null) => {
       targetLanguage: detectedLanguage,
     }));
     const bestContext = rankedContextCandidates[0] || retrieval.finalContext[0] || null;
+    if (bestContext?.type === 'Personnel') {
+      const answer = await fetchPersonnelIntent(contextualizedInput,
+        campusBehavior.classify(message, { type: 'Personnel' }), detectedLanguage);
+      logAudit({ original_query: message, intent: answer.intent, response_text: answer.reply,
+        requested_information: answer.requested_information, entity: answer.entity });
+      return res.json(answer);
+    }
     const bestSimilarityScore = Number(bestContext?.similarity || 0);
     const bestAdjustedScoreRaw = Number(bestContext?.adjusted_score || bestContext?.rerank_score || 0);
     const bestAdjustedScore = Math.max(0, Math.min(1, bestAdjustedScoreRaw));
