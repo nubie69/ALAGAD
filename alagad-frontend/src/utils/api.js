@@ -31,7 +31,9 @@ const API_BASE_URL = getApiBaseUrl();
 const speechRequest = async (path, options) => {
   const response = await fetch(`${API_BASE_URL}/speech/${path}`, options);
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || 'Voice input is unavailable. Please try again.');
+  if (!response.ok) throw new Error(['NOT_CONFIGURED', 'SERVICE_UNAVAILABLE'].includes(data.code)
+    ? 'Voice input is temporarily unavailable. Please try again later.'
+    : data.message || 'Voice input is unavailable. Please try again.');
   return data;
 };
 export const speechAPI = {

@@ -33,7 +33,7 @@ function earlyReply(message, context = {}, language = 'english') {
       'Walang anuman! Sabihin mo kung kailangan mo ng tulong sa paghahanap ng ibang lugar sa campus.',
       'Walay sapayan! Ingna ko kung kinahanglan nimo og tabang sa pagpangita og laing lugar sa campus.'));
   }
-  const referenceText = understand(String(message).replace(/\bIT\b/g, 'department-name'));
+  const referenceText = understand(String(message).replace(/\bit(?=[-\s]*\d)/gi, 'room-code').replace(/\bIT\b/g, 'department-name'));
   if (!context.lastEntity && /^(?:how (?:do i |can i |to )?(?:apply|request|enroll|process)|(?:what (?:is|are) (?:the )?)?(?:process|steps|procedure|requirements))$/.test(referenceText)) {
     return payload('clarification', local('Which service would you like help with?', 'Anong serbisyo ang kailangan mo ng tulong?', 'Unsang serbisyo ang imong kinahanglan og tabang?'));
   }

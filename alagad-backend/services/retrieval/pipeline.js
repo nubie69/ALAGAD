@@ -11,6 +11,7 @@ const { sharedEmbeddingProvider, EMBEDDING_MODEL } = require('./embeddingProvide
 const { InMemoryVectorStore } = require('./vectorStore');
 const { rerankResults } = require('./reranker');
 const { exactMatchFallback } = require('./exactFallback');
+const { resolveRequestedRoom } = require('./roomMatcher');
 const { buildIndexPayloadFromDatabase } = require('./documentIndexer');
 const { sharedVectorIndexManager, INDEX_TTL_MS } = require('./vectorIndexManager');
 const { detectStakeholderFromQuery, normalizeStakeholders, stakeholderMatches } = require('./stakeholderUtils');
@@ -210,6 +211,13 @@ class RetrievalPipeline {
 		const canonicalDocumentPool = this.indexManager
 			? this.indexManager.getCanonicalDocuments({ includeDeactivated: true, includeAdminUser: true, categoryFilters: [] })
 			: indexState.canonicalDocuments;
+		const roomResolution = !['service', 'who'].includes(intent)
+			? resolveRequestedRoom(options.originalQuery || query, canonicalDocumentPool)
+			: { requested: false, matches: [] };
+		if (roomResolution.requested) {
+			typeFilters = ['Room'];
+			retrievalCategory = 'Location';
+		}
 		const explicitResponsibleOffice = String(options?.responsibleOffice || '').trim();
 		const shouldInferResponsibleOffice = !['Location', 'Personnel'].includes(retrievalCategory);
 		const detectedResponsibleOffice = explicitResponsibleOffice
@@ -323,7 +331,12 @@ class RetrievalPipeline {
 		let finalCandidates = reranked;
 		let fallback = null;
 
-		if (topSimilarity < this.similarityThreshold) {
+		if (roomResolution.requested) {
+			finalCandidates = roomResolution.matches
+				.filter(doc => matchesTypeFilters(doc) && matchesMetadataFilters(doc) && matchesAuthorityFilters(doc))
+				.map(doc => this.canonicalToResult(doc));
+			retrievalMode = finalCandidates.length ? 'exact_room' : 'no_reliable_info';
+		} else if (topSimilarity < this.similarityThreshold) {
 			const canonicalDocuments = (this.indexManager
 				? this.indexManager.getCanonicalDocuments({ includeDeactivated, includeAdminUser, categoryFilters })
 				: indexState.canonicalDocuments.filter((doc) => {
@@ -372,7 +385,7 @@ class RetrievalPipeline {
 
 		const rankedCandidates = this.rankCandidatesBySimilarity(finalCandidates);
 		const exploratoryRankedCandidates = this.rankCandidatesBySimilarity(reranked);
-		const candidatePool = rankedCandidates.length > 0 ? rankedCandidates : exploratoryRankedCandidates;
+		const candidatePool = rankedCandidates.length > 0 || roomResolution.requested ? rankedCandidates : exploratoryRankedCandidates;
 		const toContextItem = (item) => ({
 			is_active: item.metadata?.is_active !== false && item.metadata?.deactivated !== true,
 			id: item.metadata?.source_id || item.metadata?.canonical_id || item.metadata?.id,
@@ -462,6 +475,7 @@ class RetrievalPipeline {
 				rerankSignals: item.rerankSignals,
 			})),
 			retrievalMode,
+			roomQuery: roomResolution.requested,
 			topSimilarity,
 			fallback,
 			candidateContexts,

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { speechAPI } from '../utils/api';
 import { VoiceCapture, supportedRecording } from '../utils/voiceCapture';
 
@@ -8,11 +8,12 @@ const useVoiceRecognition = (onResult, language = 'auto', enabled = true) => {
   const [config, setConfig] = useState(null);
   const [checking, setChecking] = useState(true);
   const resultRef = useRef(onResult); resultRef.current = onResult;
+  const enabledRef = useRef(enabled); enabledRef.current = enabled;
   const captureRef = useRef(null);
   const mounted = useRef(false);
   const configRequest = useRef(null);
 
-  const checkConfig = useCallback(async () => {
+  const checkConfig = useCallback(async (showError = false) => {
     configRequest.current?.abort();
     const controller = new AbortController(); configRequest.current = controller;
     setChecking(true); setError('');
@@ -22,13 +23,16 @@ const useVoiceRecognition = (onResult, language = 'auto', enabled = true) => {
       const next = await speechAPI.getConfig(controller.signal);
       if (mounted.current && configRequest.current === controller) {
         setConfig(next);
-        if (!next.enabled) setError('Voice input is not configured. You can type your question instead.');
+        if (!next.enabled && showError) setError('Voice input is temporarily unavailable. Please try again later.');
       }
+      return configRequest.current === controller ? next : null;
     } catch (err) {
       if (mounted.current && configRequest.current === controller) {
-        setConfig(null); setError('Voice input is unavailable. Check your connection and retry, or type your question.');
-        if (!supportedRecording()) setError(err.message);
+        setConfig(null);
+        if (showError) setError(!supportedRecording() ? err.message
+          : 'Voice input is unavailable. Check your connection and retry.');
       }
+      return null;
     } finally {
       clearTimeout(timeout);
       if (mounted.current && configRequest.current === controller) setChecking(false);
@@ -50,14 +54,21 @@ const useVoiceRecognition = (onResult, language = 'auto', enabled = true) => {
 
   const cancelRecording = useCallback(() => captureRef.current?.cancel(), []);
   useEffect(() => { if (!enabled) cancelRecording(); }, [enabled, cancelRecording]);
-  const startListening = useCallback(() => {
-    if (!enabled || !config?.enabled || checking) return;
-    setError(''); captureRef.current?.start(language);
-  }, [config, checking, enabled, language]);
+  const startListening = useCallback(async () => {
+    if (!enabled || checking) return;
+    setError('');
+    if (!config?.enabled) {
+      // Check again only when the user asks to record, keeping setup notices out of chat.
+      const next = await checkConfig(true);
+      if (mounted.current && enabledRef.current && next?.enabled) captureRef.current?.start(language);
+      return;
+    }
+    captureRef.current?.start(language);
+  }, [config, checking, enabled, language, checkConfig]);
   const stopListening = useCallback(() => captureRef.current?.stop(), []);
   const retry = useCallback(() => {
-    if (!config?.enabled) checkConfig(); else startListening();
-  }, [checkConfig, config, startListening]);
+    startListening();
+  }, [startListening]);
   const isBusy = ['requesting', 'recording', 'processing'].includes(state);
   const isCaptureBusy = useCallback(() => ['requesting', 'recording', 'processing'].includes(captureRef.current?.state), []);
   return { state, error, checking, config, isBusy, isCaptureBusy, isListening: state === 'recording',

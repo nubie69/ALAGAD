@@ -42,6 +42,11 @@ export class VoiceCapture {
       } });
       if (session !== this.session) { stream.getTracks().forEach(track => track.stop()); return; }
       this.stream = stream;
+      stream.getAudioTracks().forEach(track => {
+        track.onended = () => {
+          if (session === this.session && this.state === 'recording') this.fail('The microphone was disconnected. Check it and try again.');
+        };
+      });
       const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'];
       const mimeType = candidates.find(type => window.MediaRecorder.isTypeSupported?.(type));
       this.recorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);

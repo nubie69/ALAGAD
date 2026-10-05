@@ -1262,7 +1262,7 @@ const resolveConversationContext = (history) => {
 };
 
 const isLikelyFollowUpQuery = (query) => {
-  const text = campusBehavior.understand(String(query || '').replace(/\bIT\b/g, 'department-name')).trim();
+  const text = campusBehavior.understand(String(query || '').replace(/\bit(?=[-\s]*\d)/gi, 'room-code').replace(/\bIT\b/g, 'department-name')).trim();
   if (!text) return false;
 
   const tokenCount = text.split(/\s+/).filter(Boolean).length;
@@ -1914,8 +1914,11 @@ const handleChat = async (req, res, currentLanguage = null) => {
     const detectedStakeholder = detectStakeholderFromQuery(`${message} ${retrievalQuery}`);
     const retrieval = await pipeline.retrieve(retrievalQuery, {
       stakeholder: detectedStakeholder,
+      originalQuery: contextualizedInput,
     });
-    const ambiguousPlaces = campusBehavior.ambiguousLocations(retrievalQuery,
+    const ambiguousPlaces = retrieval.roomQuery
+      ? (retrieval.candidateContexts.length > 1 ? retrieval.candidateContexts : [])
+      : campusBehavior.ambiguousLocations(retrievalQuery,
       sharedVectorIndexManager.getCanonicalDocuments().filter(isAuthoritativeContext));
     if (ambiguousPlaces.length > 1) {
       const options = ambiguousPlaces.slice(0, 4).map(item => `${item.canonical_name}${item.assigned_building && item.assigned_building !== item.canonical_name ? ` (${item.assigned_building})` : ''}`);
