@@ -30,6 +30,10 @@ const LandingPage = () => {
           width="96"
           height="96"
         />
+        <button type="button" className="landing-admin-login" onClick={goToAdmin}>
+          <LuShieldCheck aria-hidden="true" />
+          <span>Admin Login</span>
+        </button>
       </header>
 
       <main className="landing-shell">
@@ -51,7 +55,10 @@ const LandingPage = () => {
             tabIndex={0}
             onClick={goToGuest}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') goToGuest();
+              if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                goToGuest();
+              }
             }}
           >
             <div className="portal-card-content">
@@ -60,7 +67,7 @@ const LandingPage = () => {
                   <LuMap />
                 </span>
                 <div>
-                  <h1 className="portal-title">Public Map View</h1>
+                  <h2 className="portal-title">Public Map View</h2>
                   <span className="title-accent" aria-hidden="true" />
                 </div>
               </div>
@@ -68,7 +75,7 @@ const LandingPage = () => {
                 Explore BukSU&apos;s interactive campus map and quickly locate buildings, offices, rooms, and facilities.
               </p>
               <button className="portal-button portal-button-primary" onClick={(e) => { e.stopPropagation(); goToGuest(); }}>
-                <LuMapPinned aria-hidden="true" />
+                <LuMap aria-hidden="true" />
                 <span>Explore Map</span>
                 <LuArrowRight aria-hidden="true" />
               </button>
@@ -77,42 +84,10 @@ const LandingPage = () => {
             <span className="card-bottom-wave" aria-hidden="true" />
           </article>
 
-          <article
-            className="portal-card portal-card-admin"
-            role="button"
-            tabIndex={0}
-            onClick={goToAdmin}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') goToAdmin();
-            }}
-          >
-            <div className="portal-card-content">
-              <div className="portal-heading-row">
-                <span className="portal-icon-circle" aria-hidden="true">
-                  <LuShieldCheck />
-                </span>
-                <div>
-                  <h1 className="portal-title">Admin Dashboard</h1>
-                  <span className="title-accent" aria-hidden="true" />
-                </div>
-              </div>
-              <p className="portal-helper">For authorized personnel only.</p>
-              <p className="portal-description">
-                Securely manage campus locations, map information, records, and system settings.
-              </p>
-              <button className="portal-button portal-button-secondary" onClick={(e) => { e.stopPropagation(); goToAdmin(); }}>
-                <LuShieldCheck aria-hidden="true" />
-                <span>Admin Login</span>
-                <LuArrowRight aria-hidden="true" />
-              </button>
-            </div>
-            <LuShieldCheck className="portal-watermark" aria-hidden="true" />
-            <span className="card-bottom-wave" aria-hidden="true" />
-          </article>
         </section>
 
         <section className="features-section" aria-label="Key features">
-          <h2 className="features-heading"><span>Key Features</span></h2>
+          <h2 className="features-heading"><span>Key Features</span><span className="title-accent" aria-hidden="true" /></h2>
           <div className="features-grid">
             <article className="feature-box">
               <div className="feature-box-icon">
