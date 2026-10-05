@@ -19,7 +19,7 @@ const LandingPage = () => {
   return (
     <div className="landing-page">
       <div className="landing-page-background">
-        <img src="/bg.jpg" alt="" className="landing-bg-image" />
+        <img src={`${process.env.PUBLIC_URL}/bg.jpg`} alt="" className="landing-bg-image" />
       </div>
 
       <header className="landing-university-header">
@@ -39,7 +39,7 @@ const LandingPage = () => {
       <main className="landing-shell">
         <section className="landing-hero" aria-label="ALAGAD hero">
           <div className="hero-card">
-            <img src="/alagad.png" alt="ALAGAD Logo" className="landing-logo" />
+            <img src={`${process.env.PUBLIC_URL}/alagad.png`} alt="ALAGAD Logo" className="landing-logo" />
             <div className="hero-copy">
               <p className="hero-kicker">BukSU Campus Navigation and Assistant</p>
               <h1 className="hero-title">ALAGAD</h1>
@@ -120,7 +120,7 @@ const LandingPage = () => {
               <div className="feature-copy">
                 <h3 className="feature-box-label">AI Assistant</h3>
                 <span className="title-accent compact" aria-hidden="true" />
-                <p className="feature-box-description">Ask questions and get verified campus information.</p>
+                <p className="feature-box-description">Ask questions and get campus information.</p>
               </div>
               <LuMessageCircle className="feature-watermark" aria-hidden="true" />
               <span className="card-bottom-wave" aria-hidden="true" />
