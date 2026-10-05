@@ -3069,6 +3069,10 @@ function SuperAdminDashboard() {
         </div>
         
         <nav className="sidebar-nav">
+          <button className={`nav-item ${activeTab === 'evaluation' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('evaluation'); setShowForm(false); }}>
+            Evaluation reports
+          </button>
           <div className="nav-section">
             <button
               className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
@@ -3192,6 +3196,10 @@ function SuperAdminDashboard() {
           </div>
         )}
         {activeTab === 'dashboard' && renderDashboardOverview()}
+        {activeTab === 'evaluation' && (
+          <iframe title="Evaluation publication reports" src="/evaluation-report.html"
+            style={{ width: '100%', height: '85vh', border: '1px solid #ddd', background: 'white' }} />
+        )}
         
         {['buildings', 'rooms', 'offices', 'faculty'].includes(activeTab) && (
           <div className="management-section">

@@ -81,6 +81,8 @@ async function verify() {
     assert.equal(received.message, 'Where is the Library?');
     assert.equal(received.selectedSuggestion, null);
     assert.deepEqual(received.conversationHistory, []);
+    await predictIntent({ question: 'Exact pilot query', expected_intent: 'process', expected_target: 'Hint', expected_answer: 'Secret reference' }, { ...options, queryOnly: true });
+    assert.deepEqual(received, { message: 'Exact pilot query' });
     responseMode = 'missing';
     await assert.rejects(predictIntent({ question: 'test' }, options), /no valid intent/);
     responseMode = 'error';

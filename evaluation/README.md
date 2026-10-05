@@ -1,6 +1,50 @@
 # ALAGAD F1 evaluation
 
-This standalone testing feature measures the existing chatbot's **native intent/routing labels**. It does not generate answers, train a model, alter retrieval rules, seed a database, or modify production behavior. Node.js 18+ is required; no new packages are needed.
+This testing feature measures the existing chatbot's intent/routing output. **The supplied `pilot_questions.json` is now the default F1 dataset.** It does not train a model, alter retrieval rules, seed a database, or modify production behavior. Node.js 18+ is required. The publication exporter uses root development dependencies; install them with `npm install`.
+
+## Supplied 15-question pilot
+
+Run `npm run evaluate:pilot` (or `npm run evaluate`) while the normal backend is running. Edit `evaluation/pilot_questions.json` to update the reference dataset. All original queries, misspellings, mixed wording, expected targets, answers, and review notes are retained. References start unverified. Only the exact query is submitted as `{ "message": query }`; language metadata, expected labels, targets, answers, and reviewer information are never sent to the chatbot. The normal backend detects the language and runs the normal chat pipeline.
+
+`pilot-policy.js` defines the fixed mapping, independently of each question's expected label:
+
+| Actual routing label | Scored pilot label |
+| --- | --- |
+| service_requirements | requirements |
+| service_process | process |
+| service_location | service_location |
+| personnel_location | personnel_location |
+| position_personnel | personnel_by_position |
+
+Any unmapped actual label is retained and contributes classification errors. Raw labels are saved as `native_predicted_intent`. Predictions are not relabeled using expected answers. Native-label legacy datasets remain available through `npm run evaluate:native` and `npm run evaluate:nlp`.
+
+Targets come from actual structured response fields (`service`, `entity`, `entityName`, or returned record metadata). Before prediction, read-only public service/personnel endpoints supply a database-record snapshot for ID matching. Named service/personnel targets use unique IDs where available, otherwise full normalized names and the fixed aliases in `pilot-policy.js`. There is no fuzzy matching, answer-text parsing, or target guessing. For `personnel_by_position`, the scored target is the actual returned role plus the office/department of the uniquely resolved returned record; its person name is retained only as routing evidence and for separate answer review. A Director in another office is incorrect. Missing record/capture evidence is reported as unavailable. A structured no-target response is unsuccessful.
+
+Runs retain `response_time_ms`, raw and mapped intent, predicted target, matching evidence/IDs, expected references, notes, language, attempted/completed/failed counts, completion rate, language metrics, and dataset SHA-256. Target accuracy uses completed requests; joint accuracy uses all attempted questions, including failures. If any completed target lacks evidence, aggregate target/joint metrics are unavailable and the evidence count is recorded. Model configuration is marked unavailable when the chat API does not expose it; credentials are never captured. Verify pilot handling with `npm run evaluate:pilot:verify`.
+
+## Publication reports
+
+Open **Evaluation reports** in the existing Super Admin dashboard and import one saved run JSON. The page starts with **Not evaluated**. Runs and answers stay local to the viewer; no saved results are bundled into the public frontend. The standalone generated HTML provides the same viewer without requiring a server.
+
+Create a complete report and individual SVG, vector PDF, and 300-DPI PNG files from a selected historical run:
+
+```powershell
+npm run evaluate:export -- --run evaluation/results/2026-09-23T12-50-51-557Z-07904068.json --dataset evaluation/test_questions.nlp_document.json --out evaluation/results/publication-07904068
+```
+
+For other runs, replace the path. `--dataset` is optional and attaches missing reference text and language fields to older runs only when its exact SHA-256, row IDs, queries, and expected labels match the run. It never modifies predictions or attaches another dataset's references. All exports are generated from the same selected snapshot. `selected-run.json` preserves that snapshot, and `results.csv` includes per-question results and review fields with run metadata. `complete-report.pdf` contains every figure, routing-results table, and answer-review page; individual files have matching `.svg`, `.pdf`, and `.png` names. The viewer also has SVG and PNG downloads and PDF through the browser's Save as PDF print dialog. Disable browser print headers and footers.
+
+The white-background report contains a precision/recall/F1/support table with macro averages, a fixed 0-to-1 F1 bar chart with score labels, a grayscale confusion matrix with a count in every cell (expected rows, predicted columns), a summary, language counts, and separate factual answer-review tables. Review rows are exported as individual pages to keep long answers readable. Each artifact includes the run ID, dataset version (SHA-256 where no named version exists), sample size, and completed-request intent denominator. PNGs are at least 2400 pixels wide, with embedded 300-DPI resolution metadata (8 inches wide for the base 960-unit figures). PDFs preserve vector shapes and embedded fonts when Arial or DejaVu Sans is installed.
+
+Classification metrics use completed requests. Zero metric denominators produce zero after evaluation; no completed predictions produces **Not evaluated**. Macro averaging includes all declared and observed labels, including labels with zero completed support. Failed requests are reported separately. Target accuracy requires actual `target_correct` booleans on completed rows and a documented `target_matching_policy`; joint accuracy then uses **all attempted questions**, counting failures as unsuccessful. Older native-intent runs lack target matching, so those two metrics remain unavailable for those runs. New supplied-pilot runs capture targets as documented above. They are never inferred from answer text or expected labels.
+
+Use the manual factual review controls to assess correctness, completeness, response language, and reviewer notes; confirm reference verification only against approved campus records. Save edits with **Export selected run JSON**, then import/export that reviewed snapshot. Factual correctness uses only reviewed rows whose references are verified, with its denominator and coverage shown separately from intent F1. Equivalent wording and translations are allowed. New evaluator runs retain reference fields and language in their own snapshots; old runs cannot recover historical verification claims.
+
+The 15-question NLP dataset is a **pilot evaluation**, with English = 11, Cebuano = 3, Tagalog = 1. Counts are shown alongside the small/unequal-sample limitation, with no claims of reliable language differences. If used for tuning, it is not an untouched final test set. Selected-run language counts use only captured fields or hash-verified attachments.
+
+`pilot_questions.json` preserves all 15 records from the pasted specification, with original queries, reference answers, review notes (4, 5, 12), and `reference_verified: false`. It is the runnable default pilot dataset and differs from the historical NLP dataset. Do not relabel old predictions or attach these references to that different historical dataset.
+
+Regenerate the blank admin viewer after changing renderer/viewer source with `npm run evaluate:viewer`. Verify calculations and publication behavior with `npm run evaluate:verify` and `npm run evaluate:publication:verify`.
 
 ## Run from the ALAGAD project root
 
@@ -72,7 +116,7 @@ Add an object to the JSON array:
 }
 ```
 
-Only `question` and `expected_intent` are required. Optional fields are `id`, `category`, `rationale`, `language`, and `conversationHistory`. History follows the existing API contract, e.g. `[{"sender":"user","text":"Where is the Library?"}]`. Define labels independently of model outputs and review them against the chosen data snapshot. Invalid labels, empty questions and duplicate question/language/history combinations are rejected before API calls.
+Native legacy datasets require `question` and `expected_intent`; supplied pilot rows use `query` and the five semantic labels documented above. Keep expected target/reference fields and `reference_verified` in pilot rows. Native optional fields are `id`, `category`, `rationale`, `language`, and `conversationHistory`. History follows the existing API contract, e.g. `[{"sender":"user","text":"Where is the Library?"}]`. Define labels independently of model outputs and review them against the chosen data snapshot. Invalid labels, empty questions and duplicate question/language/history combinations are rejected before API calls.
 
 ## Outputs
 
@@ -83,7 +127,7 @@ Open `evaluation/results/latest_results.txt` for the readable summary, confusion
 - Correct/incorrect totals, per-class support/TP/FP/FN/precision/recall/F1, accuracy, macro F1 and weighted F1.
 - Confusion-matrix axes/labels/counts, `misclassified_questions`, request `errors`, and uncovered labels.
 
-Timestamped JSON and text copies preserve each run before the `latest` files are replaced. Only files inside `evaluation/results/` are written. Reports are ignored by Git because returned answers/metadata may contain internal campus information. They are local files, not an admin dashboard.
+Timestamped JSON and text copies preserve each run before the `latest` files are replaced. The evaluator writes inside `evaluation/results/`. Reports are ignored by Git because returned answers/metadata may contain internal campus information. These local files can be imported into the admin publication viewer.
 
 HTTP failures, timeouts, malformed JSON and missing intent fields are **errors**, never `unknown` predictions. They are excluded from metric counts and listed separately. Incomplete reports prominently state that accuracy applies only to completed requests. With no predictions, aggregate scores are `null`/`N/A`, not a fabricated zero or perfect score. An incorrect prediction is a valid observation and does not make the command fail.
 
@@ -113,4 +157,4 @@ F1 here measures label decisions, not factual answer correctness, navigation-rou
 
 ## Changed files
 
-All evaluation implementation and documentation are new files under `evaluation/`. The only modified application configuration is the root `package.json`, adding `evaluate` and `evaluate:verify`; existing scripts and dependencies remain intact. Chatbot, frontend, admin, models, Mapbox, GeoJSON, A* and Turf.js source files are unchanged.
+Evaluation source and documentation live under `evaluation/`. Publication support adds `publication.js`, `export-publication.js`, `render-publication.js`, and `verify-publication.js`, along with the preserved pasted reference dataset. The evaluator now snapshots answer-reference and language fields and an explicit run ID. `SuperAdminDashboard.js` adds an Evaluation reports tab, and `alagad-frontend/public/evaluation-report.html` is the generated empty viewer. Root package scripts and export dependencies are updated. Chatbot classification/routing, voice input, navigation, and database behavior remain unchanged.

@@ -1,0 +1,140 @@
+[
+  {
+    "id": 1,
+    "language": "English",
+    "query": "What are the requirements for obtaining an Exemption Slip?",
+    "expected_intent": "requirements",
+    "expected_target": "Exemption Slip",
+    "expected_answer": "Validated Student Identification Card and Letter request (Attachment to the declared reason for exemption).",
+    "reference_verified": false
+  },
+  {
+    "id": 2,
+    "language": "English",
+    "query": "What is the step-by-step procedure for getting an Exemption Slip?",
+    "expected_intent": "process",
+    "expected_target": "Exemption Slip",
+    "expected_answer": "To complete EXEMPTION SLIP, follow these steps: First, present Identification Card & Printed Letter request with attachment. Next, sign the Logbook. Finally, fill out the Customer Feedback Form /BOSES.",
+    "reference_verified": false
+  },
+  {
+    "id": 3,
+    "language": "English",
+    "query": "What is the process for ID RE-ISSUANCE?",
+    "expected_intent": "process",
+    "expected_target": "ID Re-issuance",
+    "expected_answer": "To complete ID RE-ISSUANCE, follow these steps: First, present old ID for card replacement/affidavit of lost for lost ID. Next, sign the Logbook. Next, fill out the Customer Feedback Form or scan the QR code provided. Next, proceed to the Cashier's Office for payment. Finally, proceed to University Press for ID printing.",
+    "reference_verified": false
+  },
+  {
+    "id": 4,
+    "language": "English",
+    "query": "What is the process for Online Enrollment?",
+    "expected_intent": "process",
+    "expected_target": "Online Enrollment of New and Transferee Students",
+    "expected_answer": "To complete Online Enrollment of New & Transferee Students, follow these steps: First, visit the link: https://www.admissions.buksu.edu.ph and log in account. Next, apply for the desired program, enroll, and upload the necessary documentary requirements. Next, download and review the COR. Next, submit original copies of documentary requirements to Window 1 or 2. Finally, proceed to the validation of enrollment Accounting.",
+    "reference_verified": false,
+    "review_note": "The query does not specify the student type, but the expected answer applies to new and transferee students."
+  },
+  {
+    "id": 5,
+    "language": "English",
+    "query": "What are the requirements for an Online enrollment?",
+    "expected_intent": "requirements",
+    "expected_target": "Online Enrollment of New and Transferee Students",
+    "expected_answer": "Requirements for Online Enrollment of New & Transferee Students:\n• High School Graduate\n• Original Form 138\n• Original Good Moral certificate",
+    "reference_verified": false,
+    "review_note": "The query does not specify the student type. Verify that the listed requirements are complete and applicable to both new and transferee students."
+  },
+  {
+    "id": 6,
+    "language": "English",
+    "query": "What are the requirements needed for issuance of permit to stay",
+    "expected_intent": "requirements",
+    "expected_target": "Permit to Stay Overnight and Extended Use of University Facilities",
+    "expected_answer": "Requirements for ISSUANCE OF PERMIT TO STAY OVERNIGHT AND EXTENDED USE OF UNIVERSITY FACILITIES:\n• Validated Student Identification Card\n• Provide letter request to stay overnight and extended use of campus facilities.",
+    "reference_verified": false
+  },
+  {
+    "id": 7,
+    "language": "English",
+    "query": "Where can I validate my ID?",
+    "expected_intent": "service_location",
+    "expected_target": "Validation and Activation of School ID",
+    "expected_answer": "Validation & Activation of School ID (Identification Card): Office of the Vice President for Culture, Arts, Sports and Student Services (OVPCASSS). Location: Office of the Vice President for Culture, Arts, Sports and Student Services (OVPCASSS), ADMIN BLDG.",
+    "reference_verified": false
+  },
+  {
+    "id": 8,
+    "language": "English",
+    "query": "Where can I find Dr Sales Aribe?",
+    "expected_intent": "personnel_location",
+    "expected_target": "Dr. Sales Aribe Jr.",
+    "expected_answer": "Dr. Sales Aribe Jr is officially assigned to IT Office. Location: IT Office, COT bldg.",
+    "reference_verified": false
+  },
+  {
+    "id": 9,
+    "language": "English",
+    "query": "Where can I find Dr. Lorenzo Dinlayan?",
+    "expected_intent": "personnel_location",
+    "expected_target": "Dr. Lorenzo B. Dinlayan III",
+    "expected_answer": "Dr. Lorenzo B. Dinlayan III is officially assigned to Student Leadership & Development Unit (SLEDEVU). Location: Student Leadership & Development Unit (SLEDEVU), ADMIN BLDG.",
+    "reference_verified": false
+  },
+  {
+    "id": 10,
+    "language": "English",
+    "query": "Who is the Director of the Student Leadership and Development?",
+    "expected_intent": "personnel_by_position",
+    "expected_target": "Director of Student Leadership and Development",
+    "expected_answer": "Personnel assigned as Director: Dr. Lorenzo B. Dinlayan III.",
+    "reference_verified": false
+  },
+  {
+    "id": 11,
+    "language": "English",
+    "query": "How to apply for an Entrance Examination?",
+    "expected_intent": "process",
+    "expected_target": "Entrance Examination Application",
+    "expected_answer": "To complete Entrance Examination Application for Incoming 1st Year Students & Transferees, follow these steps: First, access admissions.buksu.edu.ph on a browser and click \"Register\" or \"Login\". Next, register an active email address and create a password. Read the privacy and terms agreement to next steps. Next, access Gmail inbox to activate admission account. Next, proceed to complete the online application by providing the required information and submission of documentary requirement. Next, proceed to select date and time of the admission test. Finally, submit the accomplished online application for evaluation.",
+    "reference_verified": false
+  },
+  {
+    "id": 12,
+    "language": "Cebuano",
+    "query": "Asa nako makita si Dr. Mariluo O. Espina?",
+    "expected_intent": "personnel_location",
+    "expected_target": "Dr. Marilou O. Espina",
+    "expected_answer": "Dr. Marilou O. Espina opisyal nga naka-assign sa Information Technology Department. Lokasyon: Information Technology Department.",
+    "reference_verified": false,
+    "review_note": "Preserve 'Mariluo' in the query as a typo test. The supplied answer identifies only a department, not a building or room."
+  },
+  {
+    "id": 13,
+    "language": "Cebuano",
+    "query": "Unsaon pag kuha ug Student Admission Slip?",
+    "expected_intent": "process",
+    "expected_target": "Student Admission Slip",
+    "expected_answer": "Aron makompleto ang STUDENT ADMISSION SLIP, sunda kini nga mga lakang: Una, ipresentar ang Identification Card ug Excuse letter nga gipirmahan sa guardian. Sunod, pirmahi ang Logbook. Sa kataposan, pun-a ang Customer Feedback Form /BOSES.",
+    "reference_verified": false
+  },
+  {
+    "id": 14,
+    "language": "Cebuano",
+    "query": "Kinsa and head sa IT office?",
+    "expected_intent": "personnel_by_position",
+    "expected_target": "Head of the IT Office",
+    "expected_answer": "Ang naka-assign isip Head: Dr. Sales Aribe Jr.",
+    "reference_verified": false
+  },
+  {
+    "id": 15,
+    "language": "Tagalog",
+    "query": "Ano ang mga requirements para sa pagpa validate ng ID?",
+    "expected_intent": "requirements",
+    "expected_target": "Validation and Activation of School ID",
+    "expected_answer": "Mga kailangan para sa Validation & Activation of School ID (Identification Card):\n• Validated Certificate of Registration\n• Student Identification Card",
+    "reference_verified": false
+  }
+]

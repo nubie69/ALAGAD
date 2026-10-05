@@ -17,13 +17,22 @@
     "tunnel:single-link": "npm run tunnel:frontend",
     "start:prod": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run start --prefix alagad-backend\" \"npm run start --prefix alagad-frontend\"",
     "evaluate": "node evaluation/evaluate.js",
+    "evaluate:pilot": "node evaluation/evaluate.js --dataset evaluation/pilot_questions.json",
+    "evaluate:native": "node evaluation/evaluate.js --dataset evaluation/test_questions.json",
     "evaluate:nlp": "node evaluation/evaluate.js --dataset evaluation/test_questions.nlp_document.json",
     "evaluate:verify": "node evaluation/verify-f1.js",
+    "evaluate:export": "node evaluation/export-publication.js",
+    "evaluate:viewer": "node evaluation/export-publication.js --out alagad-frontend/public",
+    "evaluate:publication:verify": "node evaluation/verify-publication.js",
+    "evaluate:pilot:verify": "node evaluation/verify-pilot.js",
     "test:backend": "npm run test --prefix alagad-backend",
     "test:frontend": "npm run test --prefix alagad-frontend"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "concurrently": "^9.2.1",
-    "kill-port": "^2.0.1"
+    "kill-port": "^2.0.1",
+    "pdfkit": "^0.20.2",
+    "svg-to-pdfkit": "^0.1.8"
   }
 }

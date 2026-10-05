@@ -1,0 +1,176 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALAGAD evaluation publication report</title><style>
+body{background:white;color:#111;font:16px Arial,sans-serif;margin:24px}button,input{font:inherit;padding:8px;margin:5px}button{background:white;border:1px solid #555;border-radius:4px;cursor:pointer}section{border-top:1px solid #bbb;margin-top:24px;padding-top:12px}.figure{overflow:auto}.figure svg{width:100%;min-width:720px;height:auto;max-width:1200px}#error{color:#111;font-weight:bold}small{display:block;line-height:1.6}label{font-weight:bold}@media print{.controls{display:none}section{break-before:page;border:none}.figure svg{min-width:0;width:100%}body{margin:0}}
+</style><h1>ALAGAD evaluation report</h1><p>Import one saved run. All figures and exports use that selected run. No scores are shown before evaluation.</p>
+<div class="controls"><label>Selected run JSON <input id="file" type="file" accept=".json,application/json"></label><button id="all">Print complete report / Save as PDF</button><button id="json">Export selected run JSON</button><small>SVG and PDF retain vector text. PNG exports use 300 DPI (8 inches wide or more). For PDF, choose Save as PDF in the print dialog; disable browser headers and footers.</small></div>
+<p id="error" role="alert"></p><div id="reviews" class="controls"></div><div id="report"></div><script>/* Shared, dependency-free SVG renderer. Imported by Node and embedded in the local viewer. */
+(function (root) {
+  'use strict';
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const wrap = (value, width = 70) => String(value ?? '').split('\n').flatMap(line => {
+    const words = line.match(new RegExp(`.{1,${width}}(?:\\s|$)|.{1,${width}}`, 'g')) || [''];
+    return words.map(s => s.trim());
+  });
+  const text = (x, y, value, size = 16, extra = '') => `<text x="${x}" y="${y}" font-size="${size}" ${extra}>${esc(value)}</text>`;
+  const lines = (x, y, values, size = 16) => values.map((v, i) => text(x, y + i * (size + 6), v, size)).join('');
+  const score = v => v == null ? 'Not evaluated' : v.toFixed(3);
+  function model(run) {
+    if (!run) return { run: null, rows: [], labels: [], matrix: [], metrics: [], macro: {}, completed: 0, attempted: 0 };
+    if (run.mode !== 'real-alagad-api' || !Array.isArray(run.predictions)) throw Error('Select an actual ALAGAD evaluation run JSON.');
+    const rows = run.predictions;
+    if (run.total_questions !== rows.length) throw Error('Run sample size does not match prediction rows.');
+    const completed = rows.filter(r => !r.error && r.status !== 'ERROR' && typeof r.predicted_intent === 'string' && r.predicted_intent.trim());
+    if (completed.some(r => typeof r.expected_intent !== 'string' || !r.expected_intent.trim())) throw Error('Missing expected intent.');
+    const labels = [...new Set(rows.map(r => r.expected_intent).concat(completed.map(r => r.predicted_intent)))].sort();
+    const matrix = labels.map(a => labels.map(b => completed.filter(r => r.expected_intent === a && r.predicted_intent === b).length));
+    const divide = (a, b) => b ? a / b : 0;
+    const metrics = labels.map((intent, i) => {
+      const support = matrix[i].reduce((a, b) => a + b, 0), tp = matrix[i][i];
+      const precision = divide(tp, matrix.reduce((sum, row) => sum + row[i], 0)), recall = divide(tp, support);
+      return { intent, support, precision, recall, f1: divide(2 * precision * recall, precision + recall) };
+    });
+    const average = key => completed.length ? metrics.reduce((s, r) => s + r[key], 0) / labels.length : null;
+    // Target correctness must be supplied by an evaluator with documented matching,
+    // never inferred from an answer or copied from expected targets.
+    const targetAvailable = completed.length > 0 && completed.every(r => typeof r.target_correct === 'boolean')
+      && typeof run.target_matching_policy === 'string' && run.target_matching_policy.trim();
+    const jointCount = completed.filter(r => r.target_correct === true && r.expected_intent === r.predicted_intent).length;
+    const reviewed = rows.filter(r => r.reference_verified === true && ['correct', 'partially correct', 'incorrect'].includes(r.review?.correctness));
+    return { run, rows, labels, matrix, metrics, completed: completed.length, attempted: rows.length,
+      macro: { precision: average('precision'), recall: average('recall'), f1: average('f1') },
+      weighted: completed.length ? metrics.reduce((sum, r) => sum + r.f1 * r.support, 0) / completed.length : null,
+      accuracy: completed.length ? completed.filter(r => r.expected_intent === r.predicted_intent).length / completed.length : null,
+      target: targetAvailable ? completed.filter(r => r.target_correct).length / completed.length : null,
+      joint: targetAvailable && rows.length ? jointCount / rows.length : null,
+      reviewed: reviewed.length, answerCorrectness: reviewed.length ? reviewed.filter(r => r.review.correctness === 'correct').length / reviewed.length : null };
+  }
+  function artifacts(m) {
+    const runId = m.run?.run_id || m.run?.finished_at || 'Not evaluated';
+    const version = m.run?.dataset_version || m.run?.dataset_sha256 || 'Not evaluated';
+    const metadata = [`Run ID: ${runId}`, `Dataset: ${m.run?.dataset || 'Not evaluated'}`, ...wrap(`Dataset version: ${version}`, 100),
+      `Sample size: ${m.run ? m.attempted : 'Not evaluated'} | Intent metric denominator: ${m.run ? m.completed + ' completed requests' : 'Not evaluated'}`,
+      ...(m.attempted === 15 ? ['Evaluation scope: 15-question pilot evaluation; preliminary results.'] : [])];
+    const top = 76 + metadata.length * 22;
+    const start = (title, width, height) => `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}"><rect width="100%" height="100%" fill="white"/><g font-family="Arial, sans-serif" fill="#111">${text(36, 38, title, 23, 'font-weight="bold"')}${lines(36, 66, metadata, 14)}`;
+    const end = '</g></svg>';
+    const out = [];
+    const table = (id, title, headers, values, widths, notes = []) => {
+      const width = widths.reduce((a, b) => a + b, 0) + 72;
+      const cells = values.map(row => row.map((v, i) => wrap(v, Math.floor(widths[i] / 8.5))));
+      const heights = cells.map(row => Math.max(...row.map(c => c.length)) * 22 + 24);
+      const height = top + 48 + heights.reduce((a, b) => a + b, 0) + notes.length * 22 + 50;
+      let svg = start(title, width, height), y = top;
+      svg += `<rect x="36" y="${y}" width="${width - 72}" height="42" fill="#eee"/>`;
+      let x = 36;
+      headers.forEach((h, i) => { svg += text(x + 10, y + 27, h, 16, 'font-weight="bold"'); x += widths[i]; }); y += 42;
+      cells.forEach((row, ri) => {
+        x = 36;
+        row.forEach((c, i) => { svg += `<rect x="${x}" y="${y}" width="${widths[i]}" height="${heights[ri]}" fill="white" stroke="#bbb"/>` + lines(x + 10, y + 26, c); x += widths[i]; });
+        y += heights[ri];
+      });
+      svg += lines(36, y + 30, notes, 14) + end;
+      out.push({ id, title, svg, width, height });
+    };
+    table('intent-metrics', 'Intent recognition: precision, recall and F1', ['Intent', 'Precision', 'Recall', 'F1-score', 'Support'],
+      m.run ? m.metrics.map(r => [r.intent.replace(/_/g, ' '), score(m.completed ? r.precision : null), score(m.completed ? r.recall : null), score(m.completed ? r.f1 : null), r.support])
+        .concat([['Macro average', score(m.macro.precision), score(m.macro.recall), score(m.macro.f1), m.completed]])
+        : [['Not evaluated', 'Not evaluated', 'Not evaluated', 'Not evaluated', 'Not evaluated']], [280, 150, 150, 150, 150],
+      ['One-vs-rest; zero denominators = 0 after evaluation. Macro average includes declared and predicted labels.', 'Support counts completed requests. Intent F1 measures recognition, separately from factual answer review.']);
+    {
+      const width = Math.max(960, m.labels.length * 130 + 140), height = top + 490;
+      let svg = start('Intent recognition: F1-score by intent', width, height);
+      const y0 = top + 305, plotHeight = 280, left = 85, right = width - 40;
+      for (let i = 0; i <= 5; i++) { const y = y0 - i / 5 * plotHeight; svg += `<path d="M${left} ${y}H${right}" stroke="#ddd"/>` + text(40, y + 5, (i / 5).toFixed(1), 14); }
+      svg += text(36, top + 10, 'F1', 16);
+      if (!m.completed) svg += text(left + 30, top + 130, 'Not evaluated', 24);
+      else m.metrics.forEach((r, i) => {
+        const step = (right - left) / m.labels.length, x = left + step * (i + 0.5), h = r.f1 * plotHeight;
+        svg += `<rect x="${x - step * 0.28}" y="${y0 - h}" width="${step * 0.56}" height="${h}" fill="#777" stroke="#111"/>`;
+        svg += text(x, y0 - h - 12, score(r.f1), 16, 'text-anchor="middle"');
+      });
+      m.labels.forEach((label, i) => { const x = left + (right - left) / m.labels.length * (i + 0.5); wrap(label.replace(/_/g, ' '), 15).forEach((line, j) => { svg += text(x, y0 + 28 + j * 22, line, 15, 'text-anchor="middle"'); }); });
+      svg += text(36, height - 25, 'Fixed scale: 0 to 1. Score labels provide values independently of shading.', 14) + end;
+      out.push({ id: 'intent-f1', title: 'F1-score by intent', svg, width, height });
+    }
+    {
+      const cell = 100, left = 245, width = Math.max(960, left + m.labels.length * cell + 55), yStart = top + 115;
+      const height = Math.max(top + 350, yStart + m.labels.length * cell + 70);
+      let svg = start('Intent recognition: confusion matrix', width, height);
+      svg += text(left, top + 12, 'Predicted intents (columns)', 18) + text(36, top + 12, 'Expected intents (rows)', 16);
+      m.labels.forEach((label, i) => {
+        wrap(label.replace(/_/g, ' '), 13).forEach((line, j) => { svg += text(left + i * cell + 50, top + 45 + j * 19, line, 14, 'text-anchor="middle"'); });
+        svg += lines(36, yStart + i * cell + 35, wrap(label.replace(/_/g, ' '), 23), 15);
+      });
+      const max = Math.max(1, ...m.matrix.flat());
+      m.matrix.forEach((row, i) => row.forEach((n, j) => {
+        const gray = Math.round(255 - n / max * 175), x = left + j * cell, y = yStart + i * cell;
+        svg += `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="rgb(${gray},${gray},${gray})" stroke="#777"/>` + text(x + 50, y + 58, n, 22, `text-anchor="middle" fill="${gray < 130 ? 'white' : '#111'}"`);
+      }));
+      if (!m.completed) svg += text(left, top + 80, 'Not evaluated - no completed predictions', 18);
+      svg += text(36, height - 25, 'Cell values are counts; request failures are excluded and reported separately.', 14) + end;
+      out.push({ id: 'confusion-matrix', title: 'Confusion matrix', svg, width, height });
+    }
+    table('summary', 'Evaluation summary: intent and target measures', ['Measure', 'Value', 'Denominator / interpretation'], [
+      ['Macro-F1 (intent recognition)', score(m.macro?.f1), m.run ? `${m.completed} completed requests; mean across ${m.labels.length} labels` : 'Not evaluated'],
+      ['Intent accuracy', score(m.accuracy), `${m.completed} completed requests`],
+      ['Weighted-F1 (intent recognition)', score(m.weighted), `${m.completed} completed requests; support-weighted average`],
+      ['Target accuracy', score(m.target), m.target == null ? 'Unavailable: target correctness and matching policy not captured' : `${m.completed} completed requests`],
+      ['Joint intent-and-target accuracy', score(m.joint), m.joint == null ? 'Unavailable: target correctness and matching policy not captured' : `${m.attempted} attempted questions; failures count as unsuccessful`],
+      ['Completed / failed test counts', m.run ? `${m.completed} / ${m.attempted - m.completed}` : 'Not evaluated', m.run ? `${m.attempted} attempted questions` : 'Not evaluated'],
+      ['Completion rate', m.run && m.attempted ? score(m.completed / m.attempted) : 'Not evaluated', `${m.attempted} attempted questions`],
+      ['Factual answer correctness (manual review)', score(m.answerCorrectness), `${m.reviewed || 0} reviewed rows with verified references; separate from intent F1`],
+      ['Answer-review coverage', m.run ? `${m.reviewed} / ${m.attempted}` : 'Not evaluated', 'Verified references and a completed correctness assessment required']
+    ], [360, 180, 470]);
+    const lang = {};
+    m.rows.forEach(r => { const language = ({ en: 'English', ceb: 'Cebuano', tl: 'Tagalog' })[r.language] || r.language || 'Not captured'; lang[language] = (lang[language] || 0) + 1; });
+    table('language-counts', 'Language sample counts and pilot limitations', ['Language', 'Selected-run sample count'], Object.entries(lang).length ? Object.entries(lang) : [['Not evaluated', 'Not evaluated']], [380, 580],
+      ['Supplied 15-question pilot dataset: English = 11, Cebuano = 3, Tagalog = 1.', 'These small, unequal samples do not establish reliable differences between languages.', 'Selected-run counts above use captured language fields only; missing language is not inferred.', 'If used for tuning, the pilot is not an untouched final test set.']);
+    if (!m.rows.length) table('answer-review', 'Factual answer review (separate from intent F1)', ['Query', 'Expected answer', 'Actual answer', 'Reviewer assessment'], [['Not evaluated', 'Not evaluated', 'Not evaluated', 'Not reviewed']], [240, 300, 300, 260]);
+    for (let i = 0; i < m.rows.length; i += 5) {
+      table(`routing-results-${i / 5 + 1}`, `Actual routing results: questions ${i + 1}-${Math.min(i + 5, m.rows.length)}`,
+        ['Query', 'Expected intent / target', 'Predicted intent / target', 'Status / time'],
+        m.rows.slice(i, i + 5).map(r => [r.query || r.question, `${r.expected_intent}\n${r.expected_target || 'Not captured'}`,
+          `${r.predicted_intent ?? 'No prediction'}\n${r.predicted_target ?? 'No captured target'}${r.predicted_target_unit ? ' / ' + r.predicted_target_unit : ''}\nRaw intent: ${r.native_predicted_intent || r.predicted_intent || 'None'}`,
+          `${r.status}\n${r.response_time_ms ?? r.duration_ms} ms\n${r.error || ''}`]), [330, 320, 330, 190]);
+    }
+    m.rows.forEach((r, i) => table(`answer-review-${i + 1}`, `Factual answer review: question ${i + 1} (separate from intent F1)`, ['Query', 'Expected answer', 'Actual answer', 'Reviewer assessment'], [[r.query || r.question,
+      r.expected_answer ?? 'Not captured in this run', r.actual_answer ?? r.reply ?? (r.error ? `Request failed: ${r.error}` : 'Not captured'),
+      `Correctness: ${r.review?.correctness || 'not reviewed'}\nCompleteness: ${r.review?.completeness || 'not reviewed'}\nResponse language: ${r.review?.response_language || 'not reviewed'}\nReference verified: ${r.reference_verified === true ? 'yes' : 'no'}\nNotes: ${r.review?.notes || 'None'}\nDataset review note: ${r.review_note || 'None'}`]], [240, 300, 300, 260], ['Equivalent wording and translations are allowed. Recognition does not establish factual correctness.']));
+    return out;
+  }
+  function dpiPNG(bytes) {
+    const payload = new Uint8Array([112, 72, 89, 115, 0, 0, 46, 35, 0, 0, 46, 35, 1]);
+    let crc = 0xffffffff;
+    for (const b of payload) { crc ^= b; for (let k = 0; k < 8; k++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0); }
+    const chunk = new Uint8Array(21), view = new DataView(chunk.buffer);
+    view.setUint32(0, 9); chunk.set(payload, 4); view.setUint32(17, (crc ^ 0xffffffff) >>> 0);
+    const parts = [bytes.slice(0, 8)];
+    for (let offset = 8; offset < bytes.length;) {
+      const size = new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0) + 12;
+      if (size < 12 || offset + size > bytes.length) throw Error('Invalid PNG chunk.');
+      const type = String.fromCharCode(...bytes.slice(offset + 4, offset + 8));
+      if (type !== 'pHYs') parts.push(bytes.slice(offset, offset + size));
+      if (type === 'IHDR') parts.push(chunk);
+      offset += size;
+    }
+    const result = new Uint8Array(parts.reduce((sum, p) => sum + p.length, 0));
+    let offset = 0; for (const p of parts) { result.set(p, offset); offset += p.length; }
+    return result;
+  }
+  const api = { model, artifacts, esc, dpiPNG };
+  if (typeof module !== 'undefined') module.exports = api;
+  else root.ALAGADPublication = api;
+})(typeof window === 'undefined' ? globalThis : window);
+</script><script>
+'use strict';let selected=null; const api=window.ALAGADPublication;
+function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function filename(id){return String(selected?.run_id||selected?.finished_at||'not-evaluated').replace(/[^a-zA-Z0-9_-]/g,'-')+'-'+id}
+function printFigures(figures){const win=window.open('','_blank');if(!win)throw Error('Allow the report print window to export PDF.');win.document.write('<!doctype html><html><head><title>'+api.esc(filename('report'))+'</title><style>@page{size:A4 landscape;margin:12mm}body{margin:0}section{break-after:page}section:last-child{break-after:auto}svg{width:100%;height:auto;max-height:175mm}</style></head><body>'+figures.map(f=>'<section>'+f.svg+'</section>').join('')+'</body></html>');win.document.close();win.focus();setTimeout(()=>win.print(),250)}
+// Insert a PNG pHYs chunk: 11811 pixels/metre is 300 DPI.
+const dpiPNG=api.dpiPNG;
+async function png(f){const url=URL.createObjectURL(new Blob([f.svg],{type:'image/svg+xml'}));try{const img=new Image();img.src=url;await img.decode();const canvas=document.createElement('canvas');canvas.width=Math.ceil(f.width*2.5);canvas.height=Math.ceil(f.height*2.5);if(canvas.width*canvas.height>100000000)throw Error('Figure too large for PNG; use vector SVG or PDF.');const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw Error('PNG export failed. Use SVG.');download(new Blob([dpiPNG(new Uint8Array(await blob.arrayBuffer()))],{type:'image/png'}),filename(f.id)+'.png')}finally{URL.revokeObjectURL(url)}}
+function reviewControls(){const host=document.getElementById('reviews');host.innerHTML=selected?'<details><summary>Manual factual answer review (save using Export selected run JSON)</summary><p>Verify references against approved records. Allow equivalent wording and translations. Changes remain local until exported.</p>'+selected.predictions.map((r,i)=>'<fieldset><legend>Question '+(i+1)+': '+api.esc(r.query||r.question)+'</legend>'+['correctness','completeness','response_language'].map(field=>{const options={correctness:['not reviewed','correct','partially correct','incorrect'],completeness:['not reviewed','complete','incomplete'],response_language:['not reviewed','appropriate','inappropriate']}[field];return '<label>'+field.replace(/_/g,' ')+' <select data-row="'+i+'" data-field="'+field+'">'+options.map(v=>'<option'+((r.review?.[field]||'not reviewed')===v?' selected':'')+'>'+v+'</option>').join('')+'</select></label> '}).join('')+'<label>Reference verified against approved records <input type="checkbox" data-row="'+i+'" data-field="reference_verified"'+(r.reference_verified===true?' checked':'')+'></label><label>Reviewer notes <input data-row="'+i+'" data-field="notes" value="'+api.esc(r.review?.notes||'')+'"></label><p>Dataset review note: '+api.esc(r.review_note||'None')+'</p></fieldset>').join('')+'</details>':'';host.querySelectorAll('[data-field]').forEach(input=>input.onchange=()=>{const r=selected.predictions[Number(input.dataset.row)];if(input.dataset.field==='reference_verified')r.reference_verified=input.checked;else{r.review=r.review||{};r.review[input.dataset.field]=input.value}render();document.querySelector('#reviews details').open=true})}
+function render(){const figures=api.artifacts(api.model(selected));reviewControls();document.getElementById('report').innerHTML=figures.map((f,i)=>'<section><div class="controls"><h2>'+api.esc(f.title)+'</h2><button data-i="'+i+'" data-format="svg">Export SVG</button><button data-i="'+i+'" data-format="png">Export PNG (300 DPI)</button><button data-i="'+i+'" data-format="pdf">Export PDF</button></div><div class="figure">'+f.svg+'</div></section>').join('');document.querySelectorAll('[data-format]').forEach(b=>b.onclick=async()=>{try{const f=figures[Number(b.dataset.i)];if(b.dataset.format==='svg')download(new Blob([f.svg],{type:'image/svg+xml'}),filename(f.id)+'.svg');if(b.dataset.format==='png')await png(f);if(b.dataset.format==='pdf')printFigures([f])}catch(e){document.getElementById('error').textContent=e.message}});document.getElementById('all').onclick=()=>{try{printFigures(figures)}catch(e){document.getElementById('error').textContent=e.message}}}
+document.getElementById('file').onchange=async e=>{try{const candidate=JSON.parse(await e.target.files[0].text());api.model(candidate);selected=candidate;render();document.getElementById('error').textContent=''}catch(err){document.getElementById('error').textContent=err.message}};
+document.getElementById('json').onclick=()=>{if(!selected){document.getElementById('error').textContent='Not evaluated: select a run first.';return}download(new Blob([JSON.stringify(selected,null,2)],{type:'application/json'}),filename('run')+'.json')};render();
+</script></html>
