@@ -16,6 +16,8 @@ import { buildingsAPI, roomsAPI, officesAPI, departmentsAPI, settingsAPI, popula
 
 import '../App.css';
 import './GuestView.modern.css';
+import './GuestView.reference.css';
+import { LuCoins, LuShieldCheck, LuClipboardList, LuDumbbell } from 'react-icons/lu';
 import { BackIcon, BuildingIcon, DepartmentIcon, MapPinIconOutline, MicIcon, OfficeIcon, OrgChartIcon, RoomIcon, StopMicIcon } from '../utils/icons';
 import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePathsGeoJSON } from '../utils/campusPathfinding';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
@@ -2186,7 +2188,7 @@ function GuestView() {
                   <div className="guest-search-visit-loading">Loading...</div>
                 )}
 
-                {!popularLoading && quickNavPopularLocations.slice(0, 6).map((entry) => {
+                {!popularLoading && quickNavPopularLocations.slice(0, 5).map((entry) => {
                   const match = popularLookup[entry.locationId];
                   if (!match?.entity) return null;
 
@@ -2199,10 +2201,14 @@ function GuestView() {
                     return firstWord.length > 10 ? `${firstWord.slice(0, 9)}…` : firstWord;
                   })();
 
-                  const chipIcon = (() => {
-                    if (match.entityType === 'room') return 'Rm';
-                    if (match.entityType === 'office') return 'Of';
-                    return compactLabel.slice(0, 2).toUpperCase();
+                  const ShortcutIcon = (() => {
+                    if (/finance/i.test(displayName)) return LuCoins;
+                    if (/drrm/i.test(displayName)) return LuShieldCheck;
+                    if (/registrar/i.test(displayName)) return LuClipboardList;
+                    if (/gym/i.test(displayName)) return LuDumbbell;
+                    if (match.entityType === 'room') return RoomIcon;
+                    if (match.entityType === 'office') return OfficeIcon;
+                    return BuildingIcon;
                   })();
 
                   return (
@@ -2213,7 +2219,7 @@ function GuestView() {
                       onClick={() => handlePopularNavigate(entry.locationId)}
                       title={displayName}
                     >
-                      <span className="quick-visit-chip-icon" aria-hidden="true">{chipIcon}</span>
+                      <span className="quick-visit-chip-icon" aria-hidden="true"><ShortcutIcon size={26} /></span>
                       <span className="quick-visit-chip-label">{compactLabel}</span>
                     </button>
                   );
@@ -2304,10 +2310,6 @@ function GuestView() {
 
                           {item.entityType === 'office' && !item.entity?.building?.name && (
                             <div className="sidebar-link-department">No building assigned</div>
-                          )}
-
-                          {item.entityType === 'building' && (
-                            <div className="sidebar-link-department">Campus destination</div>
                           )}
 
                           {item.entityType === 'room' && !item.entity?.building?.name && item.entity?.floor && (
@@ -2907,6 +2909,7 @@ function GuestView() {
             )}
 
             {/* Reset View (Home) button */}
+            <div className="campus-map-controls">
             <button
               ref={resetBtnRef}
               className="reset-view-btn"
@@ -2925,10 +2928,11 @@ function GuestView() {
             </button>
 
             {/* My Location button */}
-            {userLocation && (
               <button
                 className="my-location-btn"
-                onClick={() => flyToLocation(userLocation.lat, userLocation.lng, 19)}
+                onClick={() => userLocation
+                  ? flyToLocation(userLocation.lat, userLocation.lng, 19)
+                  : setLocationPromptVisible(true)}
                 title="Go to my location"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2939,7 +2943,11 @@ function GuestView() {
                   <path d="M18 12h4" />
                 </svg>
               </button>
-            )}
+            <div className="reference-zoom-controls" aria-label="Map zoom">
+              <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => mapRef.current?.zoomIn({ duration: 250 })}>+</button>
+              <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => mapRef.current?.zoomOut({ duration: 250 })}>−</button>
+            </div>
+            </div>
             {mapLoading && (
               <div style={{ 
                 position: 'absolute', 
