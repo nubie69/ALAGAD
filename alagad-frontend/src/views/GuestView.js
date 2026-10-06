@@ -2184,6 +2184,7 @@ function GuestView() {
             {(popularLoading || quickNavPopularLocations.length > 0) && (
               <div className="guest-search-most-visited" aria-label="Most visited shortcuts">
                 <div className="guest-search-most-visited-label">Most visited</div>
+                <div className="guest-search-most-visited-grid">
                 {popularLoading && (
                   <div className="guest-search-visit-loading">Loading...</div>
                 )}
@@ -2218,12 +2219,14 @@ function GuestView() {
                       className="quick-visit-chip"
                       onClick={() => handlePopularNavigate(entry.locationId)}
                       title={displayName}
+                      aria-label={`Go to ${displayName}`}
                     >
                       <span className="quick-visit-chip-icon" aria-hidden="true"><ShortcutIcon size={26} /></span>
                       <span className="quick-visit-chip-label">{compactLabel}</span>
                     </button>
                   );
                 })}
+                </div>
               </div>
             )}
 

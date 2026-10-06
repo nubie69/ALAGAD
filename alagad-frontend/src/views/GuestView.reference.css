@@ -16,10 +16,14 @@
   font-size: 14px;
 }
 .guest-search-most-visited {
+  display: block;
+  margin-top: 16px;
+}
+.guest-search-most-visited-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px 8px;
-  margin-top: 16px;
+  margin-top: 10px;
 }
 .guest-search-most-visited-label,
 .guest-kiosk-section-header h3 {
@@ -123,7 +127,37 @@
   .guest-header-content h1 { font-size: 17px; }
   .guest-header-content p { display: none; }
   .reference-zoom-controls { display: none; }
-  .quick-visit-chip { height: 58px; font-size: 12px; }
+  .mobile-bottom-sheet .guest-search-most-visited { margin-top: 10px; min-width: 0; }
+  .mobile-bottom-sheet.snap-peek .guest-search-most-visited { display: none; }
+  .mobile-bottom-sheet .guest-search-most-visited-label { font-size: 10px; }
+  .mobile-bottom-sheet .guest-search-most-visited-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 3px 3px 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #c8dafa transparent;
+  }
+  .mobile-bottom-sheet .quick-visit-chip {
+    flex: 0 0 auto;
+    flex-direction: row;
+    grid-column: auto;
+    height: 44px;
+    min-width: 100px;
+    max-width: 160px;
+    padding: 8px 12px;
+    gap: 7px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  .mobile-bottom-sheet .quick-visit-chip-icon { width: 20px; height: 20px; }
+  .mobile-bottom-sheet .quick-visit-chip-icon svg { width: 20px !important; height: 20px !important; }
+  .mobile-bottom-sheet .quick-visit-chip-label { display: block; }
 }
 @media (min-width: 769px) and (max-height: 760px) {
   .guest-sidebar-header { padding-top: 13px; }

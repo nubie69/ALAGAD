@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { chatAPI, publicFaqsAPI } from '../utils/api';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
-import { MicIcon, DeleteIcon, CloseIcon, SendIcon, NavigationIcon } from '../utils/icons';
+import { MicIcon, DeleteIcon, CloseIcon, SendIcon, NavigationIcon, BuildingIcon, TypeIcon, OrgChartIcon, StaffIcon } from '../utils/icons';
 import './ChatBot.css';
+import './ChatBot.reference.css';
 
 // Show one fully opaque atlas pose at a time to avoid ghosting while flying.
 const MASCOT_ATLAS = `${process.env.PUBLIC_URL}/images/campus-mascot-flight-sprite.png`;
@@ -315,19 +316,20 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
   const [completedBotMessageIds, setCompletedBotMessageIds] = useState(() => new Set());
   const [showGreeting, setShowGreeting] = useState(false);
   const messagesEndRef = useRef(null);
+  const questionInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const previousIsOpenRef = useRef(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   
   const scrollToBottom = useCallback((behavior = 'smooth') => {
-    // Prefer scrolling the container to avoid layout shifts
+    // Keep the welcome screen and FAQ list at the top; follow active conversations.
     const el = messagesContainerRef.current;
     if (el) {
-      el.scrollTo({ top: el.scrollHeight, behavior });
+      el.scrollTo({ top: activeMode === 'ask' && messages.length > 1 ? el.scrollHeight : 0, behavior });
       return;
     }
     messagesEndRef.current?.scrollIntoView({ behavior });
-  }, []);
+  }, [activeMode, messages.length]);
 
   const handleVoiceResult = useCallback((transcript) => {
     if (typeof transcript === 'string' && transcript.trim()) setInputValue(transcript);
@@ -805,38 +807,9 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
           exit={isMobileChat ? { opacity: 0 } : { opacity: 0, x: 30, scale: 0.97 }}
           transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         >
-      {/* Mobile: full-width top header with back button */}
-      {isMobileChat && (
-        <div className="chatbot-mobile-header">
-          <button
-            className="chatbot-mobile-back-btn"
-            onClick={() => setIsOpen(false)}
-            title="Back to map"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div className="chatbot-mobile-header-mascot">
-            <CampusMascot portrait />
-          </div>
-          <h3 className="chatbot-mobile-title">{t.title}</h3>
-          <div className="chatbot-mobile-actions">
-            <button
-              className="chatbot-clear-btn"
-              onClick={clearChat}
-              title={t.clear}
-            >
-              <DeleteIcon size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Desktop: original header */}
-      {!isMobileChat && (
+      {/* Shared campus assistant header */}
       <div className="chatbot-header">
-        <h3><span className="chatbot-header-avatar"><CampusMascot portrait /></span>{t.title}</h3>
+        <h3><span className="chatbot-header-avatar"><CampusMascot portrait /></span><span className="chatbot-header-title">{t.title}</span></h3>
         <div className="chatbot-controls">
           <button
             className="chatbot-clear-btn"
@@ -854,7 +827,6 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
           </button>
         </div>
       </div>
-      )}
 
       <div className="chatbot-mode-switch" role="tablist" aria-label="Chatbot mode">
         <button
@@ -1252,6 +1224,28 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
               </div>
             </div>
           )}
+          {messages.length === 1 && !loading && (
+            <div className="chatbot-welcome">
+              <p className="chatbot-welcome-label">Try asking about</p>
+              <div className="chatbot-welcome-grid">
+                {[
+                  { label: 'Find an office', icon: BuildingIcon, question: 'Where is the ' },
+                  { label: 'Service requirements', icon: TypeIcon, question: 'What are the requirements for ' },
+                  { label: 'Process or steps', icon: OrgChartIcon, question: 'What are the steps to ' },
+                  { label: 'Find personnel', icon: StaffIcon, question: 'Who is the ' },
+                ].map(({ label, icon: Icon, question }) => (
+                  <button type="button" key={label} onClick={() => {
+                    setInputValue(question);
+                    questionInputRef.current?.focus();
+                  }}>
+                    <Icon size={28} />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="chatbot-welcome-language">You can ask in English, Tagalog, or Cebuano.</p>
+            </div>
+          )}
             </>
           )}
 
@@ -1278,6 +1272,8 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
       <div className="chatbot-input-area">
         <div className="chatbot-input-stack">
           <textarea
+            ref={questionInputRef}
+            aria-label="Your question"
             value={inputValue}
             onChange={(e) => {
               const nextValue = e.target.value;
@@ -1314,6 +1310,7 @@ function ChatBot({ onOpenChange, buildings = [], offices = [], rooms = [], onNav
             onClick={handleSendMessage}
             disabled={loading || voiceBusy || !inputValue.trim()}
             className="chatbot-send-btn"
+            aria-label="Send message"
           >
             {loading ? '...' : <SendIcon size={18} />}
           </button>
