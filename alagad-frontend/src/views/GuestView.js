@@ -17,8 +17,7 @@ import { buildingsAPI, roomsAPI, officesAPI, departmentsAPI, settingsAPI, popula
 import '../App.css';
 import './GuestView.modern.css';
 import './GuestView.reference.css';
-import { LuCoins, LuShieldCheck, LuClipboardList, LuDumbbell } from 'react-icons/lu';
-import { BackIcon, BuildingIcon, DepartmentIcon, MapPinIconOutline, MicIcon, OfficeIcon, OrgChartIcon, RoomIcon, StopMicIcon } from '../utils/icons';
+import { BackIcon, BuildingIcon, DepartmentIcon, MapPinIconOutline, MicIcon, OfficeIcon, OrgChartIcon, RoomIcon, ServiceIcon, StopMicIcon } from '../utils/icons';
 import { findCampusRoute, isInsideCampus, nearestPointOnCampus, getWalkablePathsGeoJSON } from '../utils/campusPathfinding';
 import useVoiceRecognition from '../hooks/useVoiceRecognition';
 import useNavigationCamera from '../hooks/useNavigationCamera';
@@ -2203,12 +2202,8 @@ function GuestView() {
                   })();
 
                   const ShortcutIcon = (() => {
-                    if (/finance/i.test(displayName)) return LuCoins;
-                    if (/drrm/i.test(displayName)) return LuShieldCheck;
-                    if (/registrar/i.test(displayName)) return LuClipboardList;
-                    if (/gym/i.test(displayName)) return LuDumbbell;
                     if (match.entityType === 'room') return RoomIcon;
-                    if (match.entityType === 'office') return OfficeIcon;
+                    if (match.entityType === 'office') return ServiceIcon;
                     return BuildingIcon;
                   })();
 
