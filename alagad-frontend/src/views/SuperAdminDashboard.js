@@ -1318,54 +1318,6 @@ function SuperAdminDashboard() {
                 </div>
               </div>
 
-              <div className="form-section-card">
-                <h3 className="form-section-title">Verification</h3>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label className="form-label">Verification Status</label>
-                    <select
-                      className="form-select"
-                      value={formData.verificationStatus || 'verified'}
-                      onChange={(e) => setFormData({ ...formData, verificationStatus: e.target.value })}
-                    >
-                      <option value="verified">Verified</option>
-                      <option value="unverified">Unverified</option>
-                      <option value="outdated">Outdated</option>
-                      <option value="conflicting">Conflicting</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Verified By</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.verifiedBy || ''}
-                      onChange={(e) => setFormData({ ...formData, verifiedBy: e.target.value })}
-                      placeholder="Verifier name or office"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Source Office</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.sourceOffice || ''}
-                      onChange={(e) => setFormData({ ...formData, sourceOffice: e.target.value })}
-                      placeholder="Office that verified this process"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Source</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.source || ''}
-                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                      placeholder="Memo, office record, URL, or document title"
-                    />
-                  </div>
-                </div>
-              </div>
             </>
           )}
           {activeTab === 'rooms' && (
